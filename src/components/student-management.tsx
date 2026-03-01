@@ -10,8 +10,10 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Users, Search, School, MapPin, GraduationCap as GradIcon } from 'lucide-react'
+import { UserPlus, Users, School, MapPin } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { errorEmitter } from '@/firebase/error-emitter'
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
 
 export function StudentManagement() {
   const db = useFirestore()
@@ -26,11 +28,13 @@ export function StudentManagement() {
     class: ''
   })
 
-  const studentsRef = collection(db!, 'students')
+  const studentsRef = db ? collection(db, 'students') : null
   const { data: students } = useCollection(studentsRef)
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!db) return
+    
     if (!formData.id || !formData.password || !formData.name || !formData.class) {
       toast({
         variant: "destructive",
@@ -41,42 +45,44 @@ export function StudentManagement() {
     }
 
     setLoading(true)
-    try {
-      const studentDoc = doc(db!, 'students', formData.id)
-      await setDoc(studentDoc, {
-        ...formData,
-        createdAt: serverTimestamp()
-      })
-      
-      toast({
-        title: "Student Registered",
-        description: `${formData.name} has been added successfully.`
-      })
-      
-      setFormData({
-        id: '',
-        password: '',
-        name: '',
-        schoolName: '',
-        location: '',
-        class: ''
-      })
-    } catch (error) {
-      console.error(error)
-      toast({
-        variant: "destructive",
-        title: "Registration Failed",
-        description: "An error occurred while registering the student."
-      })
-    } finally {
-      setLoading(false)
+    const studentDoc = doc(db, 'students', formData.id)
+    const dataToSave = {
+      ...formData,
+      createdAt: serverTimestamp()
     }
+
+    // Mutation without await for optimistic UI and proper error catching
+    setDoc(studentDoc, dataToSave)
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: studentDoc.path,
+          operation: 'create',
+          requestResourceData: formData,
+        } satisfies SecurityRuleContext);
+
+        errorEmitter.emit('permission-error', permissionError);
+      });
+
+    // Optimistic UI feedback
+    toast({
+      title: "Registration Initiated",
+      description: `${formData.name} is being added to the database.`
+    })
+    
+    setFormData({
+      id: '',
+      password: '',
+      name: '',
+      schoolName: '',
+      location: '',
+      class: ''
+    })
+    setLoading(false)
   }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Registration Form */}
         <Card className="lg:col-span-1 border-accent/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-accent">
@@ -156,7 +162,6 @@ export function StudentManagement() {
           </CardContent>
         </Card>
 
-        {/* Students List */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -189,7 +194,7 @@ export function StudentManagement() {
                           <div className="text-xs text-muted-foreground">{s.id}</div>
                         </TableCell>
                         <TableCell>
-                          <span className="capitalize">{s.class.replace('-', ' ')}</span>
+                          <span className="capitalize">{s.class?.replace('-', ' ') || 'N/A'}</span>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">

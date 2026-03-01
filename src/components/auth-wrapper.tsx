@@ -11,6 +11,8 @@ import { ADMINS } from '@/lib/mock-data'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useFirestore } from '@/firebase'
 import { doc, getDoc } from 'firebase/firestore'
+import { errorEmitter } from '@/firebase/error-emitter'
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
 
 interface User {
   name: string
@@ -43,11 +45,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true
       }
     } else {
-      // Check Firestore for students
+      if (!db) return false
+      
+      const studentDoc = doc(db, 'students', id)
       try {
-        const studentDoc = doc(db!, 'students', id)
         const snap = await getDoc(studentDoc)
-        
         if (snap.exists()) {
           const data = snap.data()
           if (data.password === password) {
@@ -60,8 +62,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return true
           }
         }
-      } catch (e) {
-        console.error("Login check failed:", e)
+      } catch (e: any) {
+        // If it's a permission error, emit it with context
+        if (e.code === 'permission-denied') {
+          const permissionError = new FirestorePermissionError({
+            path: studentDoc.path,
+            operation: 'get',
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
+        }
+        return false
       }
     }
     return false
