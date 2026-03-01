@@ -1,3 +1,46 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-education",
+      "description": "Student studying with light and wisdom",
+      "imageUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzdHVkZW50JTIwc3R1ZHlpbmd8ZW58MHx8fHwxNzcyMjk3NjMxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student studying"
+    },
+    {
+      "id": "class-9",
+      "description": "Class 9 Illustration",
+      "imageUrl": "https://images.unsplash.com/photo-1758685734312-5134968399a8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxlZHVjYXRpb24lMjBtYXRofGVufDB8fHx8MTc3MjMzNDA5MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "education math"
+    },
+    {
+      "id": "class-10",
+      "description": "Class 10 Illustration",
+      "imageUrl": "https://images.unsplash.com/photo-1605781645799-c9c7d820b4ac?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzY2llbmNlJTIwc3R1ZGVudHxlbnwwfHx8fDE3NzIzMzQwOTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "science student"
+    },
+    {
+      "id": "class-11",
+      "description": "Class 11 Illustration",
+      "imageUrl": "https://images.unsplash.com/photo-1758685848761-a55e08173622?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8cGh5c2ljcyUyMGNsYXNzcm9vbXxlbnwwfHx8fDE3NzIzMzQwOTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "physics classroom"
+    },
+    {
+      "id": "class-12",
+      "description": "Class 12 Illustration",
+      "imageUrl": "https://images.unsplash.com/photo-1554475900-0a0350e3fc7b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxjaGVtaXN0cnklMjBsYWJ8ZW58MHx8fHwxNzcyMzA2ODE3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "chemistry lab"
+    },
+    {
+      "id": "neet",
+      "description": "NEET Preparation",
+      "imageUrl": "https://images.unsplash.com/photo-1612349316228-5942a9b489c2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxtZWRpY2FsJTIwZG9jdG9yfGVufDB8fHx8MTc3MjMwODM5Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "medical doctor"
+    },
+    {
+      "id": "jee",
+      "description": "JEE Preparation",
+      "imageUrl": "https://images.unsplash.com/photo-1764769092438-0c4907e30e8c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxlbmdpbmVlcmluZyUyMGJ1aWxkaW5nfGVufDB8fHx8MTc3MjMzNDA5MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "engineering building"
+    }
+  ]
 }
