@@ -20,6 +20,8 @@ interface User {
   id: string
   role: 'student' | 'admin'
   class?: string
+  schoolName?: string
+  location?: string
 }
 
 interface AuthContextType {
@@ -56,9 +58,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (data.password === password) {
             const userData: User = {
               name: data.name,
-              id: data.id,
+              id: id,
               role: 'student',
-              class: data.class
+              class: data.class,
+              schoolName: data.schoolName,
+              location: data.location
             }
             setUser(userData)
             
@@ -66,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             addDoc(collection(db, 'students', id, 'activity'), {
               type: 'login',
               timestamp: serverTimestamp(),
-              metadata: { device: navigator.userAgent }
+              metadata: { device: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown' }
             })
 
             return true

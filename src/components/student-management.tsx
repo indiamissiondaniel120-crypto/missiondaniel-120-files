@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle } from 'lucide-react'
+import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle, Download } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
@@ -240,6 +240,51 @@ function ActivityViewer({ student }: { student: any }) {
 
   const { data: activities, loading } = useCollection(activityQuery)
 
+  const downloadCSV = () => {
+    if (!activities) return
+
+    // Calculate Consolidates
+    const stats = activities.reduce((acc: any, log: any) => {
+      const type = log.type || 'unknown'
+      if (!acc[type]) acc[type] = 0
+      acc[type] += (log.duration || 0)
+      return acc
+    }, {})
+
+    const headers = ["Timestamp", "Activity Type", "Duration (sec)", "Material Title", "Notes"]
+    const rows = activities.map((log: any) => [
+      log.timestamp?.toDate() ? log.timestamp.toDate().toLocaleString().replace(',', '') : 'N/A',
+      log.type || 'N/A',
+      log.duration || 0,
+      log.metadata?.title || 'N/A',
+      log.metadata?.reason || ''
+    ])
+
+    // Summary Rows
+    const summaryRows = [
+      [],
+      ["CONSOLIDATED USAGE REPORT"],
+      ["Category", "Total Duration (sec)", "Total Duration (min)"],
+      ...Object.entries(stats).map(([cat, dur]: any) => [cat, dur, (dur / 60).toFixed(2)]),
+      [],
+      ["Student Name", student.name],
+      ["Student ID", student.id],
+      ["School", student.schoolName || 'N/A'],
+      ["Location", student.location || 'N/A']
+    ]
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers, ...rows, ...summaryRows].map(e => e.join(",")).join("\n")
+
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `activity_report_${student.id}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -248,10 +293,13 @@ function ActivityViewer({ student }: { student: any }) {
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between pr-8">
           <DialogTitle className="flex items-center gap-2">
             Activity Logs: <span className="text-accent">{student.name}</span>
           </DialogTitle>
+          <Button variant="outline" size="sm" onClick={downloadCSV} className="text-primary border-primary hover:bg-primary/5">
+            <Download size={16} className="mr-2" /> Export CSV
+          </Button>
         </DialogHeader>
         <ScrollArea className="flex-1 mt-4 pr-4">
           {loading ? (

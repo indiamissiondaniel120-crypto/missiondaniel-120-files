@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { AuthProvider, useAuth } from '@/components/auth-wrapper'
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar'
 import { COURSES, STUDY_MATERIALS, Course, Material } from '@/lib/mock-data'
@@ -22,11 +22,15 @@ import {
   Search,
   Download,
   FileText,
-  Users
+  Users,
+  MapPin,
+  School,
+  Clock,
+  IdCard
 } from 'lucide-react'
 import Image from 'next/image'
-import { FirebaseClientProvider, useFirestore } from '@/firebase'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase'
+import { collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore'
 
 function Dashboard() {
   const { user, logout } = useAuth()
@@ -46,6 +50,26 @@ function Dashboard() {
   const videos = courseMaterials.filter(m => m.type === 'video')
 
   const isAdmin = user?.role === 'admin'
+
+  // Fetch activity for total usage time
+  const activityQuery = useMemo(() => {
+    if (!db || !user?.id || isAdmin) return null
+    return collection(db, 'students', user.id, 'activity')
+  }, [db, user?.id, isAdmin])
+
+  const { data: activities } = useCollection(activityQuery)
+
+  const totalUsageSeconds = useMemo(() => {
+    if (!activities) return 0
+    return activities.reduce((acc, curr) => acc + (curr.duration || 0), 0)
+  }, [activities])
+
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    if (hours > 0) return `${hours}h ${minutes}m`
+    return `${minutes}m ${seconds % 60}s`
+  }
 
   const navigateToHome = () => {
     setSelectedCourse(null)
@@ -69,7 +93,6 @@ function Dashboard() {
   }
 
   const handleOpenMaterial = (material: Material) => {
-    // If something else was being tracked, close it first
     if (currentMaterial.current) {
       handleCloseMaterial()
     }
@@ -87,7 +110,6 @@ function Dashboard() {
     }
   }
 
-  // Cleanup on unmount or course change
   useEffect(() => {
     return () => handleCloseMaterial()
   }, [selectedCourse])
@@ -153,7 +175,6 @@ function Dashboard() {
               <p className="text-sm font-medium text-white/90">Hello, {user?.name}</p>
               <div className="flex items-center gap-2 mt-1">
                  <p className="text-xs text-white/60">{isAdmin ? 'Administrator' : 'Registered Student'}</p>
-                 {isAdmin && <Badge variant="secondary" className="h-4 text-[10px] px-1 bg-accent text-white border-none">PRO</Badge>}
               </div>
             </div>
             <Button 
@@ -183,6 +204,40 @@ function Dashboard() {
                           ? 'You have administrative access to manage the DANIEL 120 educational platform.'
                           : 'The vision of DANIEL 120 is to uplift every student. Like Daniel, strive to be the most respected and wise among your peers.'}
                       </p>
+                      
+                      {!isAdmin && (
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                          <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+                            <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-1 flex items-center gap-1">
+                              <IdCard size={12} /> Student ID
+                            </p>
+                            <p className="text-xl font-bold">{user?.id}</p>
+                          </div>
+                          <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+                            <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-1 flex items-center gap-1">
+                              <Clock size={12} /> Total Usage
+                            </p>
+                            <p className="text-xl font-bold">{formatDuration(totalUsageSeconds)}</p>
+                          </div>
+                          {user?.schoolName && (
+                            <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+                              <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-1 flex items-center gap-1">
+                                <School size={12} /> School
+                              </p>
+                              <p className="text-sm font-medium line-clamp-1">{user.schoolName}</p>
+                            </div>
+                          )}
+                          {user?.location && (
+                            <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+                              <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-1 flex items-center gap-1">
+                                <MapPin size={12} /> Location
+                              </p>
+                              <p className="text-sm font-medium line-clamp-1">{user.location}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <Button 
                         className={`${isAdmin ? 'bg-primary' : 'bg-accent'} hover:opacity-90 text-white rounded-full px-8 py-6 text-lg`}
                         onClick={isAdmin ? navigateToAdmin : undefined}
