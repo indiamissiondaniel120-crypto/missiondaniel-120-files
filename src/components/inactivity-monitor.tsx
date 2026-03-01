@@ -18,33 +18,42 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
 const INACTIVITY_LIMIT = 120000 // 2 minutes
 const COUNTDOWN_LIMIT = 5 // 5 seconds
+const TOTAL_LIMIT = INACTIVITY_LIMIT + (COUNTDOWN_LIMIT * 1000)
 
 export function InactivityMonitor() {
   const { user, logout } = useAuth()
   const db = useFirestore()
   const [showWarning, setShowWarning] = useState(false)
   const [countdown, setCountdown] = useState(COUNTDOWN_LIMIT)
+  
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const lastActiveRef = useRef<number>(Date.now())
+  const wentHiddenAtRef = useRef<number | null>(null)
 
-  const resetTimer = () => {
-    if (showWarning) return
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      setShowWarning(true)
-    }, INACTIVITY_LIMIT)
-  }
-
-  const handleLogout = async () => {
+  const handleLogout = async (reason: string = 'auto_logout') => {
     if (user && db) {
       addDoc(collection(db, 'students', user.id, 'activity'), {
         type: 'inactivity_logout',
         timestamp: serverTimestamp(),
-        metadata: { reason: 'auto_logout' }
+        metadata: { 
+          reason,
+          inactiveAt: wentHiddenAtRef.current ? new Date(wentHiddenAtRef.current).toISOString() : new Date().toISOString()
+        }
       })
     }
     logout()
     setShowWarning(false)
+  }
+
+  const resetTimer = () => {
+    lastActiveRef.current = Date.now()
+    if (showWarning) return
+    
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      setShowWarning(true)
+    }, INACTIVITY_LIMIT)
   }
 
   const handleResume = () => {
@@ -53,26 +62,54 @@ export function InactivityMonitor() {
     resetTimer()
   }
 
+  // Handle standard user interactions
   useEffect(() => {
     if (!user) return
 
     const events = ['mousedown', 'keydown', 'touchstart', 'mousemove']
-    events.forEach(event => window.addEventListener(event, resetTimer))
+    const listener = () => resetTimer()
+
+    events.forEach(event => window.addEventListener(event, listener))
     resetTimer()
 
+    // Visibility Change Detection (Tab switching/App switching)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        wentHiddenAtRef.current = Date.now()
+        // When they leave, we still want the timer to run
+        // But if they are gone for > TOTAL_LIMIT, we log them out when they return or via interval
+      } else {
+        // Returned to tab
+        if (wentHiddenAtRef.current) {
+          const awayDuration = Date.now() - wentHiddenAtRef.current
+          if (awayDuration >= TOTAL_LIMIT) {
+            handleLogout('tab_away_timeout')
+          } else {
+            // Log the "came back" event if needed, or just reset
+            resetTimer()
+          }
+          wentHiddenAtRef.current = null
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
-      events.forEach(event => window.removeEventListener(event, resetTimer))
+      events.forEach(event => window.removeEventListener(event, listener))
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (timerRef.current) clearTimeout(timerRef.current)
     }
   }, [user, showWarning])
 
+  // Countdown logic for the warning dialog
   useEffect(() => {
     if (showWarning) {
       countdownIntervalRef.current = setInterval(() => {
         setCountdown(prev => {
           if (prev <= 1) {
             clearInterval(countdownIntervalRef.current!)
-            handleLogout()
+            handleLogout('inactivity_countdown_reached')
             return 0
           }
           return prev - 1
