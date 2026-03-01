@@ -15,6 +15,22 @@ export interface Material {
   thumbnail?: string;
 }
 
+export interface Student {
+  id: string;
+  name: string;
+  password: string;
+}
+
+/**
+ * EDIT THIS LIST TO UPDATE ALLOWED USERS
+ * These are the only students allowed to log in.
+ */
+export const STUDENTS: Student[] = [
+  { id: 'D120-001', name: 'John Doe', password: 'password123' },
+  { id: 'D120-002', name: 'Jane Smith', password: 'studyhard2024' },
+  { id: 'D120-003', name: 'Admin Student', password: 'admin' },
+];
+
 export const COURSES: Course[] = [
   { id: 'class-9', name: 'Class 9', description: 'Foundation for your academic journey.', icon: 'graduation-cap', image: 'https://picsum.photos/seed/class9/400/300' },
   { id: 'class-10', name: 'Class 10', description: 'Mastering the boards with confidence.', icon: 'book-open', image: 'https://picsum.photos/seed/class10/400/300' },

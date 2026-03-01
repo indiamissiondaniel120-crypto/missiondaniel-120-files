@@ -5,20 +5,30 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { GraduationCap } from 'lucide-react'
+import { GraduationCap, AlertCircle } from 'lucide-react'
+import { STUDENTS } from '@/lib/mock-data'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface AuthContextType {
-  user: { name: string } | null
-  login: (name: string) => void
+  user: { name: string; id: string } | null
+  login: (studentId: string, password: string) => boolean
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<{ name: string } | null>(null)
+  const [user, setUser] = useState<{ name: string; id: string } | null>(null)
 
-  const login = (name: string) => setUser({ name })
+  const login = (studentId: string, password: string) => {
+    const student = STUDENTS.find(s => s.id === studentId && s.password === password)
+    if (student) {
+      setUser({ name: student.name, id: student.id })
+      return true
+    }
+    return false
+  }
+
   const logout = () => setUser(null)
 
   return (
@@ -36,7 +46,22 @@ export function useAuth() {
 
 function LoginScreen() {
   const { login } = useAuth()
-  const [name, setName] = useState('')
+  const [studentId, setStudentId] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const handleLogin = () => {
+    setError(null)
+    if (!studentId || !password) {
+      setError('Please fill in all fields.')
+      return
+    }
+
+    const success = login(studentId, password)
+    if (!success) {
+      setError('Invalid Student ID or Password. Please try again.')
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -50,24 +75,37 @@ function LoginScreen() {
           <CardDescription className="text-muted-foreground italic">"Uplifting students, shaping futures"</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive" className="py-3">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
+            <Label htmlFor="studentId">Student ID</Label>
             <Input 
-              id="name" 
-              placeholder="Enter your registered name" 
-              value={name} 
-              onChange={(e) => setName(e.target.value)} 
+              id="studentId" 
+              placeholder="e.g. D120-001" 
+              value={studentId} 
+              onChange={(e) => setStudentId(e.target.value)} 
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="id">Student ID</Label>
-            <Input id="id" type="password" placeholder="••••••••" />
+            <Label htmlFor="password">Password</Label>
+            <Input 
+              id="password" 
+              type="password" 
+              placeholder="••••••••" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+            />
           </div>
         </CardContent>
         <CardFooter>
           <Button 
             className="w-full bg-primary hover:bg-primary/90 text-white py-6 text-lg" 
-            onClick={() => name && login(name)}
+            onClick={handleLogin}
           >
             Login to Study
           </Button>
