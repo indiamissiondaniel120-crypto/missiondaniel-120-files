@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { AICompanion } from '@/components/ai-companion'
 import { Badge } from '@/components/ui/badge'
+import { StudentManagement } from '@/components/student-management'
 import { 
   LogOut, 
   Home, 
@@ -19,13 +20,16 @@ import {
   Search,
   Download,
   FileText,
-  ShieldAlert
+  ShieldAlert,
+  Users
 } from 'lucide-react'
 import Image from 'next/image'
+import { FirebaseClientProvider } from '@/firebase'
 
 function Dashboard() {
   const { user, logout } = useAuth()
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
 
   const courseMaterials = selectedCourse 
     ? STUDY_MATERIALS.filter(m => m.courseId === selectedCourse.id) 
@@ -35,6 +39,16 @@ function Dashboard() {
   const videos = courseMaterials.filter(m => m.type === 'video')
 
   const isAdmin = user?.role === 'admin'
+
+  const navigateToHome = () => {
+    setSelectedCourse(null)
+    setShowAdminPanel(false)
+  }
+
+  const navigateToAdmin = () => {
+    setSelectedCourse(null)
+    setShowAdminPanel(true)
+  }
 
   return (
     <SidebarProvider>
@@ -53,8 +67,8 @@ function Dashboard() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton 
-                  isActive={!selectedCourse} 
-                  onClick={() => setSelectedCourse(null)}
+                  isActive={!selectedCourse && !showAdminPanel} 
+                  onClick={navigateToHome}
                   className="py-6 rounded-xl hover:bg-white/10"
                 >
                   <Home className="mr-2" /> Home Dashboard
@@ -63,8 +77,12 @@ function Dashboard() {
               
               {isAdmin && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton className="py-6 rounded-xl text-accent hover:bg-accent/10">
-                    <ShieldAlert className="mr-2" /> Admin Panel
+                  <SidebarMenuButton 
+                    isActive={showAdminPanel}
+                    onClick={navigateToAdmin}
+                    className="py-6 rounded-xl text-accent hover:bg-accent/10 data-[active=true]:bg-accent/20"
+                  >
+                    <Users className="mr-2" /> Manage Students
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
@@ -76,7 +94,10 @@ function Dashboard() {
                 <SidebarMenuItem key={course.id}>
                   <SidebarMenuButton 
                     isActive={selectedCourse?.id === course.id}
-                    onClick={() => setSelectedCourse(course)}
+                    onClick={() => {
+                      setSelectedCourse(course)
+                      setShowAdminPanel(false)
+                    }}
                     className="py-6 rounded-xl hover:bg-white/10"
                   >
                     <BookOpen className="mr-2 h-4 w-4" /> {course.name}
@@ -106,7 +127,9 @@ function Dashboard() {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-8 relative">
           <div className="max-w-6xl mx-auto space-y-8">
-            {!selectedCourse ? (
+            {showAdminPanel ? (
+              <StudentManagement />
+            ) : !selectedCourse ? (
               <>
                 <section className="space-y-4">
                   <div className={`${isAdmin ? 'bg-accent' : 'bg-primary'} rounded-3xl p-10 text-white relative overflow-hidden shadow-xl shadow-primary/20`}>
@@ -119,8 +142,11 @@ function Dashboard() {
                           ? 'You have administrative access to manage the DANIEL 120 educational platform.'
                           : 'The vision of DANIEL 120 is to uplift every student. Like Daniel, strive to be the most respected and wise among your peers.'}
                       </p>
-                      <Button className={`${isAdmin ? 'bg-primary' : 'bg-accent'} hover:opacity-90 text-white rounded-full px-8 py-6 text-lg`}>
-                        {isAdmin ? 'Manage Students' : 'Continue Learning'}
+                      <Button 
+                        className={`${isAdmin ? 'bg-primary' : 'bg-accent'} hover:opacity-90 text-white rounded-full px-8 py-6 text-lg`}
+                        onClick={isAdmin ? navigateToAdmin : undefined}
+                      >
+                        {isAdmin ? 'Register Students' : 'Continue Learning'}
                       </Button>
                     </div>
                     <div className="absolute top-0 right-0 w-1/3 h-full opacity-20 pointer-events-none">
@@ -288,8 +314,10 @@ function Dashboard() {
 
 export default function HomeApp() {
   return (
-    <AuthProvider>
-      <Dashboard />
-    </AuthProvider>
+    <FirebaseClientProvider>
+      <AuthProvider>
+        <Dashboard />
+      </AuthProvider>
+    </FirebaseClientProvider>
   )
 }

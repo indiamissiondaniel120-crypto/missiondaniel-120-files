@@ -6,19 +6,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { GraduationCap, AlertCircle, ShieldCheck } from 'lucide-react'
-import { STUDENTS, ADMINS } from '@/lib/mock-data'
+import { GraduationCap, AlertCircle, ShieldCheck, Loader2 } from 'lucide-react'
+import { ADMINS } from '@/lib/mock-data'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useFirestore } from '@/firebase'
+import { doc, getDoc } from 'firebase/firestore'
 
 interface User {
   name: string
   id: string
   role: 'student' | 'admin'
+  class?: string
 }
 
 interface AuthContextType {
   user: User | null
-  login: (id: string, password: string, isAdmin: boolean) => boolean
+  login: (id: string, password: string, isAdmin: boolean) => Promise<boolean>
   logout: () => void
 }
 
@@ -26,18 +29,40 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const db = useFirestore()
 
-  const login = (id: string, password: string, isAdmin: boolean) => {
-    const list = isAdmin ? ADMINS : STUDENTS
-    const found = list.find(u => u.id === id && u.password === password)
-    
-    if (found) {
-      setUser({ 
-        name: found.name, 
-        id: found.id, 
-        role: isAdmin ? 'admin' : 'student' 
-      })
-      return true
+  const login = async (id: string, password: string, isAdmin: boolean) => {
+    if (isAdmin) {
+      const found = ADMINS.find(u => u.id === id && u.password === password)
+      if (found) {
+        setUser({ 
+          name: found.name, 
+          id: found.id, 
+          role: 'admin' 
+        })
+        return true
+      }
+    } else {
+      // Check Firestore for students
+      try {
+        const studentDoc = doc(db!, 'students', id)
+        const snap = await getDoc(studentDoc)
+        
+        if (snap.exists()) {
+          const data = snap.data()
+          if (data.password === password) {
+            setUser({
+              name: data.name,
+              id: data.id,
+              role: 'student',
+              class: data.class
+            })
+            return true
+          }
+        }
+      } catch (e) {
+        console.error("Login check failed:", e)
+      }
     }
     return false
   }
@@ -62,19 +87,22 @@ function LoginScreen() {
   const [id, setId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'student' | 'admin'>('student')
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError(null)
     if (!id || !password) {
       setError('Please fill in all fields.')
       return
     }
 
-    const success = login(id, password, activeTab === 'admin')
+    setLoading(true)
+    const success = await login(id, password, activeTab === 'admin')
     if (!success) {
       setError(`Invalid ${activeTab === 'admin' ? 'Admin' : 'Student'} ID or Password.`)
     }
+    setLoading(false)
   }
 
   return (
@@ -114,6 +142,7 @@ function LoginScreen() {
                 placeholder={activeTab === 'admin' ? 'Enter admin username' : 'e.g. D120-001'} 
                 value={id} 
                 onChange={(e) => setId(e.target.value)} 
+                disabled={loading}
               />
             </div>
             <div className="space-y-2">
@@ -125,6 +154,7 @@ function LoginScreen() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                disabled={loading}
               />
             </div>
           </CardContent>
@@ -132,8 +162,9 @@ function LoginScreen() {
             <Button 
               className={`w-full py-6 text-lg text-white ${activeTab === 'admin' ? 'bg-accent hover:bg-accent/90' : 'bg-primary hover:bg-primary/90'}`} 
               onClick={handleLogin}
+              disabled={loading}
             >
-              Login as {activeTab === 'admin' ? 'Admin' : 'Student'}
+              {loading ? <Loader2 className="animate-spin" /> : `Login as ${activeTab === 'admin' ? 'Admin' : 'Student'}`}
             </Button>
           </CardFooter>
         </Tabs>

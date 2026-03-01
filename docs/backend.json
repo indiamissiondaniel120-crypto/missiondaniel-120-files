@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "A student registered in the DANIEL 120 platform.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The login ID for the student." },
+        "password": { "type": "string", "description": "The login password for the student." },
+        "name": { "type": "string", "description": "Full name of the student." },
+        "schoolName": { "type": "string", "description": "Name of the school the student attends." },
+        "location": { "type": "string", "description": "Geographical location of the student/school." },
+        "class": { "type": "string", "description": "The academic stream or class (e.g., Class 10, NEET)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of registration." }
+      },
+      "required": ["id", "password", "name", "class"]
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Collection of registered students."
+    }
+  }
+}
