@@ -26,6 +26,7 @@ export interface Student {
  * These are the only students allowed to log in.
  */
 export const STUDENTS: Student[] = [
+  { id: 'try', name: 'Test Student', password: '123' },
   { id: 'D120-001', name: 'John Doe', password: 'password123' },
   { id: 'D120-002', name: 'Jane Smith', password: 'studyhard2024' },
   { id: 'D120-003', name: 'Admin Student', password: 'admin' },
