@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useFirestore } from '@/firebase'
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
@@ -28,8 +28,12 @@ export function StudentManagement() {
     class: ''
   })
 
-  const studentsRef = db ? collection(db, 'students') : null
-  const { data: students } = useCollection(studentsRef)
+  // Memoize the collection reference to prevent infinite loops in useCollection
+  const studentsQuery = useMemo(() => {
+    return db ? collection(db, 'students') : null
+  }, [db])
+
+  const { data: students } = useCollection(studentsQuery)
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,39 +49,39 @@ export function StudentManagement() {
     }
 
     setLoading(true)
-    const studentDoc = doc(db, 'students', formData.id)
+    const studentDocRef = doc(db, 'students', formData.id)
     const dataToSave = {
       ...formData,
       createdAt: serverTimestamp()
     }
 
-    // Mutation without await for optimistic UI and proper error catching
-    setDoc(studentDoc, dataToSave)
+    setDoc(studentDocRef, dataToSave)
+      .then(() => {
+        toast({
+          title: "Student Registered",
+          description: `${formData.name} has been added successfully.`
+        })
+        setFormData({
+          id: '',
+          password: '',
+          name: '',
+          schoolName: '',
+          location: '',
+          class: ''
+        })
+      })
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
-          path: studentDoc.path,
+          path: studentDocRef.path,
           operation: 'create',
-          requestResourceData: formData,
+          requestResourceData: dataToSave,
         } satisfies SecurityRuleContext);
 
         errorEmitter.emit('permission-error', permissionError);
-      });
-
-    // Optimistic UI feedback
-    toast({
-      title: "Registration Initiated",
-      description: `${formData.name} is being added to the database.`
-    })
-    
-    setFormData({
-      id: '',
-      password: '',
-      name: '',
-      schoolName: '',
-      location: '',
-      class: ''
-    })
-    setLoading(false)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }
 
   return (
@@ -100,6 +104,7 @@ export function StudentManagement() {
                   placeholder="e.g. D120-2024-001" 
                   value={formData.id}
                   onChange={(e) => setFormData({...formData, id: e.target.value})}
+                  disabled={loading}
                 />
               </div>
               <div className="space-y-2">
@@ -110,6 +115,7 @@ export function StudentManagement() {
                   placeholder="Create a password" 
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  disabled={loading}
                 />
               </div>
               <div className="space-y-2">
@@ -119,11 +125,12 @@ export function StudentManagement() {
                   placeholder="Student's Name" 
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  disabled={loading}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="s_class">Class / Stream</Label>
-                <Select onValueChange={(v) => setFormData({...formData, class: v})} value={formData.class}>
+                <Select onValueChange={(v) => setFormData({...formData, class: v})} value={formData.class} disabled={loading}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Class" />
                   </SelectTrigger>
@@ -144,6 +151,7 @@ export function StudentManagement() {
                   placeholder="School Name" 
                   value={formData.schoolName}
                   onChange={(e) => setFormData({...formData, schoolName: e.target.value})}
+                  disabled={loading}
                 />
               </div>
               <div className="space-y-2">
@@ -153,10 +161,11 @@ export function StudentManagement() {
                   placeholder="City, State" 
                   value={formData.location}
                   onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  disabled={loading}
                 />
               </div>
               <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={loading}>
-                {loading ? "Registering..." : "Add Student"}
+                {loading ? <Loader2 className="animate-spin" /> : "Add Student"}
               </Button>
             </form>
           </CardContent>
@@ -225,4 +234,27 @@ export function StudentManagement() {
       </div>
     </div>
   )
+}
+
+function Loader2({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn("animate-spin", className)}
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+  )
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ')
 }

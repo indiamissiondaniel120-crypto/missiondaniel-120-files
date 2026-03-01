@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, createContext, useContext } from 'react'
+import React, { useState, createContext, useContext, useMemo } from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,9 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       if (!db) return false
       
-      const studentDoc = doc(db, 'students', id)
+      const studentDocRef = doc(db, 'students', id)
       try {
-        const snap = await getDoc(studentDoc)
+        const snap = await getDoc(studentDocRef)
         if (snap.exists()) {
           const data = snap.data()
           if (data.password === password) {
@@ -63,14 +63,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (e: any) {
-        // If it's a permission error, emit it with context
-        if (e.code === 'permission-denied') {
-          const permissionError = new FirestorePermissionError({
-            path: studentDoc.path,
-            operation: 'get',
-          } satisfies SecurityRuleContext);
-          errorEmitter.emit('permission-error', permissionError);
-        }
+        const permissionError = new FirestorePermissionError({
+          path: studentDocRef.path,
+          operation: 'get',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
         return false
       }
     }
@@ -79,8 +76,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => setUser(null)
 
+  const value = useMemo(() => ({ user, login, logout }), [user])
+
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={value}>
       {user ? children : <LoginScreen />}
     </AuthContext.Provider>
   )
@@ -108,11 +107,16 @@ function LoginScreen() {
     }
 
     setLoading(true)
-    const success = await login(id, password, activeTab === 'admin')
-    if (!success) {
-      setError(`Invalid ${activeTab === 'admin' ? 'Admin' : 'Student'} ID or Password.`)
+    try {
+      const success = await login(id, password, activeTab === 'admin')
+      if (!success) {
+        setError(`Invalid ${activeTab === 'admin' ? 'Admin' : 'Student'} ID or Password.`)
+      }
+    } catch (err) {
+      setError('An error occurred during login.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
