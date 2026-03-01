@@ -19,6 +19,7 @@ export interface Student {
   id: string;
   name: string;
   password: string;
+  role?: 'student' | 'admin';
 }
 
 /**
@@ -26,10 +27,17 @@ export interface Student {
  * These are the only students allowed to log in.
  */
 export const STUDENTS: Student[] = [
-  { id: 'try', name: 'Test Student', password: '123' },
-  { id: 'D120-001', name: 'John Doe', password: 'password123' },
-  { id: 'D120-002', name: 'Jane Smith', password: 'studyhard2024' },
-  { id: 'D120-003', name: 'Admin Student', password: 'admin' },
+  { id: 'try', name: 'Test Student', password: '123', role: 'student' },
+  { id: 'D120-001', name: 'John Doe', password: 'password123', role: 'student' },
+  { id: 'D120-002', name: 'Jane Smith', password: 'studyhard2024', role: 'student' },
+  { id: 'D120-003', name: 'Admin Student', password: 'admin', role: 'student' },
+];
+
+/**
+ * ADMIN CREDENTIALS
+ */
+export const ADMINS: Student[] = [
+  { id: 'imdaniel120', name: 'Daniel 120 Admin', password: 'Daniel120@7', role: 'admin' },
 ];
 
 export const COURSES: Course[] = [

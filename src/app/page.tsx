@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { AICompanion } from '@/components/ai-companion'
+import { Badge } from '@/components/ui/badge'
 import { 
   LogOut, 
   Home, 
@@ -17,7 +18,8 @@ import {
   GraduationCap, 
   Search,
   Download,
-  FileText
+  FileText,
+  ShieldAlert
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -31,6 +33,8 @@ function Dashboard() {
   
   const notes = courseMaterials.filter(m => m.type === 'pdf')
   const videos = courseMaterials.filter(m => m.type === 'video')
+
+  const isAdmin = user?.role === 'admin'
 
   return (
     <SidebarProvider>
@@ -56,6 +60,15 @@ function Dashboard() {
                   <Home className="mr-2" /> Home Dashboard
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton className="py-6 rounded-xl text-accent hover:bg-accent/10">
+                    <ShieldAlert className="mr-2" /> Admin Panel
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
               <div className="my-4 px-3 text-xs font-semibold text-white/50 uppercase tracking-widest">
                 My Courses
               </div>
@@ -75,7 +88,10 @@ function Dashboard() {
           <SidebarFooter className="p-6">
             <div className="bg-white/10 p-4 rounded-xl mb-4">
               <p className="text-sm font-medium text-white/90">Hello, {user?.name}</p>
-              <p className="text-xs text-white/60">Registered Student</p>
+              <div className="flex items-center gap-2 mt-1">
+                 <p className="text-xs text-white/60">{isAdmin ? 'Administrator' : 'Registered Student'}</p>
+                 {isAdmin && <Badge variant="secondary" className="h-4 text-[10px] px-1 bg-accent text-white border-none">PRO</Badge>}
+              </div>
             </div>
             <Button 
               variant="ghost" 
@@ -93,15 +109,18 @@ function Dashboard() {
             {!selectedCourse ? (
               <>
                 <section className="space-y-4">
-                  <div className="bg-primary rounded-3xl p-10 text-white relative overflow-hidden shadow-xl shadow-primary/20">
+                  <div className={`${isAdmin ? 'bg-accent' : 'bg-primary'} rounded-3xl p-10 text-white relative overflow-hidden shadow-xl shadow-primary/20`}>
                     <div className="relative z-10 max-w-xl">
-                      <h2 className="text-4xl font-bold mb-4">Welcome back, {user?.name}!</h2>
+                      <h2 className="text-4xl font-bold mb-4">
+                        {isAdmin ? 'Admin Portal' : `Welcome back, ${user?.name}!`}
+                      </h2>
                       <p className="text-white/80 text-lg mb-8 leading-relaxed">
-                        The vision of DANIEL 120 is to uplift every student. Like Daniel, 
-                        strive to be the most respected and wise among your peers.
+                        {isAdmin 
+                          ? 'You have administrative access to manage the DANIEL 120 educational platform.'
+                          : 'The vision of DANIEL 120 is to uplift every student. Like Daniel, strive to be the most respected and wise among your peers.'}
                       </p>
-                      <Button className="bg-accent hover:bg-accent/90 text-white rounded-full px-8 py-6 text-lg">
-                        Continue Learning
+                      <Button className={`${isAdmin ? 'bg-primary' : 'bg-accent'} hover:opacity-90 text-white rounded-full px-8 py-6 text-lg`}>
+                        {isAdmin ? 'Manage Students' : 'Continue Learning'}
                       </Button>
                     </div>
                     <div className="absolute top-0 right-0 w-1/3 h-full opacity-20 pointer-events-none">
