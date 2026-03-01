@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, createContext, useContext, useMemo } from 'react'
@@ -10,7 +11,7 @@ import { GraduationCap, AlertCircle, ShieldCheck, Loader2 } from 'lucide-react'
 import { ADMINS } from '@/lib/mock-data'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useFirestore } from '@/firebase'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
 
@@ -53,12 +54,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (snap.exists()) {
           const data = snap.data()
           if (data.password === password) {
-            setUser({
+            const userData: User = {
               name: data.name,
               id: data.id,
               role: 'student',
               class: data.class
+            }
+            setUser(userData)
+            
+            // Log Login
+            addDoc(collection(db, 'students', id, 'activity'), {
+              type: 'login',
+              timestamp: serverTimestamp(),
+              metadata: { device: navigator.userAgent }
             })
+
             return true
           }
         }
@@ -74,9 +84,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false
   }
 
-  const logout = () => setUser(null)
+  const logout = () => {
+    if (user && user.role === 'student' && db) {
+       addDoc(collection(db, 'students', user.id, 'activity'), {
+        type: 'logout',
+        timestamp: serverTimestamp()
+      })
+    }
+    setUser(null)
+  }
 
-  const value = useMemo(() => ({ user, login, logout }), [user])
+  const value = useMemo(() => ({ user, login, logout }), [user, db])
 
   return (
     <AuthContext.Provider value={value}>

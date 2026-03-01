@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Student": {
@@ -14,6 +15,17 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of registration." }
       },
       "required": ["id", "password", "name", "class"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Log of student activities (logins, material access).",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["login", "logout", "pdf_view", "video_view", "inactivity_logout"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "duration": { "type": "number", "description": "Duration in seconds for views." },
+        "metadata": { "type": "object", "description": "Additional info like title of material." }
+      }
     }
   },
   "auth": {
@@ -23,6 +35,10 @@
     "/students/{studentId}": {
       "schema": "Student",
       "description": "Collection of registered students."
+    },
+    "/students/{studentId}/activity/{activityId}": {
+      "schema": "ActivityLog",
+      "description": "Real-time activity logs for a student."
     }
   }
 }

@@ -1,8 +1,9 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react'
 import { useFirestore } from '@/firebase'
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, setDoc, serverTimestamp, query, orderBy } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,10 +11,12 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Users, School, MapPin } from 'lucide-react'
+import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
 export function StudentManagement() {
   const db = useFirestore()
@@ -28,7 +31,6 @@ export function StudentManagement() {
     class: ''
   })
 
-  // Memoize the collection reference to prevent infinite loops in useCollection
   const studentsQuery = useMemo(() => {
     return db ? collection(db, 'students') : null
   }, [db])
@@ -76,7 +78,6 @@ export function StudentManagement() {
           operation: 'create',
           requestResourceData: dataToSave,
         } satisfies SecurityRuleContext);
-
         errorEmitter.emit('permission-error', permissionError);
       })
       .finally(() => {
@@ -165,7 +166,7 @@ export function StudentManagement() {
                 />
               </div>
               <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={loading}>
-                {loading ? <Loader2 className="animate-spin" /> : "Add Student"}
+                {loading ? <Activity className="animate-spin" /> : "Add Student"}
               </Button>
             </form>
           </CardContent>
@@ -184,14 +185,14 @@ export function StudentManagement() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/50">
                     <TableHead>Student</TableHead>
                     <TableHead>Class</TableHead>
-                    <TableHead>School</TableHead>
                     <TableHead>Location</TableHead>
+                    <TableHead className="text-right">Activity</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -206,16 +207,10 @@ export function StudentManagement() {
                           <span className="capitalize">{s.class?.replace('-', ' ') || 'N/A'}</span>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1">
-                            <School size={14} className="text-muted-foreground" />
-                            {s.schoolName || 'N/A'}
-                          </div>
+                          <div className="text-sm">{s.location || 'N/A'}</div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <MapPin size={14} className="text-muted-foreground" />
-                            {s.location || 'N/A'}
-                          </div>
+                        <TableCell className="text-right">
+                          <ActivityViewer student={s} />
                         </TableCell>
                       </TableRow>
                     ))
@@ -236,25 +231,87 @@ export function StudentManagement() {
   )
 }
 
-function Loader2({ className }: { className?: string }) {
+function ActivityViewer({ student }: { student: any }) {
+  const db = useFirestore()
+  const activityQuery = useMemo(() => {
+    if (!db || !student.id) return null
+    return query(collection(db, 'students', student.id, 'activity'), orderBy('timestamp', 'desc'))
+  }, [db, student.id])
+
+  const { data: activities, loading } = useCollection(activityQuery)
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" className="text-accent hover:text-accent hover:bg-accent/10">
+          <Activity size={16} className="mr-2" /> View Logs
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Activity Logs: <span className="text-accent">{student.name}</span>
+          </DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="flex-1 mt-4 pr-4">
+          {loading ? (
+             <div className="flex justify-center p-8"><Activity className="animate-spin text-accent" /></div>
+          ) : activities && activities.length > 0 ? (
+            <div className="space-y-4">
+              {activities.map((log: any, i: number) => (
+                <div key={i} className="flex gap-4 p-4 rounded-xl border bg-accent/5">
+                  <div className="mt-1">
+                    {log.type === 'login' && <Users className="text-green-500" size={20} />}
+                    {log.type === 'logout' && <LogOut className="text-red-500" size={20} />}
+                    {log.type === 'pdf_view' && <FileText className="text-blue-500" size={20} />}
+                    {log.type === 'video_view' && <PlayCircle className="text-purple-500" size={20} />}
+                    {log.type === 'inactivity_logout' && <Clock className="text-orange-500" size={20} />}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="font-bold capitalize">{log.type.replace('_', ' ')}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {log.timestamp?.toDate() ? log.timestamp.toDate().toLocaleString() : 'Just now'}
+                      </span>
+                    </div>
+                    {log.metadata?.title && (
+                      <p className="text-sm text-muted-foreground">Material: {log.metadata.title}</p>
+                    )}
+                    {log.duration !== undefined && (
+                      <div className="flex items-center gap-1 text-xs font-medium text-accent">
+                        <Clock size={12} /> {Math.floor(log.duration / 60)}m {log.duration % 60}s duration
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-20 text-muted-foreground">No logs found for this student.</div>
+          )}
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function LogOut({ className, size }: { className?: string, size?: number }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
+      width={size || 24}
+      height={size || 24}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn("animate-spin", className)}
+      className={className}
     >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   )
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ')
 }

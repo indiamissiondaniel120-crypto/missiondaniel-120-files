@@ -1,15 +1,17 @@
+
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { AuthProvider, useAuth } from '@/components/auth-wrapper'
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar'
-import { COURSES, STUDY_MATERIALS, Course } from '@/lib/mock-data'
+import { COURSES, STUDY_MATERIALS, Course, Material } from '@/lib/mock-data'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { AICompanion } from '@/components/ai-companion'
 import { Badge } from '@/components/ui/badge'
 import { StudentManagement } from '@/components/student-management'
+import { InactivityMonitor } from '@/components/inactivity-monitor'
 import { 
   LogOut, 
   Home, 
@@ -20,16 +22,21 @@ import {
   Search,
   Download,
   FileText,
-  ShieldAlert,
   Users
 } from 'lucide-react'
 import Image from 'next/image'
-import { FirebaseClientProvider } from '@/firebase'
+import { FirebaseClientProvider, useFirestore } from '@/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
 function Dashboard() {
   const { user, logout } = useAuth()
+  const db = useFirestore()
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
+  
+  // Tracking Refs
+  const viewStartTime = useRef<number | null>(null)
+  const currentMaterial = useRef<Material | null>(null)
 
   const courseMaterials = selectedCourse 
     ? STUDY_MATERIALS.filter(m => m.courseId === selectedCourse.id) 
@@ -50,10 +57,45 @@ function Dashboard() {
     setShowAdminPanel(true)
   }
 
+  // Activity Tracking Helpers
+  const logContentActivity = (material: Material, type: 'pdf_view' | 'video_view', duration: number) => {
+    if (!user || !db || user.role === 'admin') return
+    addDoc(collection(db, 'students', user.id, 'activity'), {
+      type,
+      timestamp: serverTimestamp(),
+      duration,
+      metadata: { title: material.title, courseId: material.courseId }
+    })
+  }
+
+  const handleOpenMaterial = (material: Material) => {
+    // If something else was being tracked, close it first
+    if (currentMaterial.current) {
+      handleCloseMaterial()
+    }
+    currentMaterial.current = material
+    viewStartTime.current = Date.now()
+  }
+
+  const handleCloseMaterial = () => {
+    if (currentMaterial.current && viewStartTime.current) {
+      const duration = Math.floor((Date.now() - viewStartTime.current) / 1000)
+      const type = currentMaterial.current.type === 'pdf' ? 'pdf_view' : 'video_view'
+      logContentActivity(currentMaterial.current, type, duration)
+      currentMaterial.current = null
+      viewStartTime.current = null
+    }
+  }
+
+  // Cleanup on unmount or course change
+  useEffect(() => {
+    return () => handleCloseMaterial()
+  }, [selectedCourse])
+
   return (
     <SidebarProvider>
+      <InactivityMonitor />
       <div className="flex h-screen w-full overflow-hidden bg-background">
-        {/* Sidebar */}
         <Sidebar className="border-r-0 shadow-2xl">
           <SidebarHeader className="p-6">
             <div className="flex items-center gap-3 text-white">
@@ -124,7 +166,6 @@ function Dashboard() {
           </SidebarFooter>
         </Sidebar>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-8 relative">
           <div className="max-w-6xl mx-auto space-y-8">
             {showAdminPanel ? (
@@ -211,7 +252,7 @@ function Dashboard() {
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    onClick={() => setSelectedCourse(null)}
+                    onClick={navigateToHome}
                     className="rounded-full h-12 w-12"
                   >
                     <ChevronRight className="rotate-180" />
@@ -248,7 +289,12 @@ function Dashboard() {
                                     <p className="text-xs text-muted-foreground">PDF Document • 2.4 MB</p>
                                   </div>
                                 </div>
-                                <Button variant="ghost" size="icon" className="text-primary hover:text-accent hover:bg-accent/5">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-primary hover:text-accent hover:bg-accent/5"
+                                  onClick={() => handleOpenMaterial(note)}
+                                >
                                   <Download size={20} />
                                 </Button>
                               </CardContent>
@@ -271,6 +317,9 @@ function Dashboard() {
                                     className="w-full h-full" 
                                     controls 
                                     poster={video.thumbnail}
+                                    onPlay={() => handleOpenMaterial(video)}
+                                    onPause={handleCloseMaterial}
+                                    onEnded={handleCloseMaterial}
                                   >
                                     <source src={video.url} type="video/mp4" />
                                     Your browser does not support the video tag.
