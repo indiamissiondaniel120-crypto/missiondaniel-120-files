@@ -11,13 +11,14 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle, Download, LogOut, UserRound, GraduationCap, Edit2 } from 'lucide-react'
+import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle, Download, LogOut, UserRound, GraduationCap, Edit2, MessageSquare } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ChatInterface } from '@/components/chat-interface'
 
 export function StudentManagement() {
   const db = useFirestore()
@@ -228,6 +229,9 @@ export function StudentManagement() {
                           <TableCell className="text-right flex justify-end gap-2">
                             <Button variant="ghost" size="sm" onClick={() => setEditingStudent(s)}><Edit2 size={16} /></Button>
                             <ActivityViewer student={s} />
+                            {s.mentorId && s.mentorId !== 'none' && (
+                              <ChatMonitor student={s} mentorId={s.mentorId} mentors={mentors} />
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -389,6 +393,30 @@ export function StudentManagement() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+function ChatMonitor({ student, mentorId, mentors }: { student: any, mentorId: string, mentors: any[] | null }) {
+  const mentor = mentors?.find(m => m.id === mentorId)
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" className="text-orange-500"><MessageSquare size={16} className="mr-2" /> Chat</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Chat History: {student.name} & {mentor?.name || mentorId}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <ChatInterface 
+            chatId={`${student.id}_${mentorId}`} 
+            currentUser={{ id: 'admin', name: 'Admin Monitor', role: 'admin' }} 
+            otherUserName={student.name}
+            readonly={true}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

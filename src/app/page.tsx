@@ -12,6 +12,7 @@ import { AICompanion } from '@/components/ai-companion'
 import { Badge } from '@/components/ui/badge'
 import { StudentManagement } from '@/components/student-management'
 import { InactivityMonitor } from '@/components/inactivity-monitor'
+import { ChatInterface } from '@/components/chat-interface'
 import { 
   LogOut, 
   Home, 
@@ -28,11 +29,12 @@ import {
   Clock,
   IdCard,
   XCircle,
-  UserRound
+  UserRound,
+  MessageSquare
 } from 'lucide-react'
 import Image from 'next/image'
-import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase'
-import { collection, addDoc, serverTimestamp, query, where, orderBy } from 'firebase/firestore'
+import { FirebaseClientProvider, useFirestore, useCollection, useDoc } from '@/firebase'
+import { collection, addDoc, serverTimestamp, query, where, orderBy, doc } from 'firebase/firestore'
 
 function Dashboard() {
   const { user, logout } = useAuth()
@@ -40,6 +42,7 @@ function Dashboard() {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
   const [activeMaterial, setActiveMaterial] = useState<Material | null>(null)
+  const [selectedChatStudent, setSelectedChatStudent] = useState<any>(null)
   
   const viewStartTime = useRef<number | null>(null)
 
@@ -74,6 +77,13 @@ function Dashboard() {
   const { data: activities } = useCollection(activityQuery)
   const { data: myStudents } = useCollection(mentorStudentsQuery)
 
+  // Mentor name for student chat
+  const mentorRef = useMemo(() => {
+    if (!db || !user?.mentorId) return null
+    return doc(db, 'mentors', user.mentorId)
+  }, [db, user?.mentorId])
+  const { data: myMentorData } = useDoc(mentorRef)
+
   const totalUsageSeconds = useMemo(() => {
     if (!activities) return 0
     return activities.reduce((acc, curr: any) => acc + (Number(curr.duration) || 0), 0)
@@ -92,12 +102,14 @@ function Dashboard() {
     if (activeMaterial) handleCloseMaterial()
     setSelectedCourse(null)
     setShowAdminPanel(false)
+    setSelectedChatStudent(null)
   }
 
   const navigateToAdmin = () => {
     if (activeMaterial) handleCloseMaterial()
     setSelectedCourse(null)
     setShowAdminPanel(true)
+    setSelectedChatStudent(null)
   }
 
   const handleSelectCourse = (course: Course) => {
@@ -105,6 +117,7 @@ function Dashboard() {
       if (activeMaterial) handleCloseMaterial()
       setSelectedCourse(course)
       setShowAdminPanel(false)
+      setSelectedChatStudent(null)
     }
   }
 
@@ -216,6 +229,14 @@ function Dashboard() {
                             <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-1">Class</p>
                             <p className="text-xl font-bold capitalize">{user.class?.replace('-', ' ')}</p>
                           </div>
+                          <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+                            <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-1">School</p>
+                            <p className="text-sm font-bold truncate">{user.schoolName || 'N/A'}</p>
+                          </div>
+                          <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+                            <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-1">Location</p>
+                            <p className="text-sm font-bold truncate">{user.location || 'N/A'}</p>
+                          </div>
                         </div>
                       )}
 
@@ -224,7 +245,14 @@ function Dashboard() {
                           <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-2">My Students</p>
                           <div className="flex flex-wrap gap-2">
                             {myStudents?.map((s: any) => (
-                              <Badge key={s.id} variant="secondary" className="bg-white/20 text-white border-none">{s.name}</Badge>
+                              <Badge 
+                                key={s.id} 
+                                variant="secondary" 
+                                className={`cursor-pointer border-none ${selectedChatStudent?.id === s.id ? 'bg-white text-primary' : 'bg-white/20 text-white'}`}
+                                onClick={() => setSelectedChatStudent(s)}
+                              >
+                                {s.name}
+                              </Badge>
                             )) || <span className="text-sm">No students assigned yet.</span>}
                           </div>
                         </div>
@@ -237,26 +265,52 @@ function Dashboard() {
                   </div>
                 </section>
 
-                <section className="space-y-6">
-                  <h3 className="text-2xl font-bold text-primary">
-                    {isAdmin || isMentor ? 'All Course Materials' : 'Your Registered Course'}
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {visibleCourses.map(course => (
-                      <Card key={course.id} className="group hover:shadow-2xl transition-all border-none cursor-pointer overflow-hidden rounded-2xl" onClick={() => handleSelectCourse(course)}>
-                        <div className="h-40 relative">
-                          <Image src={course.image} alt={course.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                          <div className="absolute bottom-4 left-4 text-white"><h4 className="text-xl font-bold">{course.name}</h4></div>
-                        </div>
-                        <CardContent className="p-5">
-                          <p className="text-muted-foreground text-sm line-clamp-2">{course.description}</p>
-                          <Button variant="link" className="p-0 text-accent font-bold mt-4">Access Now <ChevronRight size={16} /></Button>
-                        </CardContent>
-                      </Card>
-                    ))}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 space-y-6">
+                    <section className="space-y-6">
+                      <h3 className="text-2xl font-bold text-primary">
+                        {isAdmin || isMentor ? 'All Course Materials' : 'Your Registered Course'}
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {visibleCourses.map(course => (
+                          <Card key={course.id} className="group hover:shadow-2xl transition-all border-none cursor-pointer overflow-hidden rounded-2xl" onClick={() => handleSelectCourse(course)}>
+                            <div className="h-40 relative">
+                              <Image src={course.image} alt={course.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                              <div className="absolute bottom-4 left-4 text-white"><h4 className="text-xl font-bold">{course.name}</h4></div>
+                            </div>
+                            <CardContent className="p-5">
+                              <p className="text-muted-foreground text-sm line-clamp-2">{course.description}</p>
+                              <Button variant="link" className="p-0 text-accent font-bold mt-4">Access Now <ChevronRight size={16} /></Button>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </section>
                   </div>
-                </section>
+
+                  <div className="space-y-6">
+                    {user?.role === 'student' && user.mentorId && (
+                      <ChatInterface 
+                        chatId={`${user.id}_${user.mentorId}`} 
+                        currentUser={{ id: user.id, name: user.name, role: user.role }} 
+                        otherUserName={myMentorData?.name || 'Mentor'}
+                      />
+                    )}
+                    {isMentor && selectedChatStudent && (
+                      <ChatInterface 
+                        chatId={`${selectedChatStudent.id}_${user.id}`} 
+                        currentUser={{ id: user.id, name: user.name, role: user.role }} 
+                        otherUserName={selectedChatStudent.name}
+                      />
+                    )}
+                    {!isMentor && !user?.mentorId && user?.role !== 'admin' && (
+                      <Card className="p-6 bg-muted">
+                        <p className="text-sm text-center text-muted-foreground italic">No mentor assigned yet.</p>
+                      </Card>
+                    )}
+                  </div>
+                </div>
               </>
             ) : (
               <div className="space-y-8">

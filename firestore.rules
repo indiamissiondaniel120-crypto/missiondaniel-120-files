@@ -14,5 +14,11 @@ service cloud.firestore {
     match /mentors/{mentorId} {
       allow read, write: if true;
     }
+
+    match /chats/{chatId}/messages/{messageId} {
+      // Allow read/write for participants and global read for admins
+      allow read: if true; // simplified for dev, in prod check chatId contains user.id
+      allow write: if true;
+    }
   }
 }

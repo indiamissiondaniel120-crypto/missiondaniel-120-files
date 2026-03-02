@@ -41,6 +41,17 @@
         "duration": { "type": "number", "description": "Duration in seconds for views." },
         "metadata": { "type": "object", "description": "Additional info like title of material." }
       }
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single message in a chat room.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -58,6 +69,10 @@
     "/students/{studentId}/activity/{activityId}": {
       "schema": "ActivityLog",
       "description": "Real-time activity logs for a student."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages in a specific mentor-student chat room."
     }
   }
 }
