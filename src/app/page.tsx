@@ -30,7 +30,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase'
-import { collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, query, where, orderBy } from 'firebase/firestore'
 
 function Dashboard() {
   const { user, logout } = useAuth()
@@ -42,6 +42,15 @@ function Dashboard() {
   const viewStartTime = useRef<number | null>(null)
   const currentMaterial = useRef<Material | null>(null)
 
+  const isAdmin = user?.role === 'admin'
+
+  // Filter courses based on user registration
+  const visibleCourses = useMemo(() => {
+    if (isAdmin) return COURSES
+    if (!user?.class) return []
+    return COURSES.filter(c => c.id === user.class)
+  }, [isAdmin, user?.class])
+
   const courseMaterials = selectedCourse 
     ? STUDY_MATERIALS.filter(m => m.courseId === selectedCourse.id) 
     : []
@@ -49,19 +58,20 @@ function Dashboard() {
   const notes = courseMaterials.filter(m => m.type === 'pdf')
   const videos = courseMaterials.filter(m => m.type === 'video')
 
-  const isAdmin = user?.role === 'admin'
-
   // Fetch activity for total usage time
   const activityQuery = useMemo(() => {
     if (!db || !user?.id || isAdmin) return null
-    return collection(db, 'students', user.id, 'activity')
+    return query(collection(db, 'students', user.id, 'activity'), orderBy('timestamp', 'desc'))
   }, [db, user?.id, isAdmin])
 
   const { data: activities } = useCollection(activityQuery)
 
   const totalUsageSeconds = useMemo(() => {
     if (!activities) return 0
-    return activities.reduce((acc, curr) => acc + (curr.duration || 0), 0)
+    return activities.reduce((acc, curr) => {
+      const duration = typeof curr.duration === 'number' ? curr.duration : 0
+      return acc + duration
+    }, 0)
   }, [activities])
 
   const formatDuration = (seconds: number) => {
@@ -79,6 +89,13 @@ function Dashboard() {
   const navigateToAdmin = () => {
     setSelectedCourse(null)
     setShowAdminPanel(true)
+  }
+
+  const handleSelectCourse = (course: Course) => {
+    if (isAdmin || course.id === user?.class) {
+      setSelectedCourse(course)
+      setShowAdminPanel(false)
+    }
   }
 
   // Activity Tracking Helpers
@@ -142,7 +159,7 @@ function Dashboard() {
               {isAdmin && (
                 <SidebarMenuItem>
                   <SidebarMenuButton 
-                    isActive={showAdminPanel}
+                    isActive={showAdminPanel} 
                     onClick={navigateToAdmin}
                     className="py-6 rounded-xl text-accent hover:bg-accent/10 data-[active=true]:bg-accent/20"
                   >
@@ -152,16 +169,13 @@ function Dashboard() {
               )}
 
               <div className="my-4 px-3 text-xs font-semibold text-white/50 uppercase tracking-widest">
-                My Courses
+                {isAdmin ? 'All Courses' : 'My Registered Course'}
               </div>
-              {COURSES.map(course => (
+              {visibleCourses.map(course => (
                 <SidebarMenuItem key={course.id}>
                   <SidebarMenuButton 
                     isActive={selectedCourse?.id === course.id}
-                    onClick={() => {
-                      setSelectedCourse(course)
-                      setShowAdminPanel(false)
-                    }}
+                    onClick={() => handleSelectCourse(course)}
                     className="py-6 rounded-xl hover:bg-white/10"
                   >
                     <BookOpen className="mr-2 h-4 w-4" /> {course.name}
@@ -259,21 +273,16 @@ function Dashboard() {
 
                 <section className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-2xl font-bold text-primary">Browse Your Courses</h3>
-                    <div className="relative w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <input 
-                        className="w-full pl-10 pr-4 py-2 bg-white rounded-full border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
-                        placeholder="Search materials..."
-                      />
-                    </div>
+                    <h3 className="text-2xl font-bold text-primary">
+                      {isAdmin ? 'All Available Courses' : 'Your Registered Course'}
+                    </h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {COURSES.map(course => (
+                    {visibleCourses.map(course => (
                       <Card 
                         key={course.id} 
                         className="group hover:shadow-2xl transition-all duration-300 border-none cursor-pointer overflow-hidden rounded-2xl"
-                        onClick={() => setSelectedCourse(course)}
+                        onClick={() => handleSelectCourse(course)}
                       >
                         <div className="h-40 relative">
                           <Image 
@@ -298,6 +307,11 @@ function Dashboard() {
                         </CardContent>
                       </Card>
                     ))}
+                    {!isAdmin && visibleCourses.length === 0 && (
+                      <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed">
+                        <p className="text-muted-foreground">You are not registered for any courses yet. Please contact the administrator.</p>
+                      </div>
+                    )}
                   </div>
                 </section>
               </>
