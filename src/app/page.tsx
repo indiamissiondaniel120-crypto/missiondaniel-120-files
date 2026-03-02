@@ -26,7 +26,8 @@ import {
   MapPin,
   School,
   Clock,
-  IdCard
+  IdCard,
+  XCircle
 } from 'lucide-react'
 import Image from 'next/image'
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase'
@@ -37,10 +38,10 @@ function Dashboard() {
   const db = useFirestore()
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const [activeMaterial, setActiveMaterial] = useState<Material | null>(null)
   
   // Tracking Refs
   const viewStartTime = useRef<number | null>(null)
-  const currentMaterial = useRef<Material | null>(null)
 
   const isAdmin = user?.role === 'admin'
 
@@ -68,8 +69,8 @@ function Dashboard() {
 
   const totalUsageSeconds = useMemo(() => {
     if (!activities) return 0
-    return activities.reduce((acc, curr) => {
-      const duration = typeof curr.duration === 'number' ? curr.duration : 0
+    return activities.reduce((acc, curr: any) => {
+      const duration = Number(curr.duration) || 0
       return acc + duration
     }, 0)
   }, [activities])
@@ -77,22 +78,27 @@ function Dashboard() {
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
-    if (hours > 0) return `${hours}h ${minutes}m`
-    return `${minutes}m ${seconds % 60}s`
+    const remainingSeconds = seconds % 60
+    if (hours > 0) return `${hours}h ${minutes}m ${remainingSeconds}s`
+    if (minutes > 0) return `${minutes}m ${remainingSeconds}s`
+    return `${remainingSeconds}s`
   }
 
   const navigateToHome = () => {
+    if (activeMaterial) handleCloseMaterial()
     setSelectedCourse(null)
     setShowAdminPanel(false)
   }
 
   const navigateToAdmin = () => {
+    if (activeMaterial) handleCloseMaterial()
     setSelectedCourse(null)
     setShowAdminPanel(true)
   }
 
   const handleSelectCourse = (course: Course) => {
     if (isAdmin || course.id === user?.class) {
+      if (activeMaterial) handleCloseMaterial()
       setSelectedCourse(course)
       setShowAdminPanel(false)
     }
@@ -101,35 +107,48 @@ function Dashboard() {
   // Activity Tracking Helpers
   const logContentActivity = (material: Material, type: 'pdf_view' | 'video_view', duration: number) => {
     if (!user || !db || user.role === 'admin') return
+    if (duration < 1) return // Don't log sessions shorter than 1 second
+
     addDoc(collection(db, 'students', user.id, 'activity'), {
       type,
       timestamp: serverTimestamp(),
-      duration,
-      metadata: { title: material.title, courseId: material.courseId }
+      duration: Math.max(0, duration),
+      metadata: { 
+        title: material.title, 
+        courseId: material.courseId 
+      }
     })
   }
 
   const handleOpenMaterial = (material: Material) => {
-    if (currentMaterial.current) {
+    if (activeMaterial) {
       handleCloseMaterial()
     }
-    currentMaterial.current = material
+    setActiveMaterial(material)
     viewStartTime.current = Date.now()
+    
+    // For PDFs, we open in a new tab but also show a "Stop Reading" button
+    if (material.type === 'pdf' && typeof window !== 'undefined' && material.url !== '#') {
+       window.open(material.url, '_blank')
+    }
   }
 
   const handleCloseMaterial = () => {
-    if (currentMaterial.current && viewStartTime.current) {
+    if (activeMaterial && viewStartTime.current) {
       const duration = Math.floor((Date.now() - viewStartTime.current) / 1000)
-      const type = currentMaterial.current.type === 'pdf' ? 'pdf_view' : 'video_view'
-      logContentActivity(currentMaterial.current, type, duration)
-      currentMaterial.current = null
+      const type = activeMaterial.type === 'pdf' ? 'pdf_view' : 'video_view'
+      logContentActivity(activeMaterial, type, duration)
+      setActiveMaterial(null)
       viewStartTime.current = null
     }
   }
 
+  // Cleanup on unmount or navigation
   useEffect(() => {
-    return () => handleCloseMaterial()
-  }, [selectedCourse])
+    return () => {
+      if (viewStartTime.current) handleCloseMaterial()
+    }
+  }, [])
 
   return (
     <SidebarProvider>
@@ -317,19 +336,30 @@ function Dashboard() {
               </>
             ) : (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center gap-4">
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={navigateToHome}
-                    className="rounded-full h-12 w-12"
-                  >
-                    <ChevronRight className="rotate-180" />
-                  </Button>
-                  <div>
-                    <h2 className="text-4xl font-bold text-primary">{selectedCourse.name}</h2>
-                    <p className="text-muted-foreground">{selectedCourse.description}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={navigateToHome}
+                      className="rounded-full h-12 w-12"
+                    >
+                      <ChevronRight className="rotate-180" />
+                    </Button>
+                    <div>
+                      <h2 className="text-4xl font-bold text-primary">{selectedCourse.name}</h2>
+                      <p className="text-muted-foreground">{selectedCourse.description}</p>
+                    </div>
                   </div>
+                  {activeMaterial && (
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleCloseMaterial}
+                      className="animate-pulse"
+                    >
+                      <XCircle className="mr-2 h-4 w-4" /> Stop Tracking: {activeMaterial.title}
+                    </Button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -347,7 +377,7 @@ function Dashboard() {
                       <TabsContent value="notes" className="space-y-4">
                         {notes.length > 0 ? (
                           notes.map(note => (
-                            <Card key={note.id} className="hover:border-accent transition-colors">
+                            <Card key={note.id} className={`hover:border-accent transition-colors ${activeMaterial?.id === note.id ? 'border-accent bg-accent/5' : ''}`}>
                               <CardContent className="flex items-center justify-between p-4">
                                 <div className="flex items-center gap-4">
                                   <div className="bg-red-50 p-3 rounded-lg text-red-600">
@@ -358,14 +388,22 @@ function Dashboard() {
                                     <p className="text-xs text-muted-foreground">PDF Document • 2.4 MB</p>
                                   </div>
                                 </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="text-primary hover:text-accent hover:bg-accent/5"
-                                  onClick={() => handleOpenMaterial(note)}
-                                >
-                                  <Download size={20} />
-                                </Button>
+                                <div className="flex gap-2">
+                                  {activeMaterial?.id === note.id ? (
+                                    <Button size="sm" variant="outline" className="text-accent border-accent" onClick={handleCloseMaterial}>
+                                      Stop Reading
+                                    </Button>
+                                  ) : (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="text-primary hover:text-accent hover:bg-accent/5 flex gap-2"
+                                      onClick={() => handleOpenMaterial(note)}
+                                    >
+                                      Read Now <Download size={20} />
+                                    </Button>
+                                  )}
+                                </div>
                               </CardContent>
                             </Card>
                           ))
@@ -380,7 +418,7 @@ function Dashboard() {
                         {videos.length > 0 ? (
                           <div className="grid grid-cols-1 gap-6">
                             {videos.map(video => (
-                              <Card key={video.id} className="overflow-hidden border-none shadow-lg">
+                              <Card key={video.id} className={`overflow-hidden border-none shadow-lg ${activeMaterial?.id === video.id ? 'ring-2 ring-accent' : ''}`}>
                                 <div className="aspect-video relative bg-black">
                                   <video 
                                     className="w-full h-full" 
@@ -394,9 +432,16 @@ function Dashboard() {
                                     Your browser does not support the video tag.
                                   </video>
                                 </div>
-                                <CardContent className="p-4">
-                                  <h5 className="font-bold text-lg">{video.title}</h5>
-                                  <p className="text-sm text-muted-foreground">Uploaded by DANIEL 120 Instructor</p>
+                                <CardContent className="p-4 flex justify-between items-center">
+                                  <div>
+                                    <h5 className="font-bold text-lg">{video.title}</h5>
+                                    <p className="text-sm text-muted-foreground">Uploaded by DANIEL 120 Instructor</p>
+                                  </div>
+                                  {activeMaterial?.id === video.id && (
+                                    <Badge variant="outline" className="text-accent border-accent animate-pulse">
+                                      Currently Playing
+                                    </Badge>
+                                  )}
                                 </CardContent>
                               </Card>
                             ))}
@@ -412,11 +457,11 @@ function Dashboard() {
 
                   <div className="space-y-6">
                     <AICompanion />
-                    <Card className="bg-primary text-white p-6 rounded-2xl">
+                    <Card className="bg-primary text-white p-6 rounded-2xl shadow-lg">
                       <CardTitle className="mb-2 text-xl">Quick Tip</CardTitle>
                       <p className="text-white/80 text-sm leading-relaxed">
                         "The fear of the Lord is the beginning of wisdom, and knowledge of the Holy One is understanding."
-                        Study hard, stay humble, and success will follow.
+                        Study hard, stay humble, and success will follow. Usage time is updated whenever you stop viewing a material.
                       </p>
                     </Card>
                   </div>

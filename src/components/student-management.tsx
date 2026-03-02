@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle, Download } from 'lucide-react'
+import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle, Download, LogOut } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
@@ -247,9 +247,11 @@ function ActivityViewer({ student }: { student: any }) {
     const stats = activities.reduce((acc: any, log: any) => {
       const type = log.type || 'unknown'
       if (!acc[type]) acc[type] = 0
-      acc[type] += (log.duration || 0)
+      acc[type] += Number(log.duration) || 0
       return acc
     }, {})
+
+    const totalActiveDuration = Object.values(stats).reduce((sum: number, val: any) => sum + val, 0)
 
     const headers = ["Timestamp", "Activity Type", "Duration (sec)", "Material Title", "Notes"]
     const rows = activities.map((log: any) => [
@@ -264,13 +266,20 @@ function ActivityViewer({ student }: { student: any }) {
     const summaryRows = [
       [],
       ["CONSOLIDATED USAGE REPORT"],
-      ["Category", "Total Duration (sec)", "Total Duration (min)"],
-      ...Object.entries(stats).map(([cat, dur]: any) => [cat, dur, (dur / 60).toFixed(2)]),
+      ["Metric", "Value (Seconds)", "Value (Minutes/Hours)"],
+      ["Total Active Usage", totalActiveDuration, `${(totalActiveDuration / 60).toFixed(2)} mins`],
+      ...Object.entries(stats).map(([cat, dur]: any) => [
+        `Category: ${cat.replace('_', ' ')}`, 
+        dur, 
+        `${(dur / 60).toFixed(2)} mins`
+      ]),
       [],
-      ["Student Name", student.name],
-      ["Student ID", student.id],
+      ["STUDENT INFORMATION"],
+      ["Name", student.name],
+      ["ID", student.id],
       ["School", student.schoolName || 'N/A'],
-      ["Location", student.location || 'N/A']
+      ["Location", student.location || 'N/A'],
+      ["Class", student.class || 'N/A']
     ]
 
     const csvContent = "data:text/csv;charset=utf-8," 
@@ -340,26 +349,5 @@ function ActivityViewer({ student }: { student: any }) {
         </ScrollArea>
       </DialogContent>
     </Dialog>
-  )
-}
-
-function LogOut({ className, size }: { className?: string, size?: number }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size || 24}
-      height={size || 24}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" y1="12" x2="9" y2="12" />
-    </svg>
   )
 }
