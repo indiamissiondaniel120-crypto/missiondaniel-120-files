@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { useFirestore } from '@/firebase'
-import { collection, doc, setDoc, serverTimestamp, query, orderBy, where } from 'firebase/firestore'
+import { collection, doc, setDoc, serverTimestamp, query, orderBy, where, updateDoc } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,12 +11,12 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle, Download, LogOut, UserRound, GraduationCap } from 'lucide-react'
+import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle, Download, LogOut, UserRound, GraduationCap, Edit2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export function StudentManagement() {
@@ -42,6 +42,9 @@ export function StudentManagement() {
     phone: ''
   })
 
+  const [editingStudent, setEditingStudent] = useState<any>(null)
+  const [editingMentor, setEditingMentor] = useState<any>(null)
+
   const studentsQuery = useMemo(() => db ? collection(db, 'students') : null, [db])
   const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db])
 
@@ -65,7 +68,21 @@ export function StudentManagement() {
         toast({ title: "Student Registered", description: `${studentForm.name} added.` })
         setStudentForm({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
       })
-      .catch(async () => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'create', requestResourceData: data })))
+      .catch(async () => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'write', requestResourceData: data })))
+      .finally(() => setLoading(false))
+  }
+
+  const handleUpdateStudent = async () => {
+    if (!db || !editingStudent) return
+    setLoading(true)
+    const docRef = doc(db, 'students', editingStudent.id)
+    
+    updateDoc(docRef, editingStudent)
+      .then(() => {
+        toast({ title: "Updated", description: "Student details updated successfully." })
+        setEditingStudent(null)
+      })
+      .catch(async () => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: editingStudent })))
       .finally(() => setLoading(false))
   }
 
@@ -86,7 +103,21 @@ export function StudentManagement() {
         toast({ title: "Mentor Registered", description: `${mentorForm.name} added.` })
         setMentorForm({ id: '', password: '', name: '', expertise: '', phone: '' })
       })
-      .catch(async () => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'create', requestResourceData: data })))
+      .catch(async () => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'write', requestResourceData: data })))
+      .finally(() => setLoading(false))
+  }
+
+  const handleUpdateMentor = async () => {
+    if (!db || !editingMentor) return
+    setLoading(true)
+    const docRef = doc(db, 'mentors', editingMentor.id)
+    
+    updateDoc(docRef, editingMentor)
+      .then(() => {
+        toast({ title: "Updated", description: "Mentor details updated successfully." })
+        setEditingMentor(null)
+      })
+      .catch(async () => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: editingMentor })))
       .finally(() => setLoading(false))
   }
 
@@ -194,7 +225,10 @@ export function StudentManagement() {
                               <span className="text-xs text-muted-foreground italic">None</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right"><ActivityViewer student={s} /></TableCell>
+                          <TableCell className="text-right flex justify-end gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => setEditingStudent(s)}><Edit2 size={16} /></Button>
+                            <ActivityViewer student={s} />
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -251,7 +285,7 @@ export function StudentManagement() {
                         <TableHead>Mentor</TableHead>
                         <TableHead>Expertise</TableHead>
                         <TableHead>Contact</TableHead>
-                        <TableHead className="text-right">Students</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -264,9 +298,7 @@ export function StudentManagement() {
                           <TableCell>{m.expertise || 'N/A'}</TableCell>
                           <TableCell>{m.phone || 'N/A'}</TableCell>
                           <TableCell className="text-right">
-                            <div className="text-sm font-medium">
-                              {students?.filter((s: any) => s.mentorId === m.id).length || 0}
-                            </div>
+                             <Button variant="ghost" size="sm" onClick={() => setEditingMentor(m)}><Edit2 size={16} /></Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -278,6 +310,84 @@ export function StudentManagement() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Student Dialog */}
+      <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Student: {editingStudent?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={editingStudent?.name} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>Class</Label>
+              <Select onValueChange={v => setEditingStudent({...editingStudent, class: v})} value={editingStudent?.class}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="class-9">Class 9</SelectItem>
+                  <SelectItem value="class-10">Class 10</SelectItem>
+                  <SelectItem value="class-11">Class 11</SelectItem>
+                  <SelectItem value="class-12">Class 12</SelectItem>
+                  <SelectItem value="neet">NEET</SelectItem>
+                  <SelectItem value="jee">JEE</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Mentor</Label>
+              <Select onValueChange={v => setEditingStudent({...editingStudent, mentorId: v})} value={editingStudent?.mentorId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Mentor</SelectItem>
+                  {mentors?.map(m => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label>School</Label>
+                <Input value={editingStudent?.schoolName} onChange={e => setEditingStudent({...editingStudent, schoolName: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <Input value={editingStudent?.location} onChange={e => setEditingStudent({...editingStudent, location: e.target.value})} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingStudent(null)}>Cancel</Button>
+            <Button onClick={handleUpdateStudent} disabled={loading}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Mentor Dialog */}
+      <Dialog open={!!editingMentor} onOpenChange={() => setEditingMentor(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Mentor: {editingMentor?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={editingMentor?.name} onChange={e => setEditingMentor({...editingMentor, name: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>Expertise</Label>
+              <Input value={editingMentor?.expertise} onChange={e => setEditingMentor({...editingMentor, expertise: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input value={editingMentor?.phone} onChange={e => setEditingMentor({...editingMentor, phone: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingMentor(null)}>Cancel</Button>
+            <Button onClick={handleUpdateMentor} disabled={loading}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
