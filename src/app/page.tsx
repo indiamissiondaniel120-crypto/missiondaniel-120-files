@@ -31,11 +31,68 @@ import {
   IdCard,
   XCircle,
   UserRound,
-  MessageSquare
+  MessageSquare,
+  ChevronDown
 } from 'lucide-react'
 import Image from 'next/image'
 import { FirebaseClientProvider, useFirestore, useCollection, useDoc } from '@/firebase'
-import { collection, addDoc, serverTimestamp, query, where, orderBy, doc } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, query, where, orderBy, doc, onSnapshot } from 'firebase/firestore'
+
+function StudentListWithUnread({ students, mentorId, onSelect, selectedStudent }: { students: any[], mentorId: string, onSelect: (s: any) => void, selectedStudent: any }) {
+  return (
+    <div className="space-y-2">
+      {students.map(student => (
+        <StudentListItem 
+          key={student.id} 
+          student={student} 
+          mentorId={mentorId} 
+          onSelect={onSelect} 
+          isSelected={selectedStudent?.id === student.id} 
+        />
+      ))}
+    </div>
+  )
+}
+
+function StudentListItem({ student, mentorId, onSelect, isSelected }: { student: any, mentorId: string, onSelect: (s: any) => void, isSelected: boolean }) {
+  const db = useFirestore()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!db || !student.id || !mentorId) return
+
+    const chatId = `${student.id}_${mentorId}`
+    const q = query(
+      collection(db, 'chats', chatId, 'messages'),
+      where('senderId', '==', student.id),
+      where('read', '==', false)
+    )
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUnreadCount(snapshot.size)
+    })
+
+    return () => unsubscribe()
+  }, [db, student.id, mentorId])
+
+  return (
+    <Button
+      variant={isSelected ? "secondary" : "ghost"}
+      className="w-full justify-between items-center group relative overflow-hidden h-12 px-4 rounded-xl"
+      onClick={() => onSelect(student)}
+    >
+      <div className="flex items-center gap-3">
+        <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-primary' : 'bg-transparent'}`} />
+        <span className="font-medium">{student.name}</span>
+      </div>
+      {unreadCount > 0 && (
+        <Badge variant="destructive" className="ml-2 h-5 min-w-5 flex items-center justify-center rounded-full p-0 text-[10px]">
+          {unreadCount}
+        </Badge>
+      )}
+    </Button>
+  )
+}
 
 function Dashboard() {
   const { user, logout } = useAuth()
@@ -241,24 +298,6 @@ function Dashboard() {
                         </div>
                       )}
 
-                      {isMentor && (
-                        <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md mb-8">
-                          <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-2">My Students</p>
-                          <div className="flex flex-wrap gap-2">
-                            {myStudents?.map((s: any) => (
-                              <Badge 
-                                key={s.id} 
-                                variant="secondary" 
-                                className={`cursor-pointer border-none ${selectedChatStudent?.id === s.id ? 'bg-white text-primary' : 'bg-white/20 text-white'}`}
-                                onClick={() => setSelectedChatStudent(s)}
-                              >
-                                {s.name}
-                              </Badge>
-                            )) || <span className="text-sm">No students assigned yet.</span>}
-                          </div>
-                        </div>
-                      )}
-
                       <Button className="bg-white text-primary hover:bg-white/90 rounded-full px-8 py-6 text-lg" onClick={isAdmin ? navigateToAdmin : undefined}>
                         {isAdmin ? 'Manage Database' : 'Start Learning'}
                       </Button>
@@ -268,9 +307,31 @@ function Dashboard() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-2 space-y-6">
+                    {isMentor && (
+                       <section className="space-y-6">
+                        <h3 className="text-2xl font-bold text-primary flex items-center gap-2">
+                          <Users /> My Students
+                        </h3>
+                        <Card className="border-none shadow-md rounded-2xl overflow-hidden">
+                          <CardContent className="p-4">
+                            {myStudents && myStudents.length > 0 ? (
+                              <StudentListWithUnread 
+                                students={myStudents} 
+                                mentorId={user.id} 
+                                onSelect={(s) => setSelectedChatStudent(s)}
+                                selectedStudent={selectedChatStudent}
+                              />
+                            ) : (
+                              <p className="text-center text-muted-foreground py-8">No students assigned to you yet.</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </section>
+                    )}
+
                     <section className="space-y-6">
                       <h3 className="text-2xl font-bold text-primary">
-                        {isAdmin || isMentor ? 'All Course Materials' : 'Your Registered Course'}
+                        {isAdmin || isMentor ? 'All Available Courses' : 'Your Registered Course'}
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {visibleCourses.map(course => (
@@ -292,11 +353,19 @@ function Dashboard() {
 
                   <div className="space-y-6">
                     {isMentor && selectedChatStudent && (
-                      <ChatInterface 
-                        chatId={`${selectedChatStudent.id}_${user.id}`} 
-                        currentUser={{ id: user.id, name: user.name, role: user.role }} 
-                        otherUserName={selectedChatStudent.name}
-                      />
+                      <div className="sticky top-8">
+                        <ChatInterface 
+                          chatId={`${selectedChatStudent.id}_${user.id}`} 
+                          currentUser={{ id: user.id, name: user.name, role: user.role }} 
+                          otherUserName={selectedChatStudent.name}
+                        />
+                      </div>
+                    )}
+                    {isMentor && !selectedChatStudent && (
+                      <Card className="p-6 bg-muted/30 border-dashed text-center flex flex-col items-center justify-center min-h-[400px]">
+                        <MessageSquare className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                        <p className="text-sm text-muted-foreground">Select a student from the list to start chatting.</p>
+                      </Card>
                     )}
                     {!isMentor && !user?.mentorId && user?.role !== 'admin' && (
                       <Card className="p-6 bg-muted">
@@ -367,8 +436,9 @@ function Dashboard() {
         <div className="fixed bottom-6 right-6 z-50">
           <Popover>
             <PopoverTrigger asChild>
-              <Button size="icon" className="h-14 w-14 rounded-full shadow-2xl bg-accent hover:bg-accent/90">
+              <Button size="icon" className="h-14 w-14 rounded-full shadow-2xl bg-accent hover:bg-accent/90 relative">
                 <MessageSquare className="h-6 w-6" />
+                <UnreadDot userId={user.id} mentorId={user.mentorId} />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[350px] p-0 mr-6 mb-2 border-none shadow-2xl rounded-2xl overflow-hidden" align="end">
@@ -383,6 +453,28 @@ function Dashboard() {
       )}
     </SidebarProvider>
   )
+}
+
+function UnreadDot({ userId, mentorId }: { userId: string, mentorId: string }) {
+  const db = useFirestore()
+  const [unread, setUnread] = useState(false)
+
+  useEffect(() => {
+    if (!db || !userId || !mentorId) return
+    const chatId = `${userId}_${mentorId}`
+    const q = query(
+      collection(db, 'chats', chatId, 'messages'),
+      where('senderId', '==', mentorId),
+      where('read', '==', false)
+    )
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setUnread(snap.size > 0)
+    })
+    return () => unsubscribe()
+  }, [db, userId, mentorId])
+
+  if (!unread) return null
+  return <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 border-2 border-white rounded-full" />
 }
 
 export default function HomeApp() {
