@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, createContext, useContext, useMemo } from 'react'
+import React, { useState, createContext, useContext, useMemo, useEffect } from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { GraduationCap, AlertCircle, ShieldCheck, Loader2, UserRound } from 'luc
 import { ADMINS } from '@/lib/mock-data'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useFirestore } from '@/firebase'
-import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, collection, addDoc, serverTimestamp, onSnapshot } from 'firebase/firestore'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
 
@@ -22,6 +22,7 @@ interface User {
   class?: string
   schoolName?: string
   location?: string
+  mentorId?: string
 }
 
 interface AuthContextType {
@@ -35,6 +36,35 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const db = useFirestore()
+
+  // Real-time listener for user profile updates (mentor assignments, class changes, etc.)
+  useEffect(() => {
+    if (!user || !db || user.role === 'admin') return
+
+    const collectionName = user.role === 'student' ? 'students' : 'mentors'
+    const docRef = doc(db, collectionName, user.id)
+
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        setUser((prev) => {
+          if (!prev) return null
+          return {
+            ...prev,
+            name: data.name,
+            class: data.class,
+            schoolName: data.schoolName,
+            location: data.location,
+            mentorId: data.mentorId
+          }
+        })
+      }
+    }, (error) => {
+      console.error("Profile sync error:", error)
+    })
+
+    return () => unsubscribe()
+  }, [user?.id, user?.role, db])
 
   const login = async (id: string, password: string, loginType: 'student' | 'admin' | 'mentor') => {
     if (!db) return false
@@ -81,7 +111,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               role: 'student',
               class: data.class,
               schoolName: data.schoolName,
-              location: data.location
+              location: data.location,
+              mentorId: data.mentorId
             })
             
             addDoc(collection(db, 'students', id, 'activity'), {

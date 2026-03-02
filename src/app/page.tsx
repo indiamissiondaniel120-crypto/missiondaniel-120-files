@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { StudentManagement } from '@/components/student-management'
 import { InactivityMonitor } from '@/components/inactivity-monitor'
 import { ChatInterface } from '@/components/chat-interface'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { 
   LogOut, 
   Home, 
@@ -290,13 +291,6 @@ function Dashboard() {
                   </div>
 
                   <div className="space-y-6">
-                    {user?.role === 'student' && user.mentorId && (
-                      <ChatInterface 
-                        chatId={`${user.id}_${user.mentorId}`} 
-                        currentUser={{ id: user.id, name: user.name, role: user.role }} 
-                        otherUserName={myMentorData?.name || 'Mentor'}
-                      />
-                    )}
                     {isMentor && selectedChatStudent && (
                       <ChatInterface 
                         chatId={`${selectedChatStudent.id}_${user.id}`} 
@@ -367,6 +361,26 @@ function Dashboard() {
           </div>
         </main>
       </div>
+
+      {/* Floating Chat for Students */}
+      {user?.role === 'student' && user.mentorId && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="icon" className="h-14 w-14 rounded-full shadow-2xl bg-accent hover:bg-accent/90">
+                <MessageSquare className="h-6 w-6" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[350px] p-0 mr-6 mb-2 border-none shadow-2xl rounded-2xl overflow-hidden" align="end">
+              <ChatInterface 
+                chatId={`${user.id}_${user.mentorId}`} 
+                currentUser={{ id: user.id, name: user.name, role: user.role }} 
+                otherUserName={myMentorData?.name || 'Mentor'}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
     </SidebarProvider>
   )
 }
