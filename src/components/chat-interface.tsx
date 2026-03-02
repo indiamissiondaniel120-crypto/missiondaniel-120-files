@@ -3,11 +3,12 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useFirestore, useCollection } from '@/firebase'
-import { collection, addDoc, serverTimestamp, query, orderBy, limit, doc, updateDoc, where, getDocs, writeBatch } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, query, orderBy, limit, doc, updateDoc, where, getDocs, writeBatch, onSnapshot } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
 import { MessageSquare, Send, User, ShieldAlert } from 'lucide-react'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
