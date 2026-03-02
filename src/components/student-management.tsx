@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react'
@@ -322,11 +321,11 @@ export function StudentManagement() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Name</Label>
-              <Input value={editingStudent?.name} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} />
+              <Input value={editingStudent?.name || ''} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} />
             </div>
             <div className="space-y-2">
               <Label>Class</Label>
-              <Select onValueChange={v => setEditingStudent({...editingStudent, class: v})} value={editingStudent?.class}>
+              <Select onValueChange={v => setEditingStudent({...editingStudent, class: v})} value={editingStudent?.class || ''}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="class-9">Class 9</SelectItem>
@@ -340,7 +339,7 @@ export function StudentManagement() {
             </div>
             <div className="space-y-2">
               <Label>Mentor</Label>
-              <Select onValueChange={v => setEditingStudent({...editingStudent, mentorId: v})} value={editingStudent?.mentorId}>
+              <Select onValueChange={v => setEditingStudent({...editingStudent, mentorId: v})} value={editingStudent?.mentorId || ''}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Mentor</SelectItem>
@@ -353,11 +352,11 @@ export function StudentManagement() {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
                 <Label>School</Label>
-                <Input value={editingStudent?.schoolName} onChange={e => setEditingStudent({...editingStudent, schoolName: e.target.value})} />
+                <Input value={editingStudent?.schoolName || ''} onChange={e => setEditingStudent({...editingStudent, schoolName: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <Label>Location</Label>
-                <Input value={editingStudent?.location} onChange={e => setEditingStudent({...editingStudent, location: e.target.value})} />
+                <Input value={editingStudent?.location || ''} onChange={e => setEditingStudent({...editingStudent, location: e.target.value})} />
               </div>
             </div>
           </div>
@@ -375,15 +374,15 @@ export function StudentManagement() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Name</Label>
-              <Input value={editingMentor?.name} onChange={e => setEditingMentor({...editingMentor, name: e.target.value})} />
+              <Input value={editingMentor?.name || ''} onChange={e => setEditingMentor({...editingMentor, name: e.target.value})} />
             </div>
             <div className="space-y-2">
               <Label>Expertise</Label>
-              <Input value={editingMentor?.expertise} onChange={e => setEditingMentor({...editingMentor, expertise: e.target.value})} />
+              <Input value={editingMentor?.expertise || ''} onChange={e => setEditingMentor({...editingMentor, expertise: e.target.value})} />
             </div>
             <div className="space-y-2">
               <Label>Phone</Label>
-              <Input value={editingMentor?.phone} onChange={e => setEditingMentor({...editingMentor, phone: e.target.value})} />
+              <Input value={editingMentor?.phone || ''} onChange={e => setEditingMentor({...editingMentor, phone: e.target.value})} />
             </div>
           </div>
           <DialogFooter>
