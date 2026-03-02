@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { GraduationCap, AlertCircle, ShieldCheck, Loader2 } from 'lucide-react'
+import { GraduationCap, AlertCircle, ShieldCheck, Loader2, UserRound } from 'lucide-react'
 import { ADMINS } from '@/lib/mock-data'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useFirestore } from '@/firebase'
@@ -18,7 +18,7 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 interface User {
   name: string
   id: string
-  role: 'student' | 'admin'
+  role: 'student' | 'admin' | 'mentor'
   class?: string
   schoolName?: string
   location?: string
@@ -26,7 +26,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null
-  login: (id: string, password: string, isAdmin: boolean) => Promise<boolean>
+  login: (id: string, password: string, loginType: 'student' | 'admin' | 'mentor') => Promise<boolean>
   logout: () => void
 }
 
@@ -36,8 +36,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const db = useFirestore()
 
-  const login = async (id: string, password: string, isAdmin: boolean) => {
-    if (isAdmin) {
+  const login = async (id: string, password: string, loginType: 'student' | 'admin' | 'mentor') => {
+    if (!db) return false
+
+    if (loginType === 'admin') {
       const found = ADMINS.find(u => u.id === id && u.password === password)
       if (found) {
         setUser({ 
@@ -47,26 +49,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
         return true
       }
+    } else if (loginType === 'mentor') {
+      const mentorDocRef = doc(db, 'mentors', id)
+      try {
+        const snap = await getDoc(mentorDocRef)
+        if (snap.exists()) {
+          const data = snap.data()
+          if (data.password === password) {
+            setUser({
+              name: data.name,
+              id: id,
+              role: 'mentor'
+            })
+            return true
+          }
+        }
+      } catch (e: any) {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: mentorDocRef.path, operation: 'get' }));
+        return false
+      }
     } else {
-      if (!db) return false
-      
       const studentDocRef = doc(db, 'students', id)
       try {
         const snap = await getDoc(studentDocRef)
         if (snap.exists()) {
           const data = snap.data()
           if (data.password === password) {
-            const userData: User = {
+            setUser({
               name: data.name,
               id: id,
               role: 'student',
               class: data.class,
               schoolName: data.schoolName,
               location: data.location
-            }
-            setUser(userData)
+            })
             
-            // Log Login
             addDoc(collection(db, 'students', id, 'activity'), {
               type: 'login',
               timestamp: serverTimestamp(),
@@ -77,11 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (e: any) {
-        const permissionError = new FirestorePermissionError({
-          path: studentDocRef.path,
-          operation: 'get',
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: studentDocRef.path, operation: 'get' }));
         return false
       }
     }
@@ -119,7 +132,7 @@ function LoginScreen() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'student' | 'admin'>('student')
+  const [activeTab, setActiveTab] = useState<'student' | 'admin' | 'mentor'>('student')
 
   const handleLogin = async () => {
     setError(null)
@@ -130,9 +143,9 @@ function LoginScreen() {
 
     setLoading(true)
     try {
-      const success = await login(id, password, activeTab === 'admin')
+      const success = await login(id, password, activeTab)
       if (!success) {
-        setError(`Invalid ${activeTab === 'admin' ? 'Admin' : 'Student'} ID or Password.`)
+        setError(`Invalid Credentials for ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}.`)
       }
     } catch (err) {
       setError('An error occurred during login.')
@@ -144,12 +157,20 @@ function LoginScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md border-primary/20 shadow-xl overflow-hidden">
-        <div className={`h-2 ${activeTab === 'admin' ? 'bg-accent' : 'bg-primary'}`} />
+        <div className={`h-2 ${activeTab === 'admin' ? 'bg-accent' : activeTab === 'mentor' ? 'bg-orange-500' : 'bg-primary'}`} />
         <CardHeader className="text-center space-y-2 pb-2">
-          <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-2 ${activeTab === 'admin' ? 'bg-accent/10 text-accent' : 'bg-primary/10 text-primary'}`}>
-            {activeTab === 'admin' ? <ShieldCheck size={40} /> : <GraduationCap size={40} />}
+          <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-2 ${
+            activeTab === 'admin' ? 'bg-accent/10 text-accent' : 
+            activeTab === 'mentor' ? 'bg-orange-100 text-orange-600' : 
+            'bg-primary/10 text-primary'
+          }`}>
+            {activeTab === 'admin' ? <ShieldCheck size={40} /> : activeTab === 'mentor' ? <UserRound size={40} /> : <GraduationCap size={40} />}
           </div>
-          <CardTitle className={`text-3xl font-bold tracking-tight ${activeTab === 'admin' ? 'text-accent' : 'text-primary'}`}>
+          <CardTitle className={`text-3xl font-bold tracking-tight ${
+            activeTab === 'admin' ? 'text-accent' : 
+            activeTab === 'mentor' ? 'text-orange-600' : 
+            'text-primary'
+          }`}>
             DANIEL 120
           </CardTitle>
           <CardDescription className="text-muted-foreground italic">"Uplifting students, shaping futures"</CardDescription>
@@ -157,9 +178,10 @@ function LoginScreen() {
         
         <Tabs defaultValue="student" className="w-full" onValueChange={(v) => setActiveTab(v as any)}>
           <div className="px-6 pb-2">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="student">Student Login</TabsTrigger>
-              <TabsTrigger value="admin">Admin Login</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="student">Student</TabsTrigger>
+              <TabsTrigger value="mentor">Mentor</TabsTrigger>
+              <TabsTrigger value="admin">Admin</TabsTrigger>
             </TabsList>
           </div>
 
@@ -172,10 +194,10 @@ function LoginScreen() {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="loginId">{activeTab === 'admin' ? 'Admin ID' : 'Student ID'}</Label>
+              <Label htmlFor="loginId">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} ID</Label>
               <Input 
                 id="loginId" 
-                placeholder={activeTab === 'admin' ? 'Enter admin username' : 'e.g. D120-001'} 
+                placeholder={`Enter your ${activeTab} ID`} 
                 value={id} 
                 onChange={(e) => setId(e.target.value)} 
                 disabled={loading}
@@ -196,11 +218,15 @@ function LoginScreen() {
           </CardContent>
           <CardFooter>
             <Button 
-              className={`w-full py-6 text-lg text-white ${activeTab === 'admin' ? 'bg-accent hover:bg-accent/90' : 'bg-primary hover:bg-primary/90'}`} 
+              className={`w-full py-6 text-lg text-white ${
+                activeTab === 'admin' ? 'bg-accent hover:bg-accent/90' : 
+                activeTab === 'mentor' ? 'bg-orange-500 hover:bg-orange-600' : 
+                'bg-primary hover:bg-primary/90'
+              }`} 
               onClick={handleLogin}
               disabled={loading}
             >
-              {loading ? <Loader2 className="animate-spin" /> : `Login as ${activeTab === 'admin' ? 'Admin' : 'Student'}`}
+              {loading ? <Loader2 className="animate-spin" /> : `Login as ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
             </Button>
           </CardFooter>
         </Tabs>

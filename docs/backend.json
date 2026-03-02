@@ -12,9 +12,24 @@
         "schoolName": { "type": "string", "description": "Name of the school the student attends." },
         "location": { "type": "string", "description": "Geographical location of the student/school." },
         "class": { "type": "string", "description": "The academic stream or class (e.g., Class 10, NEET)." },
+        "mentorId": { "type": "string", "description": "The ID of the assigned mentor." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of registration." }
       },
       "required": ["id", "password", "name", "class"]
+    },
+    "Mentor": {
+      "title": "Mentor",
+      "description": "A mentor who guides students.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Login ID for the mentor." },
+        "password": { "type": "string", "description": "Login password for the mentor." },
+        "name": { "type": "string", "description": "Full name of the mentor." },
+        "expertise": { "type": "string", "description": "Subject or area of expertise." },
+        "phone": { "type": "string", "description": "Contact number." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "password", "name"]
     },
     "ActivityLog": {
       "title": "ActivityLog",
@@ -35,6 +50,10 @@
     "/students/{studentId}": {
       "schema": "Student",
       "description": "Collection of registered students."
+    },
+    "/mentors/{mentorId}": {
+      "schema": "Mentor",
+      "description": "Collection of registered mentors."
     },
     "/students/{studentId}/activity/{activityId}": {
       "schema": "ActivityLog",
