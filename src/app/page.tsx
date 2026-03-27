@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -183,13 +182,14 @@ function Dashboard() {
     );
   }, [db, user?.id, user?.role]);
 
+  const { data: activities } = useCollection(activityQuery);
+
   // Mentors can see their students
   const mentorStudentsQuery = useMemo(() => {
     if (!db || !user?.id || user.role !== 'mentor') return null;
     return query(collection(db, 'students'), where('mentorId', '==', user.id));
   }, [db, user?.id, user?.role]);
 
-  const { data: activities } = useCollection(activityQuery);
   const { data: myStudents } = useCollection(mentorStudentsQuery);
 
   // Mentor details for student dashboard
@@ -201,8 +201,14 @@ function Dashboard() {
 
   const totalUsageSeconds = useMemo(() => {
     if (!activities) return 0;
+    // We sum durations for pdf_view and video_view as "Active Study Time"
     return activities.reduce(
-      (acc, curr: any) => acc + (Number(curr.duration) || 0),
+      (acc, curr: any) => {
+        if (curr.type === 'pdf_view' || curr.type === 'video_view') {
+          return acc + (Number(curr.duration) || 0);
+        }
+        return acc;
+      },
       0
     );
   }, [activities]);
@@ -210,7 +216,7 @@ function Dashboard() {
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
+    const remainingSeconds = Math.floor(seconds % 60);
     if (hours > 0) return `${hours}h ${minutes}m ${remainingSeconds}s`;
     if (minutes > 0) return `${minutes}m ${remainingSeconds}s`;
     return `${remainingSeconds}s`;
@@ -251,7 +257,11 @@ function Dashboard() {
       type,
       timestamp: serverTimestamp(),
       duration: Math.max(0, duration),
-      metadata: { title: material.title, courseId: material.courseId },
+      metadata: { 
+        title: material.title, 
+        courseId: material.courseId,
+        materialId: material.id
+      },
     });
   };
 
@@ -277,10 +287,15 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    return () => {
+    const handleUnload = () => {
       if (viewStartTime.current) handleCloseMaterial();
     };
-  }, []);
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      if (viewStartTime.current) handleCloseMaterial();
+    };
+  }, [activeMaterial]);
 
   return (
     <SidebarProvider>
@@ -339,7 +354,7 @@ function Dashboard() {
             <div
               className={`p-4 rounded-xl mb-4 ${isMentor ? 'bg-orange-500/20' : 'bg-white/10'}`}
             >
-              <p className="text-sm font-medium text-white/90">Hello, {user?.name}</p>
+              <p className="text-sm font-medium text-white/90 truncate">Hello, {user?.name}</p>
               <p className="text-xs text-white/60 capitalize">{user?.role}</p>
             </div>
             <Button
@@ -376,7 +391,7 @@ function Dashboard() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
                           <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
                             <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-1">
-                              Total Usage
+                              Study Duration
                             </p>
                             <p className="text-xl font-bold">
                               {formatDuration(totalUsageSeconds)}
@@ -386,7 +401,7 @@ function Dashboard() {
                             <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-1">
                               Registered Class
                             </p>
-                            <p className="text-xl font-bold capitalize">
+                            <p className="text-xl font-bold capitalize truncate">
                               {allCourses?.find((c: any) => c.id === user.class)?.name || user.class}
                             </p>
                           </div>

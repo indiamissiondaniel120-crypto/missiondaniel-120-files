@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react'
@@ -569,29 +568,74 @@ function ActivityViewer({ student }: { student: any }) {
 
   const downloadCSV = () => {
     if (!activities) return
-    const stats = activities.reduce((acc: any, log: any) => {
-      const type = log.type || 'unknown'
-      if (!acc[type]) acc[type] = 0
-      acc[type] += Number(log.duration) || 0
-      return acc
-    }, {})
-    const totalActiveDuration = Object.values(stats).reduce((sum: number, val: any) => sum + val, 0)
-    const headers = ["Timestamp", "Activity Type", "Duration (sec)", "Material Title", "Notes"]
+
+    // Breakdown metrics
+    let totalPDFTime = 0;
+    let totalVideoTime = 0;
+    let totalAwayTime = 0;
+    let loginCount = 0;
+    let lastLogin: Date | null = null;
+    let firstActivity: Date | null = null;
+    let lastActivity: Date | null = null;
+
+    activities.forEach((log: any) => {
+      const dur = Number(log.duration) || 0;
+      const type = log.type;
+      const ts = log.timestamp?.toDate();
+
+      if (type === 'pdf_view') totalPDFTime += dur;
+      if (type === 'video_view') totalVideoTime += dur;
+      if (type === 'tab_away') totalAwayTime += dur;
+      if (type === 'login') {
+        loginCount++;
+        if (!lastLogin || ts > lastLogin) lastLogin = ts;
+      }
+      
+      if (ts) {
+        if (!firstActivity || ts < firstActivity) firstActivity = ts;
+        if (!lastActivity || ts > lastActivity) lastActivity = ts;
+      }
+    });
+
+    const totalStudyTime = totalPDFTime + totalVideoTime;
+
+    const headers = ["Date", "Time", "Activity Type", "Duration (sec)", "Details"]
     const rows = activities.map((log: any) => [
-      log.timestamp?.toDate() ? log.timestamp.toDate().toLocaleString().replace(',', '') : 'N/A',
+      log.timestamp?.toDate() ? log.timestamp.toDate().toLocaleDateString() : 'N/A',
+      log.timestamp?.toDate() ? log.timestamp.toDate().toLocaleTimeString() : 'N/A',
       log.type || 'N/A',
       log.duration || 0,
-      log.metadata?.title || 'N/A',
-      log.metadata?.reason || ''
+      log.metadata?.title || log.metadata?.reason || ''
     ])
+
     const summaryRows = [
-      [], ["CONSOLIDATED USAGE REPORT"], ["Metric", "Value (Seconds)", "Value (Minutes/Hours)"],
-      ["Total Active Usage", totalActiveDuration, `${(totalActiveDuration / 60).toFixed(2)} mins`],
-      ...Object.entries(stats).map(([cat, dur]: any) => [`Category: ${cat.replace('_', ' ')}`, dur, `${(dur / 60).toFixed(2)} mins`]),
-      [], ["STUDENT INFORMATION"], ["Name", student.name], ["ID", student.id], ["School", student.schoolName || 'N/A'], ["Location", student.location || 'N/A'], ["Class", student.class || 'N/A']
+      [],
+      ["CONSOLIDATED ATTENDANCE & USAGE REPORT"],
+      ["Student Name", student.name],
+      ["Student ID", student.id],
+      ["Class", student.class || 'N/A'],
+      ["First Recorded Activity", firstActivity ? firstActivity.toLocaleString() : 'N/A'],
+      ["Last Recorded Activity", lastActivity ? lastActivity.toLocaleString() : 'N/A'],
+      [],
+      ["METRIC", "SECONDS", "MINUTES"],
+      ["Total Active Study Time (PDF + Video)", totalStudyTime, (totalStudyTime / 60).toFixed(2)],
+      ["Total PDF Reading Time", totalPDFTime, (totalPDFTime / 60).toFixed(2)],
+      ["Total Video Watching Time", totalVideoTime, (totalVideoTime / 60).toFixed(2)],
+      ["Total Time Away from Tab", totalAwayTime, (totalAwayTime / 60).toFixed(2)],
+      ["Total Login Events", loginCount, "-"],
+      [],
+      ["VISION: Uplifting Education Shaping Futures"]
     ]
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows, ...summaryRows].map(e => e.join(",")).join("\n")
-    const link = document.createElement("a"); link.setAttribute("href", encodeURI(csvContent)); link.setAttribute("download", `activity_${student.id}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
+
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      [headers, ...rows, ...summaryRows].map(e => e.map(cell => `"${cell}"`).join(",")).join("\n")
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `attendance_report_${student.id}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   return (
@@ -601,22 +645,35 @@ function ActivityViewer({ student }: { student: any }) {
       </DialogTrigger>
       <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
         <DialogHeader className="flex flex-row items-center justify-between pr-8">
-          <DialogTitle>Logs: {student.name}</DialogTitle>
-          <Button variant="outline" size="sm" onClick={downloadCSV}><Download size={16} className="mr-2" /> Export</Button>
+          <DialogTitle>Attendance & Activity Logs: {student.name}</DialogTitle>
+          <Button variant="outline" size="sm" onClick={downloadCSV}><Download size={16} className="mr-2" /> Export Report</Button>
         </DialogHeader>
         <ScrollArea className="flex-1 mt-4">
-          {loading ? <div className="flex justify-center p-8"><Activity className="animate-spin" /></div> : activities?.map((log: any, i: number) => (
-            <div key={i} className="flex gap-4 p-4 rounded-xl border bg-accent/5 mb-2">
-              <div className="flex-1 space-y-1">
-                <div className="flex justify-between">
-                  <span className="font-bold capitalize">{log.type.replace('_', ' ')}</span>
-                  <span className="text-xs text-muted-foreground">{log.timestamp?.toDate()?.toLocaleString()}</span>
+          {loading ? (
+            <div className="flex justify-center p-8"><Activity className="animate-spin" /></div>
+          ) : activities?.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">No activity recorded yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {activities?.map((log: any, i: number) => (
+                <div key={i} className="flex gap-4 p-4 rounded-xl border bg-accent/5">
+                  <div className="flex-1 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="font-bold capitalize">{log.type.replace(/_/g, ' ')}</span>
+                      <span className="text-xs text-muted-foreground">{log.timestamp?.toDate()?.toLocaleString()}</span>
+                    </div>
+                    {log.metadata?.title && <p className="text-sm">Material: {log.metadata.title}</p>}
+                    {log.metadata?.reason && <p className="text-xs italic">Reason: {log.metadata.reason}</p>}
+                    {log.duration !== undefined && log.duration > 0 && (
+                      <div className="text-xs font-medium text-accent flex items-center gap-1">
+                        <Clock size={12} /> {Math.floor(log.duration / 60)}m {log.duration % 60}s
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {log.metadata?.title && <p className="text-sm">Material: {log.metadata.title}</p>}
-                {log.duration !== undefined && <div className="text-xs font-medium text-accent"><Clock size={12} className="inline mr-1" /> {Math.floor(log.duration / 60)}m {log.duration % 60}s</div>}
-              </div>
+              ))}
             </div>
-          ))}
+          )}
         </ScrollArea>
       </DialogContent>
     </Dialog>

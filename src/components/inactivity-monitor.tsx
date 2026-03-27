@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useRef } from 'react'
@@ -28,17 +27,17 @@ export function InactivityMonitor() {
   
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const lastActiveRef = useRef<number>(Date.now())
   const wentHiddenAtRef = useRef<number | null>(null)
 
-  const handleLogout = async (reason: string = 'auto_logout') => {
+  const handleLogout = async (reason: string = 'auto_logout', duration: number = 0) => {
     if (user && db) {
       addDoc(collection(db, 'students', user.id, 'activity'), {
         type: 'inactivity_logout',
         timestamp: serverTimestamp(),
+        duration,
         metadata: { 
           reason,
-          inactiveAt: wentHiddenAtRef.current ? new Date(wentHiddenAtRef.current).toISOString() : new Date().toISOString()
+          inactiveAt: new Date().toISOString()
         }
       })
     }
@@ -47,7 +46,6 @@ export function InactivityMonitor() {
   }
 
   const resetTimer = () => {
-    lastActiveRef.current = Date.now()
     if (showWarning) return
     
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -62,9 +60,8 @@ export function InactivityMonitor() {
     resetTimer()
   }
 
-  // Handle standard user interactions
   useEffect(() => {
-    if (!user) return
+    if (!user || user.role !== 'student') return
 
     const events = ['mousedown', 'keydown', 'touchstart', 'mousemove']
     const listener = () => resetTimer()
@@ -72,20 +69,26 @@ export function InactivityMonitor() {
     events.forEach(event => window.addEventListener(event, listener))
     resetTimer()
 
-    // Visibility Change Detection (Tab switching/App switching)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         wentHiddenAtRef.current = Date.now()
-        // When they leave, we still want the timer to run
-        // But if they are gone for > TOTAL_LIMIT, we log them out when they return or via interval
       } else {
-        // Returned to tab
         if (wentHiddenAtRef.current) {
-          const awayDuration = Date.now() - wentHiddenAtRef.current
-          if (awayDuration >= TOTAL_LIMIT) {
-            handleLogout('tab_away_timeout')
+          const awayDurationMs = Date.now() - wentHiddenAtRef.current
+          const awayDurationSec = Math.floor(awayDurationMs / 1000)
+          
+          if (awayDurationMs >= TOTAL_LIMIT) {
+            handleLogout('tab_away_timeout', awayDurationSec)
           } else {
-            // Log the "came back" event if needed, or just reset
+            // Log the "away" duration so admin knows exactly how much time was spent in background
+            if (awayDurationSec > 5 && db && user) {
+              addDoc(collection(db, 'students', user.id, 'activity'), {
+                type: 'tab_away',
+                timestamp: serverTimestamp(),
+                duration: awayDurationSec,
+                metadata: { returnTimestamp: new Date().toISOString() }
+              })
+            }
             resetTimer()
           }
           wentHiddenAtRef.current = null
@@ -100,16 +103,16 @@ export function InactivityMonitor() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [user, showWarning])
+  }, [user, showWarning, db])
 
-  // Countdown logic for the warning dialog
+  // Countdown logic
   useEffect(() => {
     if (showWarning) {
       countdownIntervalRef.current = setInterval(() => {
         setCountdown(prev => {
           if (prev <= 1) {
             clearInterval(countdownIntervalRef.current!)
-            handleLogout('inactivity_countdown_reached')
+            handleLogout('inactivity_countdown_reached', INACTIVITY_LIMIT / 1000)
             return 0
           }
           return prev - 1
@@ -125,7 +128,7 @@ export function InactivityMonitor() {
     }
   }, [showWarning])
 
-  if (!user) return null
+  if (!user || user.role !== 'student') return null
 
   return (
     <AlertDialog open={showWarning} onOpenChange={setShowWarning}>
