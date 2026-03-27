@@ -11,7 +11,7 @@
         "name": { "type": "string", "description": "Full name of the student." },
         "schoolName": { "type": "string", "description": "Name of the school the student attends." },
         "location": { "type": "string", "description": "Geographical location of the student/school." },
-        "class": { "type": "string", "description": "The academic stream or class (e.g., Class 10, NEET)." },
+        "class": { "type": "string", "description": "The ID of the course/class assigned." },
         "mentorId": { "type": "string", "description": "The ID of the assigned mentor." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of registration." }
       },
@@ -30,6 +30,18 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "password", "name"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "An academic class or stream (e.g., Class 10, NEET).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string", "description": "URL to a cover image." }
+      },
+      "required": ["id", "name"]
     },
     "ActivityLog": {
       "title": "ActivityLog",
@@ -66,6 +78,10 @@
     "/mentors/{mentorId}": {
       "schema": "Mentor",
       "description": "Collection of registered mentors."
+    },
+    "/courses/{courseId}": {
+      "schema": "Course",
+      "description": "Available classes and streams."
     },
     "/students/{studentId}/activity/{activityId}": {
       "schema": "ActivityLog",

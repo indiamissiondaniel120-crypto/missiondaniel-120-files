@@ -1,8 +1,9 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react'
 import { useFirestore } from '@/firebase'
-import { collection, doc, setDoc, serverTimestamp, query, orderBy, where, updateDoc } from 'firebase/firestore'
+import { collection, doc, setDoc, serverTimestamp, query, orderBy, where, updateDoc, deleteDoc } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle, Download, LogOut, UserRound, GraduationCap, Edit2, MessageSquare } from 'lucide-react'
+import { UserPlus, Users, School, MapPin, Activity, Clock, FileText, PlayCircle, Download, LogOut, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
@@ -18,6 +19,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ChatInterface } from '@/components/chat-interface'
+import { Textarea } from '@/components/ui/textarea'
 
 export function StudentManagement() {
   const db = useFirestore()
@@ -42,14 +44,24 @@ export function StudentManagement() {
     phone: ''
   })
 
+  const [courseForm, setCourseForm] = useState({
+    id: '',
+    name: '',
+    description: '',
+    image: ''
+  })
+
   const [editingStudent, setEditingStudent] = useState<any>(null)
   const [editingMentor, setEditingMentor] = useState<any>(null)
+  const [editingCourse, setEditingCourse] = useState<any>(null)
 
   const studentsQuery = useMemo(() => db ? collection(db, 'students') : null, [db])
   const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db])
+  const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db])
 
   const { data: students } = useCollection(studentsQuery)
   const { data: mentors } = useCollection(mentorsQuery)
+  const { data: courses } = useCollection(coursesQuery)
 
   const handleRegisterStudent = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,15 +133,63 @@ export function StudentManagement() {
       .finally(() => setLoading(false))
   }
 
+  const handleRegisterCourse = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!db) return
+    if (!courseForm.id || !courseForm.name) {
+      toast({ variant: "destructive", title: "Missing Fields", description: "ID and Name are required." })
+      return
+    }
+
+    setLoading(true)
+    const docRef = doc(db, 'courses', courseForm.id)
+    const data = { ...courseForm }
+
+    setDoc(docRef, data)
+      .then(() => {
+        toast({ title: "Class Registered", description: `${courseForm.name} added.` })
+        setCourseForm({ id: '', name: '', description: '', image: '' })
+      })
+      .catch(async () => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'write', requestResourceData: data })))
+      .finally(() => setLoading(false))
+  }
+
+  const handleUpdateCourse = async () => {
+    if (!db || !editingCourse) return
+    setLoading(true)
+    const docRef = doc(db, 'courses', editingCourse.id)
+    
+    updateDoc(docRef, editingCourse)
+      .then(() => {
+        toast({ title: "Updated", description: "Class details updated successfully." })
+        setEditingCourse(null)
+      })
+      .catch(async () => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: editingCourse })))
+      .finally(() => setLoading(false))
+  }
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!db) return
+    if (!confirm("Are you sure you want to delete this class? Materials might be affected.")) return
+
+    const docRef = doc(db, 'courses', courseId)
+    deleteDoc(docRef)
+      .then(() => toast({ title: "Deleted", description: "Class removed." }))
+      .catch(async () => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' })))
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <Tabs defaultValue="students" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="students" className="flex items-center gap-2">
+        <TabsList className="mb-4 bg-muted/50 p-1">
+          <TabsTrigger value="students" className="flex items-center gap-2 px-6">
             <GraduationCap size={16} /> Students
           </TabsTrigger>
-          <TabsTrigger value="mentors" className="flex items-center gap-2">
+          <TabsTrigger value="mentors" className="flex items-center gap-2 px-6">
             <UserRound size={16} /> Mentors
+          </TabsTrigger>
+          <TabsTrigger value="courses" className="flex items-center gap-2 px-6">
+            <BookOpen size={16} /> Classes/Streams
           </TabsTrigger>
         </TabsList>
 
@@ -146,27 +206,25 @@ export function StudentManagement() {
                 <form onSubmit={handleRegisterStudent} className="space-y-4">
                   <div className="space-y-2">
                     <Label>Student ID</Label>
-                    <Input value={studentForm.id} onChange={e => setStudentForm({...studentForm, id: e.target.value})} disabled={loading} />
+                    <Input value={studentForm.id} onChange={e => setStudentForm({...studentForm, id: e.target.value})} placeholder="e.g. S123" disabled={loading} />
                   </div>
                   <div className="space-y-2">
                     <Label>Password</Label>
-                    <Input type="password" value={studentForm.password} onChange={e => setStudentForm({...studentForm, password: e.target.value})} disabled={loading} />
+                    <Input type="password" value={studentForm.password} onChange={e => setStudentForm({...studentForm, password: e.target.value})} placeholder="Set password" disabled={loading} />
                   </div>
                   <div className="space-y-2">
                     <Label>Full Name</Label>
-                    <Input value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} disabled={loading} />
+                    <Input value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} placeholder="Enter name" disabled={loading} />
                   </div>
                   <div className="space-y-2">
                     <Label>Class / Stream</Label>
                     <Select onValueChange={v => setStudentForm({...studentForm, class: v})} value={studentForm.class} disabled={loading}>
                       <SelectTrigger><SelectValue placeholder="Select Class" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="class-9">Class 9</SelectItem>
-                        <SelectItem value="class-10">Class 10</SelectItem>
-                        <SelectItem value="class-11">Class 11</SelectItem>
-                        <SelectItem value="class-12">Class 12</SelectItem>
-                        <SelectItem value="neet">NEET</SelectItem>
-                        <SelectItem value="jee">JEE</SelectItem>
+                        {courses?.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                        {(!courses || courses.length === 0) && <SelectItem value="none" disabled>No classes defined</SelectItem>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -185,11 +243,11 @@ export function StudentManagement() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-2">
                       <Label>School</Label>
-                      <Input value={studentForm.schoolName} onChange={e => setStudentForm({...studentForm, schoolName: e.target.value})} disabled={loading} />
+                      <Input value={studentForm.schoolName} onChange={e => setStudentForm({...studentForm, schoolName: e.target.value})} placeholder="School name" disabled={loading} />
                     </div>
                     <div className="space-y-2">
                       <Label>Location</Label>
-                      <Input value={studentForm.location} onChange={e => setStudentForm({...studentForm, location: e.target.value})} disabled={loading} />
+                      <Input value={studentForm.location} onChange={e => setStudentForm({...studentForm, location: e.target.value})} placeholder="City/Region" disabled={loading} />
                     </div>
                   </div>
                   <Button type="submit" className="w-full bg-accent" disabled={loading}>Add Student</Button>
@@ -217,7 +275,7 @@ export function StudentManagement() {
                             <div className="font-bold">{s.name}</div>
                             <div className="text-xs text-muted-foreground">{s.id}</div>
                           </TableCell>
-                          <TableCell className="capitalize">{s.class?.replace('-', ' ')}</TableCell>
+                          <TableCell className="capitalize">{courses?.find(c => c.id === s.class)?.name || s.class}</TableCell>
                           <TableCell>
                             {s.mentorId && s.mentorId !== 'none' ? (
                               <div className="text-sm">{mentors?.find(m => m.id === s.mentorId)?.name || s.mentorId}</div>
@@ -255,23 +313,23 @@ export function StudentManagement() {
                 <form onSubmit={handleRegisterMentor} className="space-y-4">
                   <div className="space-y-2">
                     <Label>Mentor ID (Username)</Label>
-                    <Input value={mentorForm.id} onChange={e => setMentorForm({...mentorForm, id: e.target.value})} disabled={loading} />
+                    <Input value={mentorForm.id} onChange={e => setMentorForm({...mentorForm, id: e.target.value})} placeholder="e.g. M123" disabled={loading} />
                   </div>
                   <div className="space-y-2">
                     <Label>Password</Label>
-                    <Input type="password" value={mentorForm.password} onChange={e => setMentorForm({...mentorForm, password: e.target.value})} disabled={loading} />
+                    <Input type="password" value={mentorForm.password} onChange={e => setMentorForm({...mentorForm, password: e.target.value})} placeholder="Set password" disabled={loading} />
                   </div>
                   <div className="space-y-2">
                     <Label>Full Name</Label>
-                    <Input value={mentorForm.name} onChange={e => setMentorForm({...mentorForm, name: e.target.value})} disabled={loading} />
+                    <Input value={mentorForm.name} onChange={e => setMentorForm({...mentorForm, name: e.target.value})} placeholder="Enter name" disabled={loading} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Expertise (e.g. Physics, NEET Specialist)</Label>
-                    <Input value={mentorForm.expertise} onChange={e => setMentorForm({...mentorForm, expertise: e.target.value})} disabled={loading} />
+                    <Label>Expertise</Label>
+                    <Input value={mentorForm.expertise} onChange={e => setMentorForm({...mentorForm, expertise: e.target.value})} placeholder="e.g. Physics" disabled={loading} />
                   </div>
                   <div className="space-y-2">
                     <Label>Phone Number</Label>
-                    <Input value={mentorForm.phone} onChange={e => setMentorForm({...mentorForm, phone: e.target.value})} disabled={loading} />
+                    <Input value={mentorForm.phone} onChange={e => setMentorForm({...mentorForm, phone: e.target.value})} placeholder="Contact number" disabled={loading} />
                   </div>
                   <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600" disabled={loading}>Add Mentor</Button>
                 </form>
@@ -312,7 +370,95 @@ export function StudentManagement() {
             </Card>
           </div>
         </TabsContent>
+
+        <TabsContent value="courses" className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <Card className="lg:col-span-1 border-primary/20">
+              <CardHeader>
+                <CardTitle className="text-primary flex items-center gap-2">
+                  <BookOpen size={20} /> Add Class / Stream
+                </CardTitle>
+                <CardDescription>Define a new academic stream.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleRegisterCourse} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Class ID (URL friendly)</Label>
+                    <Input value={courseForm.id} onChange={e => setCourseForm({...courseForm, id: e.target.value.toLowerCase().replace(/\s+/g, '-')})} placeholder="e.g. class-10" disabled={loading} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Class Name</Label>
+                    <Input value={courseForm.name} onChange={e => setCourseForm({...courseForm, name: e.target.value})} placeholder="e.g. Class 10" disabled={loading} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea value={courseForm.description} onChange={e => setCourseForm({...courseForm, description: e.target.value})} placeholder="Detailed description" disabled={loading} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cover Image URL</Label>
+                    <Input value={courseForm.image} onChange={e => setCourseForm({...courseForm, image: e.target.value})} placeholder="https://..." disabled={loading} />
+                  </div>
+                  <Button type="submit" className="w-full bg-primary" disabled={loading}>Add Class</Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-2">
+              <CardHeader><CardTitle>Available Classes</CardTitle></CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Class Name</TableHead>
+                        <TableHead>ID</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {courses?.map((c: any) => (
+                        <TableRow key={c.id}>
+                          <TableCell className="font-bold">{c.name}</TableCell>
+                          <TableCell className="text-xs">{c.id}</TableCell>
+                          <TableCell className="text-right flex justify-end gap-2">
+                             <Button variant="ghost" size="sm" onClick={() => setEditingCourse(c)}><Edit2 size={16} /></Button>
+                             <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteCourse(c.id)}><Trash2 size={16} /></Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
+
+      {/* Edit Course Dialog */}
+      <Dialog open={!!editingCourse} onOpenChange={() => setEditingCourse(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Class: {editingCourse?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={editingCourse?.name || ''} onChange={e => setEditingCourse({...editingCourse, name: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={editingCourse?.description || ''} onChange={e => setEditingCourse({...editingCourse, description: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>Cover Image URL</Label>
+              <Input value={editingCourse?.image || ''} onChange={e => setEditingCourse({...editingCourse, image: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingCourse(null)}>Cancel</Button>
+            <Button onClick={handleUpdateCourse} disabled={loading}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Student Dialog */}
       <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}>
@@ -328,12 +474,9 @@ export function StudentManagement() {
               <Select onValueChange={v => setEditingStudent({...editingStudent, class: v})} value={editingStudent?.class || ''}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="class-9">Class 9</SelectItem>
-                  <SelectItem value="class-10">Class 10</SelectItem>
-                  <SelectItem value="class-11">Class 11</SelectItem>
-                  <SelectItem value="class-12">Class 12</SelectItem>
-                  <SelectItem value="neet">NEET</SelectItem>
-                  <SelectItem value="jee">JEE</SelectItem>
+                  {courses?.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

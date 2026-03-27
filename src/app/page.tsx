@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -12,7 +13,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { COURSES, STUDY_MATERIALS, Course, Material } from '@/lib/mock-data';
+import { STUDY_MATERIALS, Material } from '@/lib/mock-data';
 import {
   Card,
   CardContent,
@@ -145,7 +146,7 @@ function StudentListItem({
 function Dashboard() {
   const { user, logout } = useAuth();
   const db = useFirestore();
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [activeMaterial, setActiveMaterial] = useState<Material | null>(null);
   const [selectedChatStudent, setSelectedChatStudent] = useState<any>(null);
@@ -155,11 +156,16 @@ function Dashboard() {
   const isAdmin = user?.role === 'admin';
   const isMentor = user?.role === 'mentor';
 
+  // Fetch all courses from Firestore
+  const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db]);
+  const { data: allCourses } = useCollection(coursesQuery);
+
   const visibleCourses = useMemo(() => {
-    if (isAdmin || isMentor) return COURSES;
+    if (!allCourses) return [];
+    if (isAdmin || isMentor) return allCourses;
     if (!user?.class) return [];
-    return COURSES.filter((c) => c.id === user.class);
-  }, [isAdmin, isMentor, user?.class]);
+    return allCourses.filter((c: any) => c.id === user.class);
+  }, [isAdmin, isMentor, user?.class, allCourses]);
 
   const courseMaterials = selectedCourse
     ? STUDY_MATERIALS.filter((m) => m.courseId === selectedCourse.id)
@@ -224,7 +230,7 @@ function Dashboard() {
     setSelectedChatStudent(null);
   };
 
-  const handleSelectCourse = (course: Course) => {
+  const handleSelectCourse = (course: any) => {
     if (isAdmin || isMentor || course.id === user?.class) {
       if (activeMaterial) handleCloseMaterial();
       setSelectedCourse(course);
@@ -314,9 +320,9 @@ function Dashboard() {
               )}
 
               <div className="my-4 px-3 text-xs font-semibold text-white/50 uppercase tracking-widest">
-                Courses
+                Classes / Streams
               </div>
-              {visibleCourses.map((course) => (
+              {visibleCourses.map((course: any) => (
                 <SidebarMenuItem key={course.id}>
                   <SidebarMenuButton
                     isActive={selectedCourse?.id === course.id}
@@ -360,7 +366,7 @@ function Dashboard() {
                       <h2 className="text-4xl font-bold mb-4">Welcome back, {user?.name}!</h2>
                       <p className="text-white/80 text-lg mb-8 leading-relaxed">
                         {isAdmin
-                          ? 'Manage students and mentors to ensure a high standard of education.'
+                          ? 'Manage classes, students, and mentors to ensure a high standard of education.'
                           : isMentor
                             ? 'Monitor your assigned students and guide them to academic success.'
                             : 'The vision of DANIEL 120 is to uplift every student. Study hard and stay humble.'}
@@ -378,10 +384,10 @@ function Dashboard() {
                           </div>
                           <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
                             <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-1">
-                              Class
+                              Registered Class
                             </p>
                             <p className="text-xl font-bold capitalize">
-                              {user.class?.replace('-', ' ')}
+                              {allCourses?.find((c: any) => c.id === user.class)?.name || user.class}
                             </p>
                           </div>
                           <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
@@ -421,7 +427,7 @@ function Dashboard() {
                         className="bg-white text-primary hover:bg-white/90 rounded-full px-8 py-6 text-lg"
                         onClick={isAdmin ? navigateToAdmin : undefined}
                       >
-                        {isAdmin ? 'Manage Database' : 'Start Learning'}
+                        {isAdmin ? 'Manage Dashboard' : 'Start Learning'}
                       </Button>
                     </div>
                   </div>
@@ -456,11 +462,11 @@ function Dashboard() {
                     <section className="space-y-6">
                       <h3 className="text-2xl font-bold text-primary">
                         {isAdmin || isMentor
-                          ? 'All Available Courses'
-                          : 'Your Registered Course'}
+                          ? 'All Available Classes'
+                          : 'Your Registered Class'}
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {visibleCourses.map((course) => (
+                        {visibleCourses.map((course: any) => (
                           <Card
                             key={course.id}
                             className="group hover:shadow-2xl transition-all border-none cursor-pointer overflow-hidden rounded-2xl"
@@ -468,7 +474,7 @@ function Dashboard() {
                           >
                             <div className="h-40 relative">
                               <Image
-                                src={course.image}
+                                src={course.image || `https://picsum.photos/seed/${course.id}/400/300`}
                                 alt={course.name}
                                 fill
                                 className="object-cover group-hover:scale-110 transition-transform duration-500"
@@ -480,7 +486,7 @@ function Dashboard() {
                             </div>
                             <CardContent className="p-5">
                               <p className="text-muted-foreground text-sm line-clamp-2">
-                                {course.description}
+                                {course.description || 'No description provided.'}
                               </p>
                               <Button
                                 variant="link"
@@ -491,6 +497,12 @@ function Dashboard() {
                             </CardContent>
                           </Card>
                         ))}
+                        {visibleCourses.length === 0 && (
+                          <Card className="p-12 border-dashed flex flex-col items-center justify-center text-center col-span-2">
+                            <BookOpen className="h-12 w-12 text-muted-foreground/20 mb-4" />
+                            <p className="text-muted-foreground">No classes available for your account.</p>
+                          </Card>
+                        )}
                       </div>
                     </section>
                   </div>
@@ -594,6 +606,7 @@ function Dashboard() {
                             </CardContent>
                           </Card>
                         ))}
+                        {notes.length === 0 && <p className="text-center py-12 text-muted-foreground">No notes available for this class yet.</p>}
                       </TabsContent>
                       <TabsContent value="videos" className="space-y-6">
                         {videos.map((video) => (
@@ -622,6 +635,7 @@ function Dashboard() {
                             </CardContent>
                           </Card>
                         ))}
+                        {videos.length === 0 && <p className="text-center py-12 text-muted-foreground">No videos available for this class yet.</p>}
                       </TabsContent>
                     </Tabs>
                   </div>
