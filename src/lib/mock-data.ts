@@ -19,7 +19,7 @@ export interface Student {
   id: string;
   name: string;
   password: string;
-  role?: 'student' | 'admin';
+  role?: 'student' | 'admin' | 'mentor';
 }
 
 /**
@@ -41,6 +41,8 @@ export const ADMINS: Student[] = [
 ];
 
 export const COURSES: Course[] = [
+  { id: 'class-7', name: 'Class 7', description: 'Foundation mathematics for 7th Grade.', icon: 'calculator', image: 'https://picsum.photos/seed/class7/400/300' },
+  { id: 'class-8', name: 'Class 8', description: 'Advanced arithmetic and algebra for 8th Grade.', icon: 'variable', image: 'https://picsum.photos/seed/class8/400/300' },
   { id: 'class-9', name: 'Class 9', description: 'Foundation for your academic journey.', icon: 'graduation-cap', image: 'https://picsum.photos/seed/class9/400/300' },
   { id: 'class-10', name: 'Class 10', description: 'Mastering the boards with confidence.', icon: 'book-open', image: 'https://picsum.photos/seed/class10/400/300' },
   { id: 'class-11', name: 'Class 11', description: 'Deepening concepts in core subjects.', icon: 'library', image: 'https://picsum.photos/seed/class11/400/300' },
@@ -50,6 +52,30 @@ export const COURSES: Course[] = [
 ];
 
 export const STUDY_MATERIALS: Material[] = [
+  { 
+    id: 'v7-1', 
+    courseId: 'class-7', 
+    title: '7th Maths Chapter 1', 
+    type: 'video', 
+    url: 'https://raw.githubusercontent.com/indiamissiondaniel120-crypto/missiondaniel-120-files/ecc76e3bd864109fab497d1e7e752ce0e0b7279c/7th%20Maths%20chap%201%20a.mp4', 
+    thumbnail: 'https://picsum.photos/seed/v7/640/360' 
+  },
+  { 
+    id: 'v8-1', 
+    courseId: 'class-8', 
+    title: '8th Maths Chapter 2', 
+    type: 'video', 
+    url: 'https://raw.githubusercontent.com/indiamissiondaniel120-crypto/missiondaniel-120-files/ecc76e3bd864109fab497d1e7e752ce0e0b7279c/8th%20Maths%20chap%202.mp4', 
+    thumbnail: 'https://picsum.photos/seed/v8/640/360' 
+  },
+  { 
+    id: 'v9-1', 
+    courseId: 'class-9', 
+    title: '9th Maths Chapter 1', 
+    type: 'video', 
+    url: 'https://raw.githubusercontent.com/indiamissiondaniel120-crypto/missiondaniel-120-files/ecc76e3bd864109fab497d1e7e752ce0e0b7279c/9th%20Maths%20chap%201%201.mp4', 
+    thumbnail: 'https://picsum.photos/seed/v9/640/360' 
+  },
   { id: 'n1', courseId: 'class-10', title: 'Mathematics - Quadratic Equations', type: 'pdf', url: '#' },
   { id: 'n2', courseId: 'class-10', title: 'Science - Chemical Reactions', type: 'pdf', url: '#' },
   { id: 'v1', courseId: 'class-10', title: 'Introduction to Geometry', type: 'video', url: 'https://www.w3schools.com/html/mov_bbb.mp4', thumbnail: 'https://picsum.photos/seed/v1/640/360' },
