@@ -18,6 +18,14 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /subjects/{subjectId} {
+      allow read, write: if true;
+    }
+
+    match /materials/{materialId} {
+      allow read, write: if true;
+    }
+
     match /chats/{chatId}/messages/{messageId} {
       allow read, write: if true;
     }

@@ -43,12 +43,39 @@
       },
       "required": ["id", "name"]
     },
+    "Subject": {
+      "title": "Subject",
+      "description": "An academic subject (e.g., Maths, Science) linked to a class.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "courseId": { "type": "string" }
+      },
+      "required": ["name", "courseId"]
+    },
+    "Material": {
+      "title": "Material",
+      "description": "Educational resource (PDF, Video, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["video", "pdf", "other"] },
+        "url": { "type": "string" },
+        "fileType": { "type": "string", "description": "e.g., mp4, pdf, docx" },
+        "courseId": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "type", "url", "courseId", "subjectId"]
+    },
     "ActivityLog": {
       "title": "ActivityLog",
       "description": "Log of student activities (logins, material access).",
       "type": "object",
       "properties": {
-        "type": { "type": "string", "enum": ["login", "logout", "pdf_view", "video_view", "inactivity_logout"] },
+        "type": { "type": "string", "enum": ["login", "logout", "pdf_view", "video_view", "inactivity_logout", "tab_away"] },
         "timestamp": { "type": "string", "format": "date-time" },
         "duration": { "type": "number", "description": "Duration in seconds for views." },
         "metadata": { "type": "object", "description": "Additional info like title of material." }
@@ -82,6 +109,14 @@
     "/courses/{courseId}": {
       "schema": "Course",
       "description": "Available classes and streams."
+    },
+    "/subjects/{subjectId}": {
+      "schema": "Subject",
+      "description": "Subjects available for courses."
+    },
+    "/materials/{materialId}": {
+      "schema": "Material",
+      "description": "Uploaded educational materials."
     },
     "/students/{studentId}/activity/{activityId}": {
       "schema": "ActivityLog",
