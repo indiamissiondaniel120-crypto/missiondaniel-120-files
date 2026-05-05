@@ -56,6 +56,15 @@ import {
 } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+function getYouTubeEmbedUrl(url: string) {
+  if (!url) return '';
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11)
+    ? `https://www.youtube.com/embed/${match[2]}`
+    : url;
+}
+
 function StudentListWithUnread({
   students,
   mentorId,
@@ -247,7 +256,9 @@ function Dashboard() {
     if (activeMaterial) handleCloseMaterial();
     setActiveMaterial(material);
     viewStartTime.current = Date.now();
-    if (material.type === 'pdf' && material.url !== '#') window.open(material.url, '_blank');
+    if (material.type === 'pdf' && material.url !== '#' && material.url.startsWith('http')) {
+      window.open(material.url, '_blank');
+    }
   };
 
   const handleCloseMaterial = () => {
@@ -380,23 +391,39 @@ function Dashboard() {
                           <TabsTrigger value="notes"><FileText size={16} className="mr-2" /> Notes</TabsTrigger>
                         </TabsList>
                         <TabsContent value="videos" className="space-y-4">
-                          {videos.map(v => (
-                            <Card key={v.id} className="overflow-hidden">
-                              <div className="aspect-video relative bg-black">
-                                <video controls className="w-full h-full" onPlay={() => handleOpenMaterial(v)} onPause={handleCloseMaterial}>
-                                  <source src={v.url} />
-                                </video>
-                              </div>
-                              <CardHeader className="p-4"><CardTitle className="text-sm">{v.title}</CardTitle></CardHeader>
-                            </Card>
-                          ))}
+                          {videos.map(v => {
+                            const isYoutube = v.url.includes('youtube.com') || v.url.includes('youtu.be');
+                            return (
+                              <Card key={v.id} className="overflow-hidden">
+                                <div className="aspect-video relative bg-black">
+                                  {isYoutube ? (
+                                    <iframe 
+                                      src={getYouTubeEmbedUrl(v.url)}
+                                      className="w-full h-full border-none"
+                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                      allowFullScreen
+                                      onLoad={() => handleOpenMaterial(v)}
+                                    />
+                                  ) : (
+                                    <video controls className="w-full h-full" onPlay={() => handleOpenMaterial(v)} onPause={handleCloseMaterial}>
+                                      <source src={v.url} />
+                                    </video>
+                                  )}
+                                </div>
+                                <CardHeader className="p-4 flex flex-row items-center justify-between">
+                                  <CardTitle className="text-sm">{v.title}</CardTitle>
+                                  {isYoutube && <Badge variant="secondary" className="text-[10px]"><Youtube className="mr-1 h-3 w-3 text-red-600" /> YouTube</Badge>}
+                                </CardHeader>
+                              </Card>
+                            )
+                          })}
                           {videos.length === 0 && <p className="text-center py-12 text-muted-foreground">No videos available.</p>}
                         </TabsContent>
                         <TabsContent value="notes" className="space-y-2">
                            {notes.map(n => (
                             <Card key={n.id}>
                               <CardContent className="p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-3"><FileText className="text-red-500" /> <span className="font-bold">{n.title}</span></div>
+                                <div className="flex items-center gap-3"><FileText className="text-blue-500" /> <span className="font-bold">{n.title}</span></div>
                                 <Button size="sm" onClick={() => handleOpenMaterial(n)}>Open</Button>
                               </CardContent>
                             </Card>
