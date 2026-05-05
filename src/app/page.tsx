@@ -56,9 +56,15 @@ function getYouTubeEmbedUrl(url: string) {
   if (!url) return '';
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
-  return (match && match[2].length === 11)
-    ? `https://www.youtube.com/embed/${match[2]}`
-    : url;
+  if (match && match[2].length === 11) {
+    const videoId = match[2];
+    // modestbranding=1: removes the YouTube logo from the control bar
+    // rel=0: prevents showing related videos from other channels
+    // color=white: changes the progress bar (seeker) color to white
+    // iv_load_policy=3: hides video annotations
+    return `https://www.youtube.com/embed/${videoId}?modestbranding=1&rel=0&color=white&showinfo=0&iv_load_policy=3&controls=1`;
+  }
+  return url;
 }
 
 function StudentListWithUnread({
@@ -156,7 +162,6 @@ function Dashboard() {
   const isAdmin = user?.role === 'admin';
   const isMentor = user?.role === 'mentor';
 
-  // Fetch all data from Firestore
   const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db]);
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db]);
   const materialsQuery = useMemo(() => db ? collection(db, 'materials') : null, [db]);
@@ -172,16 +177,12 @@ function Dashboard() {
     return allCourses.filter((c: any) => c.id === user.class);
   }, [isAdmin, isMentor, user?.class, allCourses]);
 
-  // Combine Mock Data and Firestore Data for materials
   const currentMaterials = useMemo(() => {
     if (!selectedSubject || !selectedCourse) return [];
-    
-    // Merge mock and real data
     const combined = [
       ...STUDY_MATERIALS.filter(m => m.courseId === selectedCourse.id && m.title.toLowerCase().includes(selectedSubject.name.toLowerCase())),
       ...(allMaterials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id)
     ];
-
     return combined;
   }, [selectedCourse, selectedSubject, allMaterials]);
 
@@ -373,9 +374,6 @@ function Dashboard() {
                           <BookOpen className="mr-3 h-4 w-4" /> {subject.name}
                         </Button>
                       ))}
-                      {(!allSubjects || allSubjects.filter(s => s.courseId === selectedCourse.id).length === 0) && (
-                        <p className="text-xs text-muted-foreground px-2 italic">No subjects added yet.</p>
-                      )}
                     </div>
                   </div>
 
@@ -390,12 +388,12 @@ function Dashboard() {
                           {videos.map(v => {
                             const isYoutube = v.url.includes('youtube.com') || v.url.includes('youtu.be');
                             return (
-                              <Card key={v.id} className="overflow-hidden">
-                                <div className="aspect-video relative bg-black">
+                              <Card key={v.id} className="overflow-hidden border-none shadow-lg rounded-2xl">
+                                <div className="aspect-video relative bg-black rounded-t-2xl overflow-hidden border-b border-white/5">
                                   {isYoutube ? (
                                     <iframe 
                                       src={getYouTubeEmbedUrl(v.url)}
-                                      className="w-full h-full border-none"
+                                      className="absolute inset-0 w-full h-full border-none"
                                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                       allowFullScreen
                                       onLoad={() => handleOpenMaterial(v)}
@@ -406,35 +404,35 @@ function Dashboard() {
                                     </video>
                                   )}
                                 </div>
-                                <CardHeader className="p-4 flex flex-row items-center justify-between">
-                                  <CardTitle className="text-sm">{v.title}</CardTitle>
+                                <CardHeader className="p-4 flex flex-row items-center justify-between bg-card">
+                                  <CardTitle className="text-sm font-bold">{v.title}</CardTitle>
                                   {isYoutube && (
-                                    <Badge variant="secondary" className="text-[10px] flex items-center gap-1">
-                                      <Youtube className="h-3 w-3 text-red-600" /> YouTube
+                                    <Badge variant="secondary" className="text-[10px] flex items-center gap-1.5 px-2 py-1 bg-white/5 border-none">
+                                      <Youtube className="h-3.5 w-3.5 text-red-500" /> YouTube
                                     </Badge>
                                   )}
                                 </CardHeader>
                               </Card>
                             )
                           })}
-                          {videos.length === 0 && <p className="text-center py-12 text-muted-foreground">No videos available.</p>}
+                          {videos.length === 0 && <p className="text-center py-12 text-muted-foreground bg-muted/10 rounded-2xl italic">No videos available for this subject.</p>}
                         </TabsContent>
                         <TabsContent value="notes" className="space-y-2">
                            {notes.map(n => (
-                            <Card key={n.id}>
+                            <Card key={n.id} className="hover:bg-muted/30 transition-colors">
                               <CardContent className="p-4 flex items-center justify-between">
                                 <div className="flex items-center gap-3"><FileText className="text-blue-500" /> <span className="font-bold">{n.title}</span></div>
-                                <Button size="sm" onClick={() => handleOpenMaterial(n)}>Open</Button>
+                                <Button size="sm" onClick={() => handleOpenMaterial(n)} className="rounded-xl px-4">Open</Button>
                               </CardContent>
                             </Card>
                           ))}
-                          {notes.length === 0 && <p className="text-center py-12 text-muted-foreground">No notes available.</p>}
+                          {notes.length === 0 && <p className="text-center py-12 text-muted-foreground bg-muted/10 rounded-2xl italic">No notes available for this subject.</p>}
                         </TabsContent>
                       </Tabs>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-muted/20 rounded-3xl border border-dashed">
-                        <BookOpen size={48} className="mb-4 opacity-20" />
-                        <p>Select a subject to view materials.</p>
+                      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-muted/20 rounded-3xl border border-dashed border-primary/20">
+                        <BookOpen size={48} className="mb-4 opacity-20 text-primary" />
+                        <p className="font-medium">Select a subject to view educational materials.</p>
                       </div>
                     )}
                   </div>
