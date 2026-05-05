@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -13,13 +12,12 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { STUDY_MATERIALS, Material } from '@/lib/mock-data';
+import { STUDY_MATERIALS } from '@/lib/mock-data';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -38,9 +36,8 @@ import {
   GraduationCap,
   Users,
   FileText,
-  Clock,
   MessageSquare,
-  ChevronDown,
+  Youtube,
 } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection, useDoc } from '@/firebase';
@@ -54,7 +51,6 @@ import {
   doc,
   onSnapshot,
 } from 'firebase/firestore';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 function getYouTubeEmbedUrl(url: string) {
   if (!url) return '';
@@ -412,7 +408,11 @@ function Dashboard() {
                                 </div>
                                 <CardHeader className="p-4 flex flex-row items-center justify-between">
                                   <CardTitle className="text-sm">{v.title}</CardTitle>
-                                  {isYoutube && <Badge variant="secondary" className="text-[10px]"><Youtube className="mr-1 h-3 w-3 text-red-600" /> YouTube</Badge>}
+                                  {isYoutube && (
+                                    <Badge variant="secondary" className="text-[10px] flex items-center gap-1">
+                                      <Youtube className="h-3 w-3 text-red-600" /> YouTube
+                                    </Badge>
+                                  )}
                                 </CardHeader>
                               </Card>
                             )
