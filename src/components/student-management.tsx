@@ -75,6 +75,7 @@ export function StudentManagement() {
   const [editingStudent, setEditingStudent] = useState<any>(null)
   const [editingMentor, setEditingMentor] = useState<any>(null)
   const [editingCourse, setEditingCourse] = useState<any>(null)
+  const [editingMaterial, setEditingMaterial] = useState<any>(null)
 
   const studentsQuery = useMemo(() => db ? collection(db, 'students') : null, [db])
   const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db])
@@ -197,11 +198,6 @@ export function StudentManagement() {
       return
     }
 
-    if (materialForm.type === 'pdf' && !materialForm.file && !materialForm.url) {
-      toast({ variant: "destructive", title: "Missing Content", description: "Please upload a file or provide a URL for the notes." })
-      return
-    }
-
     setIsUploading(true)
     setUploadProgress(10)
 
@@ -262,6 +258,21 @@ export function StudentManagement() {
     }).then(() => {
       toast({ title: "Updated", description: "Student details saved." })
       setEditingStudent(null)
+    }).finally(() => setLoading(false))
+  }
+
+  const handleUpdateMaterial = async () => {
+    if (!db || !editingMaterial) return
+    setLoading(true)
+    const docRef = doc(db, 'materials', editingMaterial.id)
+    updateDoc(docRef, {
+      title: editingMaterial.title,
+      url: editingMaterial.url,
+      courseId: editingMaterial.courseId,
+      subjectId: editingMaterial.subjectId
+    }).then(() => {
+      toast({ title: "Updated", description: "Material details saved." })
+      setEditingMaterial(null)
     }).finally(() => setLoading(false))
   }
 
@@ -566,7 +577,7 @@ export function StudentManagement() {
                 <CardTitle className="text-primary flex items-center gap-2">
                   <Library size={20} /> Add Materials
                 </CardTitle>
-                <CardDescription>Add YouTube videos or Notes (PDF/DOC) links.</CardDescription>
+                <CardDescription>Add YouTube videos or Notes (PDF/Doc) links.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <form onSubmit={handleUploadMaterial} className="space-y-4">
@@ -592,7 +603,7 @@ export function StudentManagement() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="pdf" id="pdf" />
-                        <Label htmlFor="pdf" className="cursor-pointer">Note (PDF/Doc)</Label>
+                        <Label htmlFor="pdf" className="cursor-pointer">Note (PDF/Doc/GitHub)</Label>
                       </div>
                     </RadioGroup>
                   </div>
@@ -627,45 +638,17 @@ export function StudentManagement() {
                     </div>
                   </div>
 
-                  {materialForm.type === 'video' ? (
-                    <div className="space-y-2 animate-in slide-in-from-top-2">
-                      <Label className="flex items-center gap-2">
-                        <Youtube className="text-red-600 h-4 w-4" /> YouTube URL
-                      </Label>
-                      <Input 
-                        placeholder="https://www.youtube.com/watch?v=..." 
-                        value={materialForm.url}
-                        onChange={e => setMaterialForm({...materialForm, url: e.target.value})}
-                      />
-                      <p className="text-[10px] text-muted-foreground italic">Paste the full link to the YouTube video.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4 animate-in slide-in-from-top-2">
-                       <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          <Link className="h-4 w-4" /> Resource URL (Optional)
-                        </Label>
-                        <Input 
-                          placeholder="Link to file (e.g. Google Drive)" 
-                          value={materialForm.url}
-                          onChange={e => setMaterialForm({...materialForm, url: e.target.value})}
-                        />
-                      </div>
-                      <div className="border-2 border-dashed rounded-xl p-6 text-center bg-muted/30 relative">
-                        <input 
-                          type="file" 
-                          className="absolute inset-0 opacity-0 cursor-pointer" 
-                          onChange={e => setMaterialForm({...materialForm, file: e.target.files?.[0] || null})}
-                        />
-                        <div className="flex flex-col items-center gap-1">
-                          <Plus size={24} className="text-muted-foreground" />
-                          <p className="text-xs font-medium">
-                            {materialForm.file ? materialForm.file.name : "Or pick local file reference"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      {materialForm.type === 'video' ? <Youtube className="text-red-600 h-4 w-4" /> : <Link className="h-4 w-4" />}
+                      {materialForm.type === 'video' ? 'YouTube URL' : 'Resource URL (GitHub/Drive/PDF)'}
+                    </Label>
+                    <Input 
+                      placeholder={materialForm.type === 'video' ? "https://www.youtube.com/watch?v=..." : "https://github.com/..."}
+                      value={materialForm.url}
+                      onChange={e => setMaterialForm({...materialForm, url: e.target.value})}
+                    />
+                  </div>
 
                   {isUploading && (
                     <div className="space-y-2">
@@ -703,7 +686,8 @@ export function StudentManagement() {
                               </div>
                             </TableCell>
                             <TableCell className="text-xs">{subjects?.find(s => s.id === m.subjectId)?.name}</TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)}><Edit2 size={14} /></Button>
                               <Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)} className="text-destructive">
                                 <Trash2 size={14} />
                               </Button>
@@ -763,6 +747,51 @@ export function StudentManagement() {
           </div>
           <DialogFooter>
             <Button onClick={handleUpdateStudent} disabled={loading}>
+              {loading ? <Loader2 className="animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Material Dialog */}
+      <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Material Resource</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label>URL (YouTube or File Link)</Label>
+              <Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Class</Label>
+                <Select onValueChange={v => setEditingMaterial({...editingMaterial, courseId: v})} value={editingMaterial?.courseId || ''}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Subject</Label>
+                <Select onValueChange={v => setEditingMaterial({...editingMaterial, subjectId: v})} value={editingMaterial?.subjectId || ''}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {subjects?.filter(s => s.courseId === editingMaterial?.courseId).map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateMaterial} disabled={loading}>
               {loading ? <Loader2 className="animate-spin mr-2" /> : null}
               Save Changes
             </Button>
