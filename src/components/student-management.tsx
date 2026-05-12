@@ -17,7 +17,6 @@ import { FirestorePermissionError } from '@/firebase/errors'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ChatInterface } from '@/components/chat-interface'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -27,6 +26,25 @@ function getYouTubeID(url: string) {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
+}
+
+/**
+ * Utility to sort classes numerically (Class 4, Class 5, ..., Class 10, JEE, NEET)
+ */
+function sortClasses(classes: any[]) {
+  if (!classes) return [];
+  return [...classes].sort((a, b) => {
+    const numA = parseInt(a.name.match(/\d+/)?.[0] || '0');
+    const numB = parseInt(b.name.match(/\d+/)?.[0] || '0');
+    
+    // If both have numbers, sort by number
+    if (numA !== 0 && numB !== 0) return numA - numB;
+    // If only one has a number, the one with the number comes first
+    if (numA !== 0) return -1;
+    if (numB !== 0) return 1;
+    // Otherwise alphabetical
+    return a.name.localeCompare(b.name);
+  });
 }
 
 export function StudentManagement() {
@@ -91,9 +109,11 @@ export function StudentManagement() {
 
   const { data: students } = useCollection(studentsQuery)
   const { data: mentors } = useCollection(mentorsQuery)
-  const { data: courses } = useCollection(coursesQuery)
+  const { data: rawCourses } = useCollection(coursesQuery)
   const { data: subjects } = useCollection(subjectsQuery)
   const { data: materials } = useCollection(materialsQuery)
+
+  const courses = useMemo(() => sortClasses(rawCourses || []), [rawCourses]);
 
   const handleRegisterStudent = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -734,7 +754,7 @@ export function StudentManagement() {
               <CardTitle className="flex items-center gap-2">
                 <ListChecks className="text-accent" /> Academic Resource Sheet
               </CardTitle>
-              <CardDescription>Hierarchical view of all classes, their subjects, and associated materials.</CardDescription>
+              <CardDescription>Hierarchical view of all classes (Sorted 4-10), their subjects, and associated materials.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-xl border overflow-hidden shadow-sm">

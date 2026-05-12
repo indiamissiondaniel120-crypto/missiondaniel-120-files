@@ -58,13 +58,28 @@ function getYouTubeEmbedUrl(url: string) {
   const match = url.match(regExp);
   if (match && match[2].length === 11) {
     const videoId = match[2];
-    // modestbranding=1: removes the YouTube logo from the control bar
-    // rel=0: prevents showing related videos from other channels
-    // color=white: changes the progress bar (seeker) color to white
-    // iv_load_policy=3: hides video annotations
     return `https://www.youtube.com/embed/${videoId}?modestbranding=1&rel=0&color=white&showinfo=0&iv_load_policy=3&controls=1`;
   }
   return url;
+}
+
+/**
+ * Utility to sort classes numerically (Class 4, Class 5, ..., Class 10, JEE, NEET)
+ */
+function sortClasses(classes: any[]) {
+  if (!classes) return [];
+  return [...classes].sort((a, b) => {
+    const numA = parseInt(a.name.match(/\d+/)?.[0] || '0');
+    const numB = parseInt(b.name.match(/\d+/)?.[0] || '0');
+    
+    // If both have numbers, sort by number
+    if (numA !== 0 && numB !== 0) return numA - numB;
+    // If only one has a number, the one with the number comes first
+    if (numA !== 0) return -1;
+    if (numB !== 0) return 1;
+    // Otherwise alphabetical
+    return a.name.localeCompare(b.name);
+  });
 }
 
 function StudentListWithUnread({
@@ -170,12 +185,14 @@ function Dashboard() {
   const { data: allSubjects } = useCollection(subjectsQuery);
   const { data: allMaterials } = useCollection(materialsQuery);
 
+  const sortedCourses = useMemo(() => sortClasses(allCourses || []), [allCourses]);
+
   const visibleCourses = useMemo(() => {
-    if (!allCourses) return [];
-    if (isAdmin || isMentor) return allCourses;
+    if (!sortedCourses) return [];
+    if (isAdmin || isMentor) return sortedCourses;
     if (!user?.class) return [];
-    return allCourses.filter((c: any) => c.id === user.class);
-  }, [isAdmin, isMentor, user?.class, allCourses]);
+    return sortedCourses.filter((c: any) => c.id === user.class);
+  }, [isAdmin, isMentor, user?.class, sortedCourses]);
 
   const currentMaterials = useMemo(() => {
     if (!selectedSubject || !selectedCourse) return [];
