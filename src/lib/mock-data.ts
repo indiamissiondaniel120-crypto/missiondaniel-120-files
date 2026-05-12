@@ -52,30 +52,6 @@ export const COURSES: Course[] = [
 ];
 
 export const STUDY_MATERIALS: Material[] = [
-  { 
-    id: 'v7-1', 
-    courseId: 'class-7', 
-    title: '7th Maths Chapter 1', 
-    type: 'video', 
-    url: 'https://raw.githubusercontent.com/indiamissiondaniel120-crypto/missiondaniel-120-files/ecc76e3bd864109fab497d1e7e752ce0e0b7279c/7th%20Maths%20chap%201%20a.mp4', 
-    thumbnail: 'https://picsum.photos/seed/v7/640/360' 
-  },
-  { 
-    id: 'v8-1', 
-    courseId: 'class-8', 
-    title: '8th Maths Chapter 2', 
-    type: 'video', 
-    url: 'https://raw.githubusercontent.com/indiamissiondaniel120-crypto/missiondaniel-120-files/ecc76e3bd864109fab497d1e7e752ce0e0b7279c/8th%20Maths%20chap%202.mp4', 
-    thumbnail: 'https://picsum.photos/seed/v8/640/360' 
-  },
-  { 
-    id: 'v9-1', 
-    courseId: 'class-9', 
-    title: '9th Maths Chapter 1', 
-    type: 'video', 
-    url: 'https://raw.githubusercontent.com/indiamissiondaniel120-crypto/missiondaniel-120-files/ecc76e3bd864109fab497d1e7e752ce0e0b7279c/9th%20Maths%20chap%201%201.mp4', 
-    thumbnail: 'https://picsum.photos/seed/v9/640/360' 
-  },
   { id: 'n1', courseId: 'class-10', title: 'Mathematics - Quadratic Equations', type: 'pdf', url: '#' },
   { id: 'n2', courseId: 'class-10', title: 'Science - Chemical Reactions', type: 'pdf', url: '#' },
   { id: 'v1', courseId: 'class-10', title: 'Introduction to Geometry', type: 'video', url: 'https://www.w3schools.com/html/mov_bbb.mp4', thumbnail: 'https://picsum.photos/seed/v1/640/360' },
