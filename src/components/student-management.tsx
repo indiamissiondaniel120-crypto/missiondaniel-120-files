@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube, ExternalLink, ListChecks } from 'lucide-react'
+import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube, ExternalLink, ListChecks, Search, Filter } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -63,6 +63,10 @@ export function StudentManagement() {
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('students')
   
+  // Overview Filtering State
+  const [overviewClassFilter, setOverviewClassFilter] = useState<string>('all')
+  const [overviewSubjectSearch, setOverviewSubjectSearch] = useState<string>('')
+
   const [studentForm, setStudentForm] = useState({
     id: '',
     password: '',
@@ -312,6 +316,13 @@ export function StudentManagement() {
       setEditingMaterial(null)
     }).finally(() => setLoading(false))
   }
+
+  // Derived data for the overview sheet with filters applied
+  const filteredCoursesForSheet = useMemo(() => {
+    if (!courses) return [];
+    if (overviewClassFilter === 'all') return courses;
+    return courses.filter(c => c.id === overviewClassFilter);
+  }, [courses, overviewClassFilter]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -775,9 +786,53 @@ export function StudentManagement() {
               <CardTitle className="flex items-center gap-2">
                 <ListChecks className="text-accent" /> Academic Resource Sheet
               </CardTitle>
-              <CardDescription>Curriculum View: Classes &rarr; Subjects &rarr; Chapters &rarr; Materials.</CardDescription>
+              <CardDescription>Curriculum View: Classes → Subjects → Chapters → Materials.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              {/* Filtering Interface */}
+              <div className="flex flex-col md:flex-row gap-4 p-4 bg-muted/30 rounded-2xl border border-dashed border-accent/20">
+                <div className="flex-1 space-y-2">
+                  <Label className="text-[10px] uppercase tracking-widest flex items-center gap-1.5 opacity-70">
+                    <Filter size={12} /> Filter by Class
+                  </Label>
+                  <Select onValueChange={setOverviewClassFilter} value={overviewClassFilter}>
+                    <SelectTrigger className="bg-background border-none shadow-sm rounded-xl h-10">
+                      <SelectValue placeholder="All Classes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Classes</SelectItem>
+                      {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Label className="text-[10px] uppercase tracking-widest flex items-center gap-1.5 opacity-70">
+                    <Search size={12} /> Search Subject
+                  </Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="e.g. Maths..." 
+                      className="pl-9 bg-background border-none shadow-sm rounded-xl h-10"
+                      value={overviewSubjectSearch}
+                      onChange={(e) => setOverviewSubjectSearch(e.target.value)}
+                    />
+                  </div>
+                </div>
+                {(overviewClassFilter !== 'all' || overviewSubjectSearch) && (
+                   <div className="flex items-end">
+                     <Button 
+                       variant="ghost" 
+                       size="sm" 
+                       className="text-[10px] font-bold h-10 px-4 hover:bg-destructive/10 hover:text-destructive"
+                       onClick={() => { setOverviewClassFilter('all'); setOverviewSubjectSearch(''); }}
+                     >
+                       Reset Filters
+                     </Button>
+                   </div>
+                )}
+              </div>
+
               <div className="rounded-xl border overflow-hidden shadow-sm">
                 <Table>
                   <TableHeader className="bg-muted/50">
@@ -788,10 +843,21 @@ export function StudentManagement() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {courses?.map((course) => {
-                      const courseSubjects = subjects?.filter(s => s.courseId === course.id) || [];
+                    {filteredCoursesForSheet?.map((course) => {
+                      let courseSubjects = subjects?.filter(s => s.courseId === course.id) || [];
                       
+                      // Apply Subject Search filter
+                      if (overviewSubjectSearch) {
+                        courseSubjects = courseSubjects.filter(s => 
+                          s.name.toLowerCase().includes(overviewSubjectSearch.toLowerCase())
+                        );
+                      }
+
                       if (courseSubjects.length === 0) {
+                        // If searching/filtering and no results for this class, skip or show message
+                        if (overviewSubjectSearch || overviewClassFilter !== 'all') {
+                          return null; 
+                        }
                         return (
                           <TableRow key={course.id}>
                             <TableCell className="font-bold bg-muted/20">
@@ -863,6 +929,14 @@ export function StudentManagement() {
                     })}
                   </TableBody>
                 </Table>
+                {filteredCoursesForSheet.length > 0 && 
+                 overviewSubjectSearch && 
+                 !filteredCoursesForSheet.some(c => subjects?.some(s => s.courseId === c.id && s.name.toLowerCase().includes(overviewSubjectSearch.toLowerCase()))) && (
+                  <div className="py-20 text-center text-muted-foreground bg-muted/5">
+                    <Search className="mx-auto h-12 w-12 opacity-10 mb-4" />
+                    <p>No subjects matching "{overviewSubjectSearch}" found.</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
