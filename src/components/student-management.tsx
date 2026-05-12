@@ -33,6 +33,41 @@ const MATHS_CHAPTER_COUNT: Record<string, number> = {
   'class-10': 14
 };
 
+/**
+ * Determines the number of chapters for a given class and subject.
+ */
+function getChapterCount(courseId: string, subjectName: string): number {
+  const name = subjectName.toLowerCase();
+  
+  // Maths Logic
+  if (name.includes('maths')) {
+    return MATHS_CHAPTER_COUNT[courseId] || 1;
+  }
+  
+  // Science (Hamara Adhbhut Sansar) - Classes 4 & 5: 10 chapters
+  if (name.includes('hamara adhbhut sansar')) {
+    return 10;
+  }
+  
+  // Science (Jigyasa) - Classes 6 & 7: 12 chapters, Class 8: 13 chapters
+  if (name.includes('jigyasa')) {
+    if (courseId === 'class-8') return 13;
+    return 12;
+  }
+  
+  // Science (Exploration) - Class 9: 13 chapters
+  if (name.includes('exploration')) {
+    return 13;
+  }
+  
+  // Science (Vigyan) - Class 10: 13 chapters
+  if (name.includes('vigyan')) {
+    return 13;
+  }
+
+  return 1; // Default for other subjects
+}
+
 function getYouTubeID(url: string) {
   if (!url) return null;
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -869,8 +904,7 @@ export function StudentManagement() {
                       }
 
                       return courseSubjects.flatMap((subject) => {
-                        const isMaths = subject.name.toLowerCase().includes('maths');
-                        const totalChapters = isMaths ? (MATHS_CHAPTER_COUNT[course.id] || 10) : 1;
+                        const totalChapters = getChapterCount(course.id, subject.name);
                         
                         // Create a row for each chapter
                         const chapterRows = [];
