@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo } from 'react'
@@ -11,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube, ExternalLink } from 'lucide-react'
+import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube, ExternalLink, ListChecks } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -22,7 +21,7 @@ import { ChatInterface } from '@/components/chat-interface'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import Image from 'next/image'
+import { Badge } from '@/components/ui/badge'
 
 function getYouTubeID(url: string) {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -299,6 +298,9 @@ export function StudentManagement() {
           <TabsTrigger value="materials" className="flex items-center gap-2 px-6">
             <Library size={16} /> Materials & Subjects
           </TabsTrigger>
+          <TabsTrigger value="academic-sheet" className="flex items-center gap-2 px-6">
+            <ListChecks size={16} /> Overview Sheet
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="students" className="space-y-8">
@@ -498,7 +500,6 @@ export function StudentManagement() {
 
         <TabsContent value="materials" className="space-y-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Subject Management */}
             <Card className="border-accent/20">
               <CardHeader>
                 <CardTitle className="text-accent flex items-center gap-2">
@@ -578,7 +579,6 @@ export function StudentManagement() {
               </CardContent>
             </Card>
 
-            {/* Material Add (YouTube Links & Mock Files) */}
             <Card className="border-primary/20">
               <CardHeader>
                 <CardTitle className="text-primary flex items-center gap-2">
@@ -726,6 +726,88 @@ export function StudentManagement() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="academic-sheet">
+          <Card className="border-accent/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ListChecks className="text-accent" /> Academic Resource Sheet
+              </CardTitle>
+              <CardDescription>Hierarchical view of all classes, their subjects, and associated materials.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-xl border overflow-hidden shadow-sm">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead className="font-bold text-primary">Classes</TableHead>
+                      <TableHead className="font-bold text-primary">Subjects</TableHead>
+                      <TableHead className="font-bold text-primary">Materials (V: Video, F: PDF/Notes)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {courses?.map((course) => {
+                      const courseSubjects = subjects?.filter(s => s.courseId === course.id) || [];
+                      
+                      if (courseSubjects.length === 0) {
+                        return (
+                          <TableRow key={course.id}>
+                            <TableCell className="font-bold bg-muted/20">{course.name}</TableCell>
+                            <TableCell className="italic text-muted-foreground" colSpan={2}>No subjects added yet.</TableCell>
+                          </TableRow>
+                        );
+                      }
+
+                      return courseSubjects.map((subject, idx) => {
+                        const subjectMaterials = materials?.filter(m => m.courseId === course.id && m.subjectId === subject.id) || [];
+                        const videos = subjectMaterials.filter(m => m.type === 'video');
+                        const pdfs = subjectMaterials.filter(m => m.type === 'pdf');
+
+                        return (
+                          <TableRow key={subject.id} className="hover:bg-accent/5">
+                            {idx === 0 ? (
+                              <TableCell className="font-bold bg-muted/20 border-b-0" rowSpan={courseSubjects.length}>
+                                <Badge className="bg-primary text-white mb-1">{course.name}</Badge>
+                                <div className="text-[10px] text-muted-foreground">{course.id}</div>
+                              </TableCell>
+                            ) : null}
+                            <TableCell className="font-medium border-l border-r">
+                              {subject.name}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-2">
+                                <div className="flex flex-wrap gap-2">
+                                  <span className="text-[10px] font-bold text-red-600 uppercase w-4 shrink-0 mt-1">V:</span>
+                                  <div className="flex flex-wrap gap-1.5 flex-1">
+                                    {videos.length > 0 ? videos.map(v => (
+                                      <Badge key={v.id} variant="outline" className="text-[10px] py-0 px-2 h-5 bg-red-50 text-red-700 border-red-200">
+                                        {v.title}
+                                      </Badge>
+                                    )) : <span className="text-xs text-muted-foreground">-</span>}
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2 pt-1 border-t border-dashed">
+                                  <span className="text-[10px] font-bold text-blue-600 uppercase w-4 shrink-0 mt-1">F:</span>
+                                  <div className="flex flex-wrap gap-1.5 flex-1">
+                                    {pdfs.length > 0 ? pdfs.map(p => (
+                                      <Badge key={p.id} variant="outline" className="text-[10px] py-0 px-2 h-5 bg-blue-50 text-blue-700 border-blue-200">
+                                        {p.title}
+                                      </Badge>
+                                    )) : <span className="text-xs text-muted-foreground">-</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
