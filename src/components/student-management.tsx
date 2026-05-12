@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube } from 'lucide-react'
+import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube, ExternalLink } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -22,6 +22,13 @@ import { ChatInterface } from '@/components/chat-interface'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import Image from 'next/image'
+
+function getYouTubeID(url: string) {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+}
 
 export function StudentManagement() {
   const db = useFirestore()
@@ -671,29 +678,47 @@ export function StudentManagement() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Material</TableHead>
-                          <TableHead>Subject</TableHead>
+                          <TableHead className="w-16">Preview</TableHead>
+                          <TableHead>Material Details</TableHead>
+                          <TableHead>Class/Subject</TableHead>
                           <TableHead className="text-right">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {materials?.map((m: any) => (
-                          <TableRow key={m.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                {m.type === 'video' ? <Youtube className="text-red-600" size={14} /> : <FileText className="text-blue-500" size={14} />}
-                                <span className="font-medium truncate max-w-[150px]">{m.title}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs">{subjects?.find(s => s.id === m.subjectId)?.name}</TableCell>
-                            <TableCell className="text-right flex justify-end gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)}><Edit2 size={14} /></Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)} className="text-destructive">
-                                <Trash2 size={14} />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {materials?.map((m: any) => {
+                          const ytId = m.type === 'video' ? getYouTubeID(m.url) : null;
+                          return (
+                            <TableRow key={m.id}>
+                              <TableCell className="p-2">
+                                <div className="h-10 w-10 relative bg-muted rounded overflow-hidden flex items-center justify-center border">
+                                  {ytId ? (
+                                    <img src={`https://img.youtube.com/vi/${ytId}/default.jpg`} alt="YT Preview" className="object-cover h-full w-full" />
+                                  ) : (
+                                    m.type === 'video' ? <PlayCircle size={18} className="text-red-500" /> : <FileText size={18} className="text-blue-500" />
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm truncate max-w-[120px]">{m.title}</span>
+                                  <a href={m.url} target="_blank" rel="noreferrer" className="text-[10px] text-accent flex items-center gap-1 hover:underline truncate max-w-[120px]">
+                                    <ExternalLink size={8} /> Link
+                                  </a>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col text-[10px]">
+                                  <span className="font-bold uppercase text-muted-foreground">{courses?.find(c => c.id === m.courseId)?.name || 'Class N/A'}</span>
+                                  <span>{subjects?.find(s => s.id === m.subjectId)?.name || 'Subject N/A'}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right flex justify-end gap-1 mt-1">
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDeleteMaterial(m.id)} className="text-destructive"><Trash2 size={12} /></Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </ScrollArea>
