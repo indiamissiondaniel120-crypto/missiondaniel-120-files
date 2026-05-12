@@ -63,9 +63,9 @@
         "title": { "type": "string" },
         "type": { "type": "string", "enum": ["video", "pdf", "other"] },
         "url": { "type": "string" },
-        "fileType": { "type": "string", "description": "e.g., mp4, pdf, docx" },
         "courseId": { "type": "string" },
         "subjectId": { "type": "string" },
+        "chapter": { "type": "number", "description": "The chapter number this material belongs to." },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "type", "url", "courseId", "subjectId"]

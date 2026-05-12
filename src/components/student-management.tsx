@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo } from 'react'
@@ -22,15 +23,23 @@ import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
 
+const MATHS_CHAPTER_COUNT: Record<string, number> = {
+  'class-4': 14,
+  'class-5': 15,
+  'class-6': 10,
+  'class-7': 8,
+  'class-8': 7,
+  'class-9': 8,
+  'class-10': 14
+};
+
 function getYouTubeID(url: string) {
+  if (!url) return null;
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
-/**
- * Utility to sort classes numerically (Class 4, Class 5, ..., Class 10, JEE, NEET)
- */
 function sortClasses(classes: any[]) {
   if (!classes) return [];
   return [...classes].sort((a, b) => {
@@ -90,7 +99,7 @@ export function StudentManagement() {
     subjectId: '',
     type: 'video' as 'video' | 'pdf',
     url: '',
-    file: null as File | null
+    chapter: 1
   })
 
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -241,11 +250,12 @@ export function StudentManagement() {
       clearInterval(interval)
       
       const newMaterial = {
-        title: materialForm.title || (materialForm.type === 'video' ? 'New Video' : materialForm.file?.name || 'New Note'),
+        title: materialForm.title || (materialForm.type === 'video' ? 'New Video' : 'New Note'),
         courseId: materialForm.courseId,
         subjectId: materialForm.subjectId,
         type: materialForm.type,
-        url: materialForm.url || 'https://placeholder-url.com', 
+        url: materialForm.url, 
+        chapter: Number(materialForm.chapter) || 1,
         createdAt: serverTimestamp()
       }
 
@@ -255,7 +265,7 @@ export function StudentManagement() {
       setTimeout(() => {
         setIsUploading(false)
         setUploadProgress(0)
-        setMaterialForm({ title: '', courseId: '', subjectId: '', type: 'video', url: '', file: null })
+        setMaterialForm({ title: '', courseId: '', subjectId: '', type: 'video', url: '', chapter: 1 })
         toast({ title: "Added", description: "Material successfully added." })
       }, 500)
     }, 1500)
@@ -295,7 +305,8 @@ export function StudentManagement() {
       title: editingMaterial.title,
       url: editingMaterial.url,
       courseId: editingMaterial.courseId,
-      subjectId: editingMaterial.subjectId
+      subjectId: editingMaterial.subjectId,
+      chapter: Number(editingMaterial.chapter) || 1
     }).then(() => {
       toast({ title: "Updated", description: "Material details saved." })
       setEditingMaterial(null)
@@ -666,6 +677,16 @@ export function StudentManagement() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label>Chapter Number</Label>
+                    <Input 
+                      type="number"
+                      min="1"
+                      value={materialForm.chapter}
+                      onChange={e => setMaterialForm({...materialForm, chapter: Number(e.target.value)})}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       {materialForm.type === 'video' ? <Youtube className="text-red-600 h-4 w-4" /> : <Link className="h-4 w-4" />}
                       {materialForm.type === 'video' ? 'YouTube URL' : 'Resource URL (GitHub/Drive/PDF)'}
@@ -700,7 +721,7 @@ export function StudentManagement() {
                         <TableRow>
                           <TableHead className="w-16">Preview</TableHead>
                           <TableHead>Material Details</TableHead>
-                          <TableHead>Class/Subject</TableHead>
+                          <TableHead>Class/Subject/Ch</TableHead>
                           <TableHead className="text-right">Action</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -729,7 +750,7 @@ export function StudentManagement() {
                               <TableCell>
                                 <div className="flex flex-col text-[10px]">
                                   <span className="font-bold uppercase text-muted-foreground">{courses?.find(c => c.id === m.courseId)?.name || 'Class N/A'}</span>
-                                  <span>{subjects?.find(s => s.id === m.subjectId)?.name || 'Subject N/A'}</span>
+                                  <span>{subjects?.find(s => s.id === m.subjectId)?.name || 'Subject N/A'} (Ch {m.chapter || 1})</span>
                                 </div>
                               </TableCell>
                               <TableCell className="text-right flex justify-end gap-1 mt-1">
@@ -754,16 +775,16 @@ export function StudentManagement() {
               <CardTitle className="flex items-center gap-2">
                 <ListChecks className="text-accent" /> Academic Resource Sheet
               </CardTitle>
-              <CardDescription>Hierarchical view of all classes (Sorted 4-10), their subjects, and associated materials.</CardDescription>
+              <CardDescription>Curriculum View: Classes &rarr; Subjects &rarr; Chapters &rarr; Materials.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-xl border overflow-hidden shadow-sm">
                 <Table>
                   <TableHeader className="bg-muted/50">
                     <TableRow>
-                      <TableHead className="font-bold text-primary">Classes</TableHead>
-                      <TableHead className="font-bold text-primary">Subjects</TableHead>
-                      <TableHead className="font-bold text-primary">Materials (V: Video, F: PDF/Notes)</TableHead>
+                      <TableHead className="font-bold text-primary">Class & Subject</TableHead>
+                      <TableHead className="font-bold text-primary">Chapter</TableHead>
+                      <TableHead className="font-bold text-primary">Materials (V: Videos, F: Files)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -773,54 +794,71 @@ export function StudentManagement() {
                       if (courseSubjects.length === 0) {
                         return (
                           <TableRow key={course.id}>
-                            <TableCell className="font-bold bg-muted/20">{course.name}</TableCell>
+                            <TableCell className="font-bold bg-muted/20">
+                              <Badge className="bg-primary text-white">{course.name}</Badge>
+                            </TableCell>
                             <TableCell className="italic text-muted-foreground" colSpan={2}>No subjects added yet.</TableCell>
                           </TableRow>
                         );
                       }
 
-                      return courseSubjects.map((subject, idx) => {
-                        const subjectMaterials = materials?.filter(m => m.courseId === course.id && m.subjectId === subject.id) || [];
-                        const videos = subjectMaterials.filter(m => m.type === 'video');
-                        const pdfs = subjectMaterials.filter(m => m.type === 'pdf');
+                      return courseSubjects.flatMap((subject) => {
+                        const isMaths = subject.name.toLowerCase().includes('maths');
+                        const totalChapters = isMaths ? (MATHS_CHAPTER_COUNT[course.id] || 10) : 1;
+                        
+                        // Create a row for each chapter
+                        const chapterRows = [];
+                        for (let ch = 1; ch <= totalChapters; ch++) {
+                          const chMaterials = materials?.filter(m => m.courseId === course.id && m.subjectId === subject.id && (m.chapter === ch || (!m.chapter && ch === 1))) || [];
+                          const videos = chMaterials.filter(m => m.type === 'video');
+                          const pdfs = chMaterials.filter(m => m.type === 'pdf');
 
-                        return (
-                          <TableRow key={subject.id} className="hover:bg-accent/5">
+                          chapterRows.push({
+                            chapter: ch,
+                            videos,
+                            pdfs
+                          });
+                        }
+
+                        return chapterRows.map((row, idx) => (
+                          <TableRow key={`${subject.id}-${row.chapter}`} className="hover:bg-accent/5">
                             {idx === 0 ? (
-                              <TableCell className="font-bold bg-muted/20 border-b-0" rowSpan={courseSubjects.length}>
-                                <Badge className="bg-primary text-white mb-1">{course.name}</Badge>
-                                <div className="text-[10px] text-muted-foreground">{course.id}</div>
+                              <TableCell className="font-bold bg-muted/10 border-r" rowSpan={totalChapters}>
+                                <div className="flex flex-col gap-1">
+                                  <Badge className="bg-primary text-white w-fit">{course.name}</Badge>
+                                  <span className="text-sm font-semibold text-muted-foreground">{subject.name}</span>
+                                </div>
                               </TableCell>
                             ) : null}
-                            <TableCell className="font-medium border-l border-r">
-                              {subject.name}
+                            <TableCell className="font-medium text-center border-r w-32">
+                              Chapter {row.chapter}
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-col gap-2">
                                 <div className="flex flex-wrap gap-2">
                                   <span className="text-[10px] font-bold text-red-600 uppercase w-4 shrink-0 mt-1">V:</span>
                                   <div className="flex flex-wrap gap-1.5 flex-1">
-                                    {videos.length > 0 ? videos.map(v => (
+                                    {row.videos.length > 0 ? row.videos.map(v => (
                                       <Badge key={v.id} variant="outline" className="text-[10px] py-0 px-2 h-5 bg-red-50 text-red-700 border-red-200">
                                         {v.title}
                                       </Badge>
-                                    )) : <span className="text-xs text-muted-foreground">-</span>}
+                                    )) : <span className="text-xs text-muted-foreground italic opacity-50">Nil</span>}
                                   </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 pt-1 border-t border-dashed">
                                   <span className="text-[10px] font-bold text-blue-600 uppercase w-4 shrink-0 mt-1">F:</span>
                                   <div className="flex flex-wrap gap-1.5 flex-1">
-                                    {pdfs.length > 0 ? pdfs.map(p => (
+                                    {row.pdfs.length > 0 ? row.pdfs.map(p => (
                                       <Badge key={p.id} variant="outline" className="text-[10px] py-0 px-2 h-5 bg-blue-50 text-blue-700 border-blue-200">
                                         {p.title}
                                       </Badge>
-                                    )) : <span className="text-xs text-muted-foreground">-</span>}
+                                    )) : <span className="text-xs text-muted-foreground italic opacity-50">Nil</span>}
                                   </div>
                                 </div>
                               </div>
                             </TableCell>
                           </TableRow>
-                        );
+                        ));
                       });
                     })}
                   </TableBody>
@@ -863,14 +901,6 @@ export function StudentManagement() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>School Name</Label>
-              <Input value={editingStudent?.schoolName || ''} onChange={e => setEditingStudent({...editingStudent, schoolName: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label>Location</Label>
-              <Input value={editingStudent?.location || ''} onChange={e => setEditingStudent({...editingStudent, location: e.target.value})} />
-            </div>
           </div>
           <DialogFooter>
             <Button onClick={handleUpdateStudent} disabled={loading}>
@@ -891,30 +921,12 @@ export function StudentManagement() {
               <Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} />
             </div>
             <div className="space-y-2">
+              <Label>Chapter Number</Label>
+              <Input type="number" min="1" value={editingMaterial?.chapter || 1} onChange={e => setEditingMaterial({...editingMaterial, chapter: Number(e.target.value)})} />
+            </div>
+            <div className="space-y-2">
               <Label>URL (YouTube or File Link)</Label>
               <Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Class</Label>
-                <Select onValueChange={v => setEditingMaterial({...editingMaterial, courseId: v})} value={editingMaterial?.courseId || ''}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Subject</Label>
-                <Select onValueChange={v => setEditingMaterial({...editingMaterial, subjectId: v})} value={editingMaterial?.subjectId || ''}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {subjects?.filter(s => s.courseId === editingMaterial?.courseId).map(s => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </div>
           <DialogFooter>
