@@ -345,13 +345,13 @@ export function StudentManagement() {
 
       <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}>
         <DialogContent><DialogHeader><DialogTitle>Edit Student</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4"><Input value={editingStudent?.name} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} /></div>
+          <div className="space-y-4 py-4"><Input value={editingStudent?.name || ''} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} /></div>
           <DialogFooter><Button onClick={handleUpdateStudent}>Save</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}>
         <DialogContent><DialogHeader><DialogTitle>Edit Material</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4"><Input value={editingMaterial?.title} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} /><Input value={editingMaterial?.url} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} /></div>
+          <div className="space-y-4 py-4"><Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} /><Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} /></div>
           <DialogFooter><Button onClick={handleUpdateMaterial}>Save</Button></DialogFooter>
         </DialogContent>
       </Dialog>
