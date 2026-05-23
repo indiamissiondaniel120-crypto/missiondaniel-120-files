@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { useFirestore } from '@/firebase'
-import { collection, doc, setDoc, serverTimestamp, query, orderBy, where, updateDoc, deleteDoc, addDoc } from 'firebase/firestore'
+import { collection, doc, setDoc, serverTimestamp, query, orderBy, where, updateDoc, deleteDoc, addDoc, writeBatch } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube, ExternalLink, ListChecks, Search, Filter } from 'lucide-react'
+import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube, ExternalLink, ListChecks, Search, Filter, Layers } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -576,6 +576,13 @@ export function StudentManagement() {
         </TabsContent>
 
         <TabsContent value="materials" className="space-y-8">
+          <div className="flex justify-end mb-4">
+            <BulkUploadDialog 
+              courses={courses || []} 
+              subjects={subjects || []} 
+              materials={materials || []} 
+            />
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <Card className="border-accent/20">
               <CardHeader>
@@ -1046,6 +1053,236 @@ export function StudentManagement() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], subjects: any[], materials: any[] }) {
+  const db = useFirestore()
+  const { toast } = useToast()
+  const [open, setOpen] = useState(false)
+  const [selectedClassId, setSelectedClassId] = useState('')
+  const [selectedSubjectId, setSelectedSubjectId] = useState('')
+  const [loading, setLoading] = useState(false)
+  
+  const [bulkRows, setBulkRows] = useState<Array<{ chapter: number, videoUrl: string, pdfUrl: string }>>([])
+
+  const selectedCourse = useMemo(() => courses.find(c => c.id === selectedClassId), [courses, selectedClassId])
+  const selectedSubject = useMemo(() => subjects.find(s => s.id === selectedSubjectId), [subjects, selectedSubjectId])
+
+  const chapterStatus = useMemo(() => {
+    if (!selectedCourse || !selectedSubject) return []
+    const total = getChapterCount(selectedCourse.id, selectedSubject.name)
+    const result = []
+    for (let i = 1; i <= total; i++) {
+      const chMaterials = materials.filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id && m.chapter === i)
+      const hasVideo = chMaterials.some(m => m.type === 'video')
+      const hasPdf = chMaterials.some(m => m.type === 'pdf')
+      result.push({
+        chapter: i,
+        completed: hasVideo && hasPdf,
+        hasVideo,
+        hasPdf
+      })
+    }
+    return result
+  }, [selectedCourse, selectedSubject, materials])
+
+  const incompleteChapters = useMemo(() => chapterStatus.filter(c => !c.completed), [chapterStatus])
+  const completedChapters = useMemo(() => chapterStatus.filter(c => c.completed), [chapterStatus])
+
+  const handleAddRow = () => {
+    if (bulkRows.length >= 10) return
+    const lastCh = bulkRows.length > 0 ? bulkRows[bulkRows.length - 1].chapter : 0
+    const nextIncomplete = incompleteChapters.find(c => c.chapter > lastCh)
+    if (nextIncomplete) {
+      setBulkRows([...bulkRows, { chapter: nextIncomplete.chapter, videoUrl: '', pdfUrl: '' }])
+    }
+  }
+
+  const handleUpdateRow = (index: number, field: 'videoUrl' | 'pdfUrl', value: string) => {
+    const updated = [...bulkRows]
+    updated[index][field] = value
+    setBulkRows(updated)
+  }
+
+  const handleSaveBulk = async () => {
+    if (!db || !selectedCourse || !selectedSubject) return
+    setLoading(true)
+    const batch = writeBatch(db)
+    
+    try {
+      bulkRows.forEach(row => {
+        if (row.videoUrl.trim()) {
+          const videoRef = doc(collection(db, 'materials'))
+          batch.set(videoRef, {
+            title: `Chapter ${row.chapter} Video`,
+            courseId: selectedCourse.id,
+            subjectId: selectedSubject.id,
+            type: 'video',
+            url: row.videoUrl.trim(),
+            chapter: row.chapter,
+            createdAt: serverTimestamp()
+          })
+        }
+        if (row.pdfUrl.trim()) {
+          const pdfRef = doc(collection(db, 'materials'))
+          batch.set(pdfRef, {
+            title: `Chapter ${row.chapter} Notes`,
+            courseId: selectedCourse.id,
+            subjectId: selectedSubject.id,
+            type: 'pdf',
+            url: row.pdfUrl.trim(),
+            chapter: row.chapter,
+            createdAt: serverTimestamp()
+          })
+        }
+      })
+      await batch.commit()
+      toast({ title: "Bulk Upload Successful", description: `Added materials for ${bulkRows.length} chapters.` })
+      setBulkRows([])
+      setOpen(false)
+    } catch (e) {
+      console.error(e)
+      toast({ variant: "destructive", title: "Error", description: "Could not save bulk materials." })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Initial load of next chapters
+  React.useEffect(() => {
+    if (selectedClassId && selectedSubjectId && incompleteChapters.length > 0) {
+      setBulkRows([{ chapter: incompleteChapters[0].chapter, videoUrl: '', pdfUrl: '' }])
+    } else {
+      setBulkRows([])
+    }
+  }, [selectedClassId, selectedSubjectId, incompleteChapters])
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="bg-primary text-white hover:bg-primary/90 rounded-xl shadow-lg">
+          <Layers className="mr-2 h-4 w-4" /> Bulk Upload
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-2">
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            <Upload className="text-primary" /> Bulk Material Upload
+          </DialogTitle>
+          <CardDescription>Upload multiple chapters' content at once.</CardDescription>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 p-6 pt-2">
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>1. Select Class</Label>
+                <Select onValueChange={setSelectedClassId} value={selectedClassId}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Choose Class" /></SelectTrigger>
+                  <SelectContent>
+                    {courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>2. Select Subject</Label>
+                <Select 
+                  onValueChange={setSelectedSubjectId} 
+                  value={selectedSubjectId}
+                  disabled={!selectedClassId}
+                >
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Choose Subject" /></SelectTrigger>
+                  <SelectContent>
+                    {subjects.filter(s => s.courseId === selectedClassId).map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {selectedSubject && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-top-2">
+                <div className="bg-muted/30 p-4 rounded-2xl border border-dashed">
+                  <h4 className="text-sm font-bold uppercase tracking-wider mb-3 text-muted-foreground flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-green-500" /> Already Uploaded
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {completedChapters.length > 0 ? completedChapters.map(c => (
+                      <Badge key={c.chapter} variant="secondary" className="bg-green-100 text-green-700 border-green-200">
+                        Ch {c.chapter} (Done)
+                      </Badge>
+                    )) : <span className="text-xs italic text-muted-foreground">No chapters fully uploaded yet.</span>}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-primary">Bulk Entry (Next Chapters)</h4>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleAddRow} 
+                      disabled={bulkRows.length >= 10 || bulkRows.length >= incompleteChapters.length}
+                      className="rounded-xl border-primary text-primary hover:bg-primary/5"
+                    >
+                      <Plus size={14} className="mr-1" /> Add Chapter Row
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {bulkRows.map((row, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-2xl border border-accent/10">
+                        <div className="col-span-2 space-y-1.5">
+                          <Label className="text-[10px] opacity-60">Chapter</Label>
+                          <div className="h-10 flex items-center justify-center bg-white rounded-xl border font-bold text-primary">
+                            {row.chapter}
+                          </div>
+                        </div>
+                        <div className="col-span-5 space-y-1.5">
+                          <Label className="text-[10px] opacity-60 flex items-center gap-1"><Youtube size={10} className="text-red-500" /> Video URL</Label>
+                          <Input 
+                            placeholder="Paste YT Link..." 
+                            className="h-10 rounded-xl bg-white" 
+                            value={row.videoUrl}
+                            onChange={(e) => handleUpdateRow(idx, 'videoUrl', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-5 space-y-1.5">
+                          <Label className="text-[10px] opacity-60 flex items-center gap-1"><Link size={10} /> PDF/Notes Link</Label>
+                          <Input 
+                            placeholder="Paste Doc Link..." 
+                            className="h-10 rounded-xl bg-white" 
+                            value={row.pdfUrl}
+                            onChange={(e) => handleUpdateRow(idx, 'pdfUrl', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic px-2">
+                    Maximum 10 chapters can be processed at once. Chapters only count as "Already Uploaded" if they have both video and pdf links.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        <DialogFooter className="p-6 border-t bg-muted/20">
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
+          <Button 
+            onClick={handleSaveBulk} 
+            disabled={loading || bulkRows.length === 0 || bulkRows.every(r => !r.videoUrl && !r.pdfUrl)}
+            className="bg-primary rounded-xl px-8"
+          >
+            {loading ? <Loader2 className="animate-spin mr-2" /> : <Upload className="mr-2 h-4 w-4" />}
+            Save All {bulkRows.length} Chapters
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
