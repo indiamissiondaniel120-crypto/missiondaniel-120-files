@@ -51,6 +51,19 @@ function getYouTubeID(url: string) {
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
+async function fetchYouTubeTitle(url: string): Promise<string | null> {
+  const videoId = getYouTubeID(url);
+  if (!videoId) return null;
+  try {
+    const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+    const data = await response.json();
+    return data.title || null;
+  } catch (e) {
+    console.error('Error fetching YouTube title:', e);
+    return null;
+  }
+}
+
 function sortClasses(classes: any[]) {
   if (!classes) return [];
   return [...classes].sort((a, b) => {
@@ -317,7 +330,9 @@ export function StudentManagement() {
         </TabsContent>
 
         <TabsContent value="academic-sheet">
-          <Card className="border-accent/20"><CardHeader><CardTitle className="flex items-center gap-2"><ListChecks className="text-accent" /> Academic Resource Sheet</CardTitle></CardHeader>
+          <Card className="border-accent/20"><CardHeader><CardTitle className="flex items-center gap-2"><ListChecks className="text-accent" /> Academic Resource Sheet</CardTitle>
+            <CardDescription>Curriculum View: Classes &rarr; Subjects &rarr; Chapters &rarr; Materials.</CardDescription>
+          </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex gap-4 p-4 bg-muted/30 rounded-2xl border border-dashed border-accent/20">
                 <div className="flex-1"><Label className="text-[10px] uppercase">Class</Label><Select onValueChange={setOverviewClassFilter} value={overviewClassFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Classes</SelectItem>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
@@ -361,10 +376,12 @@ export function StudentManagement() {
 
 interface BulkRow {
   chapter: number;
+  title: string;
   videoUrl: string;
   videoId?: string;
   pdfUrl: string;
   pdfId?: string;
+  isFetchingTitle?: boolean;
 }
 
 function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], subjects: any[], materials: any[] }) {
@@ -391,6 +408,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
       result.push({
         chapter: i,
         completed: !!video && !!pdf,
+        title: video?.title || pdf?.title || '',
         videoUrl: video?.url || '',
         videoId: video?.id,
         pdfUrl: pdf?.url || '',
@@ -401,16 +419,17 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   }, [selectedCourse, selectedSubject, materials])
 
   const incompleteChapters = useMemo(() => chapterStatus.filter(c => !c.completed), [chapterStatus])
-  const completedChapters = useMemo(() => chapterStatus.filter(c => c.completed), [chapterStatus])
 
   useEffect(() => {
     if (selectedClassId && selectedSubjectId) {
       const initial = incompleteChapters.slice(0, 1).map(c => ({
         chapter: c.chapter,
+        title: c.title,
         videoUrl: c.videoUrl,
         videoId: c.videoId,
         pdfUrl: c.pdfUrl,
-        pdfId: c.pdfId
+        pdfId: c.pdfId,
+        isFetchingTitle: false
       }))
       setBulkRows(initial)
     } else {
@@ -425,22 +444,39 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     if (nextIncomplete) {
       setBulkRows([...bulkRows, {
         chapter: nextIncomplete.chapter,
+        title: nextIncomplete.title,
         videoUrl: nextIncomplete.videoUrl,
         videoId: nextIncomplete.videoId,
         pdfUrl: nextIncomplete.pdfUrl,
-        pdfId: nextIncomplete.pdfId
+        pdfId: nextIncomplete.pdfId,
+        isFetchingTitle: false
       }])
     }
   }
 
-  const handleUpdateRow = (index: number, field: keyof BulkRow, value: string) => {
+  const handleUpdateRow = async (index: number, field: keyof BulkRow, value: any) => {
     const updated = [...bulkRows]
     updated[index] = { ...updated[index], [field]: value }
     setBulkRows(updated)
+
+    // Auto-fetch YouTube title if videoUrl is updated and title is empty
+    if (field === 'videoUrl' && value.trim()) {
+      const videoId = getYouTubeID(value);
+      if (videoId) {
+        updated[index].isFetchingTitle = true;
+        setBulkRows([...updated]);
+        const fetchedTitle = await fetchYouTubeTitle(value);
+        if (fetchedTitle && !updated[index].title) {
+          updated[index].title = fetchedTitle;
+        }
+        updated[index].isFetchingTitle = false;
+        setBulkRows([...updated]);
+      }
+    }
   }
 
   const validateAndUpload = () => {
-    const hasEmpty = bulkRows.some(r => !r.videoUrl.trim() || !r.pdfUrl.trim())
+    const hasEmpty = bulkRows.some(r => !r.videoUrl.trim() || !r.pdfUrl.trim());
     if (hasEmpty) {
       setShowConfirm(true)
     } else {
@@ -455,11 +491,13 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     
     try {
       bulkRows.forEach(row => {
+        const finalTitle = row.title.trim();
+        
         // Handle Video
         if (row.videoUrl.trim()) {
           const vRef = row.videoId ? doc(db, 'materials', row.videoId) : doc(collection(db, 'materials'))
           batch.set(vRef, {
-            title: `Chapter ${row.chapter} Video`,
+            title: finalTitle || `Chapter ${row.chapter} Video`,
             courseId: selectedCourse.id,
             subjectId: selectedSubject.id,
             type: 'video',
@@ -473,7 +511,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
         if (row.pdfUrl.trim()) {
           const pRef = row.pdfId ? doc(db, 'materials', row.pdfId) : doc(collection(db, 'materials'))
           batch.set(pRef, {
-            title: `Chapter ${row.chapter} Notes`,
+            title: finalTitle ? `${finalTitle} (Notes)` : `Chapter ${row.chapter} Notes`,
             courseId: selectedCourse.id,
             subjectId: selectedSubject.id,
             type: 'pdf',
@@ -505,7 +543,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button className="bg-primary rounded-xl"><Layers className="mr-2 h-4 w-4" /> Bulk Upload</Button></DialogTrigger>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-2"><DialogTitle>Bulk Material Upload</DialogTitle></DialogHeader>
           <ScrollArea className="flex-1 p-6 pt-2">
             <div className="space-y-6">
@@ -516,7 +554,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
               {selectedSubject && (
                 <div className="space-y-6">
                   <div className="bg-muted/30 p-4 rounded-2xl border border-dashed flex flex-wrap gap-2">
-                    {completedChapters.map(c => <Badge key={c.chapter} variant="secondary" className="bg-green-100 text-green-700">Ch {c.chapter} (Done)</Badge>)}
+                    {chapterStatus.filter(c => c.completed).map(c => <Badge key={c.chapter} variant="secondary" className="bg-green-100 text-green-700">Ch {c.chapter} (Done)</Badge>)}
                   </div>
                   <div className="flex justify-between items-center">
                     <h4 className="text-sm font-bold uppercase text-primary">Bulk Entry</h4>
@@ -525,9 +563,16 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
                   <div className="space-y-3">
                     {bulkRows.map((row, idx) => (
                       <div key={idx} className="grid grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-2xl border border-accent/10">
-                        <div className="col-span-2 text-center font-bold text-primary">Ch {row.chapter}</div>
-                        <div className="col-span-5"><Label className="text-[10px] opacity-60">Video URL</Label><Input className="bg-white" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} /></div>
-                        <div className="col-span-5"><Label className="text-[10px] opacity-60">PDF URL</Label><Input className="bg-white" value={row.pdfUrl} onChange={e => handleUpdateRow(idx, 'pdfUrl', e.target.value)} /></div>
+                        <div className="col-span-1 text-center font-bold text-primary">Ch {row.chapter}</div>
+                        <div className="col-span-3">
+                          <Label className="text-[10px] opacity-60">Chapter Title</Label>
+                          <div className="relative">
+                            <Input className="bg-white" placeholder="Auto-fetched if empty" value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />
+                            {row.isFetchingTitle && <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-accent" />}
+                          </div>
+                        </div>
+                        <div className="col-span-4"><Label className="text-[10px] opacity-60">Video URL</Label><Input className="bg-white" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} /></div>
+                        <div className="col-span-4"><Label className="text-[10px] opacity-60">PDF URL</Label><Input className="bg-white" value={row.pdfUrl} onChange={e => handleUpdateRow(idx, 'pdfUrl', e.target.value)} /></div>
                       </div>
                     ))}
                   </div>
