@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
@@ -98,6 +98,13 @@ export function StudentManagement() {
   const [editingMentor, setEditingMentor] = useState<any>(null)
   const [editingCourse, setEditingCourse] = useState<any>(null)
   const [editingMaterial, setEditingMaterial] = useState<any>(null)
+
+  const [selectedChapterInfo, setSelectedChapterInfo] = useState<{
+    className: string,
+    subjectName: string,
+    chapter: number,
+    materials: any[]
+  } | null>(null);
 
   const studentsQuery = useMemo(() => db ? collection(db, 'students') : null, [db])
   const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db])
@@ -349,7 +356,28 @@ export function StudentManagement() {
                       const chMat = materials?.filter(m => m.courseId === course.id && m.subjectId === sub.id && m.chapter === ch) || []
                       rows.push({ ch, videos: chMat.filter(m => m.type === 'video'), pdfs: chMat.filter(m => m.type === 'pdf') })
                     }
-                    return rows.map((r, i) => (<TableRow key={`${sub.id}-${r.ch}`}><TableCell className="font-bold border-r" rowSpan={i === 0 ? total : 0}>{i === 0 ? sub.name : null}</TableCell><TableCell className="text-center w-32 border-r">Ch {r.ch}</TableCell><TableCell><div className="flex flex-col gap-1"><div><span className="text-[10px] font-bold text-red-600 mr-2">V:</span>{r.videos.map(v => <Badge key={v.id} variant="outline" className="mr-1 text-[8px]">{v.title}</Badge>)}</div><div><span className="text-[10px] font-bold text-blue-600 mr-2">F:</span>{r.pdfs.map(p => <Badge key={p.id} variant="outline" className="mr-1 text-[8px]">{p.title}</Badge>)}</div></div></TableCell></TableRow>))
+                    return rows.map((r, i) => (
+                      <TableRow key={`${sub.id}-${r.ch}`}>
+                        <TableCell className="font-bold border-r" rowSpan={i === 0 ? total : 0}>{i === 0 ? sub.name : null}</TableCell>
+                        <TableCell 
+                          className="text-center w-32 border-r cursor-pointer hover:bg-accent/5 hover:text-accent font-medium transition-colors"
+                          onClick={() => setSelectedChapterInfo({
+                            className: course.name,
+                            subjectName: sub.name,
+                            chapter: r.ch,
+                            materials: [...r.videos, ...r.pdfs]
+                          })}
+                        >
+                          Ch {r.ch}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <div><span className="text-[10px] font-bold text-red-600 mr-2">V:</span>{r.videos.map(v => <Badge key={v.id} variant="outline" className="mr-1 text-[8px]">{v.title}</Badge>)}</div>
+                            <div><span className="text-[10px] font-bold text-blue-600 mr-2">F:</span>{r.pdfs.map(p => <Badge key={p.id} variant="outline" className="mr-1 text-[8px]">{p.title}</Badge>)}</div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
                   })
                 })}</TableBody>
               </Table>
@@ -368,6 +396,43 @@ export function StudentManagement() {
         <DialogContent><DialogHeader><DialogTitle>Edit Material</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4"><Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} /><Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} /></div>
           <DialogFooter><Button onClick={handleUpdateMaterial}>Save</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedChapterInfo} onOpenChange={() => setSelectedChapterInfo(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-primary">{selectedChapterInfo?.className} - {selectedChapterInfo?.subjectName}</DialogTitle>
+            <DialogDescription>Chapter {selectedChapterInfo?.chapter} Resources</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedChapterInfo?.materials.length === 0 ? (
+              <p className="text-center text-muted-foreground italic py-4">No materials uploaded for this chapter yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {selectedChapterInfo?.materials.map((m) => (
+                  <div key={m.id} className="p-4 rounded-xl border bg-muted/20 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {m.type === 'video' ? <PlayCircle className="text-red-500 h-4 w-4" /> : <FileText className="text-blue-500 h-4 w-4" />}
+                        <span className="font-bold text-sm">{m.title}</span>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] uppercase">{m.type}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-primary truncate">
+                      <Link className="h-3 w-3 shrink-0" />
+                      <a href={m.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                        {m.url}
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSelectedChapterInfo(null)} className="rounded-xl">Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -459,7 +524,6 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     updated[index] = { ...updated[index], [field]: value }
     setBulkRows(updated)
 
-    // Auto-fetch YouTube title if videoUrl is updated and title is empty
     if (field === 'videoUrl' && value.trim()) {
       const videoId = getYouTubeID(value);
       if (videoId) {
@@ -493,7 +557,6 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
       bulkRows.forEach(row => {
         const finalTitle = row.title.trim();
         
-        // Handle Video
         if (row.videoUrl.trim()) {
           const vRef = row.videoId ? doc(db, 'materials', row.videoId) : doc(collection(db, 'materials'))
           batch.set(vRef, {
@@ -507,7 +570,6 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
           }, { merge: true })
         }
         
-        // Handle PDF
         if (row.pdfUrl.trim()) {
           const pRef = row.pdfId ? doc(db, 'materials', row.pdfId) : doc(collection(db, 'materials'))
           batch.set(pRef, {
