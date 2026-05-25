@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { StudentManagement } from '@/components/student-management';
 import { InactivityMonitor } from '@/components/inactivity-monitor';
 import { ChatInterface } from '@/components/chat-interface';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -56,7 +56,7 @@ function DecorativeGraphics() {
         <Lightbulb size={150} />
       </div>
       <div className="absolute top-1/2 right-1/4 text-accent/5 floating-graphic" style={{ animationDelay: '3.5s' }}>
-        <Calculator size={130} />
+        <Sparkles size={130} />
       </div>
       <div className="absolute bottom-40 right-10 text-primary/10 floating-graphic" style={{ animationDelay: '4.5s' }}>
         <Pencil size={90} />
