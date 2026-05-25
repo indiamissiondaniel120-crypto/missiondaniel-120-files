@@ -68,7 +68,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (snap.exists()) {
           const data = snap.data();
           if (data.password === password || loginType === 'student' && data.role === 'public_student') {
-            setUser({ name: data.name, id, role: data.role || loginType, class: data.class });
+            const userData: User = { name: data.name, id, role: data.role || loginType, class: data.class };
+            setUser(userData);
+            
+            // Log attendance
+            addDoc(collection(db, coll, id, 'activity'), {
+              type: 'login',
+              timestamp: serverTimestamp(),
+              metadata: { role: data.role || loginType }
+            });
+
             return true;
           }
         }

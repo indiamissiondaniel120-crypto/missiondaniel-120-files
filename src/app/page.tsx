@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -241,6 +242,10 @@ function Dashboard() {
   const [editingMaterial, setEditingMaterial] = useState<any>(null);
   const [publicReg, setPublicReg] = useState({ name: '', classId: '' });
 
+  // Usage tracking state
+  const [activeMaterial, setActiveMaterial] = useState<any>(null);
+  const materialStartTimeRef = useRef<number | null>(null);
+
   const isAdmin = user?.role === 'admin';
   const isMentor = user?.role === 'mentor';
   const isPublic = user?.role === 'public_student';
@@ -248,6 +253,34 @@ function Dashboard() {
   useEffect(() => {
     if (user) setView('dashboard');
   }, [user]);
+
+  // Track material usage duration
+  useEffect(() => {
+    if (!user || user.role !== 'student' || !db) return;
+
+    if (activeMaterial) {
+      materialStartTimeRef.current = Date.now();
+    }
+
+    return () => {
+      if (activeMaterial && materialStartTimeRef.current) {
+        const durationSec = Math.floor((Date.now() - materialStartTimeRef.current) / 1000);
+        if (durationSec > 5) {
+          addDoc(collection(db, 'students', user.id, 'activity'), {
+            type: activeMaterial.type === 'video' ? 'view_video' : 'view_pdf',
+            timestamp: serverTimestamp(),
+            duration: durationSec,
+            metadata: {
+              title: activeMaterial.title,
+              chapter: activeMaterial.chapter,
+              materialId: activeMaterial.id
+            }
+          });
+        }
+        materialStartTimeRef.current = null;
+      }
+    };
+  }, [activeMaterial, user, db]);
 
   const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db]);
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db]);
@@ -290,6 +323,17 @@ function Dashboard() {
     setSelectedCourse(null);
     setSelectedSubject(null);
     setShowAdminPanel(false);
+  };
+
+  const handleLogout = async () => {
+    if (user && db && user.role !== 'admin') {
+      await addDoc(collection(db, user.role.includes('student') ? 'students' : 'mentors', user.id, 'activity'), {
+        type: 'logout',
+        timestamp: serverTimestamp()
+      });
+    }
+    logout();
+    setView('landing');
   };
 
   if (view === 'landing' && !user) return <LandingPage onSelect={(v) => setView(v)} />;
@@ -361,7 +405,7 @@ function Dashboard() {
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-6">
-            <Button variant="ghost" className="w-full justify-start text-white/80 hover:text-white" onClick={() => { logout(); setView('landing'); }}>
+            <Button variant="ghost" className="w-full justify-start text-white/80 hover:text-white" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" /> Logout
             </Button>
           </SidebarFooter>
@@ -369,7 +413,7 @@ function Dashboard() {
 
         <main className="flex-1 overflow-y-auto p-8">
           <div className="max-w-6xl mx-auto space-y-8">
-            {showAdminPanel && isAdmin ? (
+            {showAdminPanel && (isAdmin || isMentor) ? (
               <StudentManagement />
             ) : !selectedCourse ? (
               <section className="space-y-8">
@@ -425,7 +469,7 @@ function Dashboard() {
                         </TabsList>
                         <TabsContent value="videos" className="space-y-4">
                           {currentMaterials.filter(m => m.type === 'video').map(v => (
-                            <Card key={v.id} className="overflow-hidden border-none shadow-lg rounded-2xl group relative">
+                            <Card key={v.id} className="overflow-hidden border-none shadow-lg rounded-2xl group relative" onMouseEnter={() => setActiveMaterial(v)} onMouseLeave={() => setActiveMaterial(null)}>
                               <div className="aspect-video relative bg-black">
                                 <iframe src={getYouTubeEmbedUrl(v.url)} className="absolute inset-0 w-full h-full" allowFullScreen />
                               </div>
@@ -444,7 +488,7 @@ function Dashboard() {
                         </TabsContent>
                         <TabsContent value="notes" className="space-y-2">
                            {currentMaterials.filter(m => m.type === 'pdf').map(n => (
-                            <Card key={n.id} className="hover:bg-muted/30 transition-colors">
+                            <Card key={n.id} className="hover:bg-muted/30 transition-colors" onMouseEnter={() => setActiveMaterial(n)} onMouseLeave={() => setActiveMaterial(null)}>
                               <CardContent className="p-4 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                   <FileText className="text-blue-500 h-4 w-4" /> 
@@ -525,6 +569,7 @@ function PublicDoubtForm({ className }: { className: string }) {
   const handleSubmit = async () => {
     if (!db || !question.trim() || !user) return;
     await addDoc(collection(db, 'publicDoubts'), {
+      studentId: user.id,
       studentName: user.name,
       className,
       question: question.trim(),

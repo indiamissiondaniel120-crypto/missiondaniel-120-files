@@ -1,8 +1,9 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
 import { useFirestore } from '@/firebase'
-import { collection, doc, setDoc, serverTimestamp, query, orderBy, where, updateDoc, deleteDoc, addDoc, writeBatch } from 'firebase/firestore'
+import { collection, doc, setDoc, serverTimestamp, query, orderBy, where, updateDoc, deleteDoc, addDoc, writeBatch, getDocs } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube, ExternalLink, ListChecks, Search, Filter, Layers, AlertTriangle } from 'lucide-react'
+import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube, ExternalLink, ListChecks, Search, Filter, Layers, AlertTriangle, FileSpreadsheet } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -258,7 +259,7 @@ export function StudentManagement() {
                     <TableRow key={s.id}><TableCell><div className="font-bold">{s.name}</div><div className="text-xs text-muted-foreground">{s.id}</div></TableCell>
                       <TableCell className="capitalize">{courses?.find(c => c.id === s.class)?.name || s.class}</TableCell>
                       <TableCell>{s.mentorId && s.mentorId !== 'none' ? mentors?.find(m => m.id === s.mentorId)?.name : 'None'}</TableCell>
-                      <TableCell className="text-right flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={() => setEditingStudent(s)}><Edit2 size={16} /></Button><ActivityViewer student={s} /></TableCell>
+                      <TableCell className="text-right flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={() => setEditingStudent(s)}><Edit2 size={16} /></Button><ActivityViewer student={s} mentors={mentors || []} /></TableCell>
                     </TableRow>))}
                   </TableBody>
                 </Table></div></CardContent>
@@ -794,36 +795,115 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   )
 }
 
-function ActivityViewer({ student }: { student: any }) {
+function ActivityViewer({ student, mentors }: { student: any, mentors: any[] }) {
   const db = useFirestore()
   const activityQuery = useMemo(() => db && student.id ? query(collection(db, 'students', student.id, 'activity'), orderBy('timestamp', 'desc')) : null, [db, student.id])
   const { data: activities, loading } = useCollection(activityQuery)
 
-  const downloadCSV = () => {
+  const downloadAttendanceCSV = () => {
     if (!activities) return
-    const headers = ["Date", "Activity", "Duration"]
-    const rows = activities.map((log: any) => [log.timestamp?.toDate()?.toLocaleString(), log.type, log.duration || 0])
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(",")).join("\n")
+    const headers = ["Date", "Event Type", "Item/Title", "Chapter", "Duration (Seconds)"]
+    const rows = activities.map((log: any) => {
+      const date = log.timestamp?.toDate()?.toLocaleString() || '';
+      const type = log.type || '';
+      const item = log.metadata?.title || (log.type === 'login' || log.type === 'logout' ? '' : '-');
+      const chapter = log.metadata?.chapter || '-';
+      const duration = log.duration || 0;
+      return [date, type, item, chapter, duration]
+    })
+    
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => `"${e.join('","')}"`).join("\n")
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `report_${student.id}.csv`);
+    link.setAttribute("download", `attendance_report_${student.id}.csv`);
     document.body.appendChild(link);
     link.click();
+  }
+
+  const downloadChatCSV = async () => {
+    if (!db) return;
+    toast({ title: "Preparing chat history..." });
+    
+    try {
+      // Get private chats
+      const chatsRef = collection(db, 'chats');
+      const chatsSnap = await getDocs(chatsRef);
+      let allMessages: any[] = [];
+
+      for (const chatDoc of chatsSnap.docs) {
+        if (chatDoc.id.includes(student.id)) {
+          const msgsRef = collection(db, 'chats', chatDoc.id, 'messages');
+          const msgsSnap = await getDocs(query(msgsRef, orderBy('timestamp', 'asc')));
+          allMessages = [...allMessages, ...msgsSnap.docs.map(d => ({ ...d.data(), chatId: chatDoc.id }))];
+        }
+      }
+
+      // Get public doubts
+      const publicDoubtsRef = collection(db, 'publicDoubts');
+      const publicSnap = await getDocs(query(publicDoubtsRef, where('studentId', '==', student.id)));
+      
+      for (const doubtDoc of publicSnap.docs) {
+        const msgsRef = collection(db, 'chats', `public_${doubtDoc.id}`, 'messages');
+        const msgsSnap = await getDocs(query(msgsRef, orderBy('timestamp', 'asc')));
+        allMessages = [...allMessages, ...msgsSnap.docs.map(d => ({ ...d.data(), chatId: `public_${doubtDoc.id}` }))];
+      }
+
+      const headers = ["Date", "Chat Room", "Sender", "Message"]
+      const rows = allMessages.map(m => [
+        m.timestamp?.toDate()?.toLocaleString() || '',
+        m.chatId,
+        m.senderName,
+        m.text.replace(/"/g, '""')
+      ]);
+
+      const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => `"${e.join('","')}"`).join("\n")
+      const link = document.createElement("a");
+      link.setAttribute("href", encodeURI(csvContent));
+      link.setAttribute("download", `chat_history_${student.id}.csv`);
+      document.body.appendChild(link);
+      link.click();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   return (
     <Dialog>
       <DialogTrigger asChild><Button variant="ghost" size="sm" className="text-accent"><Activity size={16} /></Button></DialogTrigger>
       <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
-        <DialogHeader className="flex items-center justify-between">
-          <DialogTitle>Logs: {student.name}</DialogTitle>
-          <Button variant="outline" size="sm" onClick={downloadCSV}><Download size={16} /></Button>
+        <DialogHeader className="flex items-center justify-between border-b pb-4">
+          <div>
+            <DialogTitle>Activity & Attendance: {student.name}</DialogTitle>
+            <DialogDescription>Review student engagement and downloads logs.</DialogDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={downloadAttendanceCSV} className="gap-2">
+              <FileSpreadsheet size={16} /> Attendance
+            </Button>
+            <Button variant="outline" size="sm" onClick={downloadChatCSV} className="gap-2">
+              <MessageSquare size={16} /> Chats
+            </Button>
+          </div>
         </DialogHeader>
         <ScrollArea className="flex-1 mt-4">
           {loading ? <Loader2 className="animate-spin mx-auto mt-8" /> : (
-            <div className="space-y-2">{activities?.map((log: any, i: number) => (
-              <div key={i} className="p-3 border rounded-lg flex justify-between"><span>{log.type}</span><span className="text-muted-foreground">{log.timestamp?.toDate()?.toLocaleString()}</span></div>
-            ))}</div>
+            <div className="space-y-3">
+              {activities?.length === 0 && <p className="text-center text-muted-foreground py-8 italic">No activity recorded yet.</p>}
+              {activities?.map((log: any, i: number) => (
+                <div key={i} className="p-4 border rounded-2xl flex items-center justify-between bg-muted/20 hover:bg-muted/30 transition-colors">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-bold text-sm uppercase text-primary">{log.type?.replace('_', ' ')}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {log.metadata?.title ? `${log.metadata.title} (Ch ${log.metadata.chapter})` : ''}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-medium text-foreground">{log.timestamp?.toDate()?.toLocaleString()}</div>
+                    {log.duration > 0 && <div className="text-[10px] text-accent font-bold">Duration: {log.duration}s</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </ScrollArea>
       </DialogContent>
