@@ -28,6 +28,16 @@ import { InactivityMonitor } from '@/components/inactivity-monitor';
 import { ChatInterface } from '@/components/chat-interface';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import {
   LogOut,
   Home,
   BookOpen,
@@ -38,6 +48,7 @@ import {
   FileText,
   MessageSquare,
   Youtube,
+  Edit2,
 } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection, useDoc } from '@/firebase';
@@ -50,6 +61,7 @@ import {
   orderBy,
   doc,
   onSnapshot,
+  updateDoc,
 } from 'firebase/firestore';
 
 function getYouTubeEmbedUrl(url: string) {
@@ -165,12 +177,14 @@ function StudentListItem({
 
 function Dashboard() {
   const { user, logout } = useAuth();
+  const { toast } = useToast();
   const db = useFirestore();
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [activeMaterial, setActiveMaterial] = useState<any | null>(null);
   const [selectedChatStudent, setSelectedChatStudent] = useState<any>(null);
+  const [editingMaterial, setEditingMaterial] = useState<any>(null);
 
   const viewStartTime = useRef<number | null>(null);
 
@@ -283,6 +297,19 @@ function Dashboard() {
       setActiveMaterial(null);
       viewStartTime.current = null;
     }
+  };
+
+  const handleUpdateMaterial = async () => {
+    if (!db || !editingMaterial) return;
+    const docRef = doc(db, 'materials', editingMaterial.id);
+    updateDoc(docRef, {
+      title: editingMaterial.title,
+      url: editingMaterial.url,
+      chapter: Number(editingMaterial.chapter)
+    }).then(() => {
+      setEditingMaterial(null);
+      toast({ title: "Material updated successfully" });
+    });
   };
 
   return (
@@ -406,7 +433,17 @@ function Dashboard() {
                           {videos.map(v => {
                             const isYoutube = v.url.includes('youtube.com') || v.url.includes('youtu.be');
                             return (
-                              <Card key={v.id} className="overflow-hidden border-none shadow-lg rounded-2xl">
+                              <Card key={v.id} className="overflow-hidden border-none shadow-lg rounded-2xl group relative">
+                                {isAdmin && (
+                                  <Button 
+                                    variant="secondary" 
+                                    size="icon" 
+                                    className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity rounded-full h-8 w-8 shadow-md"
+                                    onClick={(e) => { e.stopPropagation(); setEditingMaterial(v); }}
+                                  >
+                                    <Edit2 size={14} />
+                                  </Button>
+                                )}
                                 <div className="aspect-video relative bg-black rounded-t-2xl overflow-hidden border-b border-white/5">
                                   {isYoutube ? (
                                     <iframe 
@@ -440,13 +477,25 @@ function Dashboard() {
                         </TabsContent>
                         <TabsContent value="notes" className="space-y-2">
                            {notes.map(n => (
-                            <Card key={n.id} className="hover:bg-muted/30 transition-colors">
+                            <Card key={n.id} className="hover:bg-muted/30 transition-colors group">
                               <CardContent className="p-4 flex items-center justify-between">
                                 <div className="flex flex-col gap-0.5">
                                   <div className="flex items-center gap-3"><FileText className="text-blue-500 h-4 w-4" /> <span className="font-bold">{n.title}</span></div>
                                   <span className="text-[10px] text-muted-foreground uppercase font-bold ml-7">Chapter {n.chapter}</span>
                                 </div>
-                                <Button size="sm" onClick={() => handleOpenMaterial(n)} className="rounded-xl px-4">Open</Button>
+                                <div className="flex items-center gap-2">
+                                  {isAdmin && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                                      onClick={() => setEditingMaterial(n)}
+                                    >
+                                      <Edit2 size={14} />
+                                    </Button>
+                                  )}
+                                  <Button size="sm" onClick={() => handleOpenMaterial(n)} className="rounded-xl px-4">Open</Button>
+                                </div>
                               </CardContent>
                             </Card>
                           ))}
@@ -468,6 +517,42 @@ function Dashboard() {
           </div>
         </main>
       </div>
+
+      <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Material</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input 
+                value={editingMaterial?.title || ''} 
+                onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>URL</Label>
+              <Input 
+                value={editingMaterial?.url || ''} 
+                onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Chapter</Label>
+              <Input 
+                type="number"
+                value={editingMaterial?.chapter || ''} 
+                onChange={e => setEditingMaterial({...editingMaterial, chapter: e.target.value})} 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingMaterial(null)}>Cancel</Button>
+            <Button onClick={handleUpdateMaterial} className="bg-primary">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {user?.role === 'student' && user.mentorId && (
         <div className="fixed bottom-6 right-6 z-50">
