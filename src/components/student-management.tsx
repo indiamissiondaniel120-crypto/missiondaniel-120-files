@@ -219,7 +219,7 @@ export function StudentManagement() {
   const downloadOverviewCSV = () => {
     if (!filteredCoursesForSheet || !subjects || !materials) return;
     
-    const headers = ["Class", "Subject", "Chapter", "Videos Count", "PDFs Count", "Material Titles"];
+    const headers = ["Class", "Subject", "Chapter", "Videos Count", "PDFs Count", "Material Titles", "Video Links", "PDF Links"];
     const rows: any[] = [];
 
     filteredCoursesForSheet.forEach(course => {
@@ -244,6 +244,8 @@ export function StudentManagement() {
           const videos = chMat.filter(m => m.type === 'video');
           const pdfs = chMat.filter(m => m.type === 'pdf');
           const titles = chMat.map(m => m.title).join(" | ");
+          const videoLinks = videos.map(v => v.url).join(" | ");
+          const pdfLinks = pdfs.map(p => p.url).join(" | ");
 
           rows.push([
             course.name,
@@ -251,13 +253,15 @@ export function StudentManagement() {
             `Ch ${ch}`,
             videos.length,
             pdfs.length,
-            titles
+            titles,
+            videoLinks,
+            pdfLinks
           ]);
         });
       });
     });
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => `"${e.join('","')}"`).join("\n");
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -867,7 +871,7 @@ function ActivityViewer({ student, mentors }: { student: any, mentors: any[] }) 
       return [date, type, item, chapter, duration]
     })
     
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => `"${e.join('","')}"`).join("\n")
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
     link.setAttribute("download", `attendance_report_${student.id}.csv`);
@@ -911,7 +915,7 @@ function ActivityViewer({ student, mentors }: { student: any, mentors: any[] }) 
         m.text.replace(/"/g, '""')
       ]);
 
-      const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => `"${e.join('","')}"`).join("\n")
+      const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
       const link = document.createElement("a");
       link.setAttribute("href", encodeURI(csvContent));
       link.setAttribute("download", `chat_history_${student.id}.csv`);
