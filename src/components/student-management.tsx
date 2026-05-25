@@ -125,11 +125,8 @@ export function StudentManagement() {
   const sortedMaterials = useMemo(() => {
     if (!materials) return [];
     return [...materials].sort((a, b) => {
-      // Primary sort: Class
       if (a.courseId !== b.courseId) return a.courseId.localeCompare(b.courseId);
-      // Secondary sort: Subject
       if (a.subjectId !== b.subjectId) return a.subjectId.localeCompare(b.subjectId);
-      // Tertiary sort: Chapter (Numerical)
       return (Number(a.chapter) || 0) - (Number(b.chapter) || 0);
     });
   }, [materials]);
@@ -403,63 +400,73 @@ export function StudentManagement() {
                       }
                       
                       return cSubs.flatMap(sub => {
-                        const total = getChapterCount(course.id, sub.name)
-                        const rows = []
-                        for (let ch = 1; ch <= total; ch++) {
+                        const standardTotal = getChapterCount(course.id, sub.name)
+                        const dbChapters = (materials || [])
+                          .filter(m => m.courseId === course.id && m.subjectId === sub.id)
+                          .map(m => Number(m.chapter))
+                        
+                        const allChapters = Array.from(new Set([
+                          ...Array.from({ length: standardTotal }, (_, i) => i + 1),
+                          ...dbChapters
+                        ])).sort((a, b) => a - b)
+
+                        const totalChaptersCount = allChapters.length
+                        
+                        return allChapters.map((ch, i) => {
                           const chMat = materials?.filter(m => m.courseId === course.id && m.subjectId === sub.id && Number(m.chapter) === ch) || []
-                          rows.push({ 
+                          const r = { 
                             ch, 
                             videos: chMat.filter(m => m.type === 'video'), 
                             pdfs: chMat.filter(m => m.type === 'pdf') 
-                          })
-                        }
-                        
-                        return rows.map((r, i) => (
-                          <TableRow key={`${sub.id}-${r.ch}`} className="hover:bg-accent/5">
-                            {i === 0 && (
-                              <TableCell className="font-bold border-r align-top bg-muted/5" rowSpan={total}>
-                                <div className="flex flex-col">
-                                  <span>{sub.name}</span>
-                                  <span className="text-[10px] text-muted-foreground uppercase font-normal">{course.name}</span>
+                          }
+                          
+                          return (
+                            <TableRow key={`${sub.id}-${ch}`} className="hover:bg-accent/5">
+                              {i === 0 && (
+                                <TableCell className="font-bold border-r align-top bg-muted/5" rowSpan={totalChaptersCount}>
+                                  <div className="flex flex-col">
+                                    <span>{sub.name}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase font-normal">{course.name}</span>
+                                  </div>
+                                </TableCell>
+                              )}
+                              <TableCell 
+                                className="text-center border-r font-medium cursor-pointer hover:bg-accent hover:text-white transition-all group"
+                                onClick={() => setSelectedChapterInfo({
+                                  className: course.name,
+                                  subjectName: sub.name,
+                                  chapter: ch,
+                                  materials: [...r.videos, ...r.pdfs]
+                                })}
+                              >
+                                <div className="flex items-center justify-center gap-2">
+                                  Ch {ch}
+                                  <ExternalLink size={10} className="opacity-0 group-hover:opacity-100" />
                                 </div>
                               </TableCell>
-                            )}
-                            <TableCell 
-                              className="text-center border-r font-medium cursor-pointer hover:bg-accent hover:text-white transition-all group"
-                              onClick={() => setSelectedChapterInfo({
-                                className: course.name,
-                                subjectName: sub.name,
-                                chapter: r.ch,
-                                materials: [...r.videos, ...r.pdfs]
-                              })}
-                            >
-                              <div className="flex items-center justify-center gap-2">
-                                Ch {r.ch}
-                                <ExternalLink size={10} className="opacity-0 group-hover:opacity-100" />
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-1.5">
-                                  <Badge variant={r.videos.length > 0 ? "default" : "outline"} className={`text-[9px] h-5 min-w-8 justify-center ${r.videos.length > 0 ? 'bg-red-500 hover:bg-red-600' : 'text-muted-foreground opacity-50'}`}>
-                                    V: {r.videos.length}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <Badge variant={r.pdfs.length > 0 ? "default" : "outline"} className={`text-[9px] h-5 min-w-8 justify-center ${r.pdfs.length > 0 ? 'bg-blue-500 hover:bg-blue-600' : 'text-muted-foreground opacity-50'}`}>
-                                    F: {r.pdfs.length}
-                                  </Badge>
-                                </div>
-                                {r.videos.length > 0 && (
-                                  <div className="flex gap-1 overflow-hidden">
-                                    {r.videos.slice(0, 2).map(v => <span key={v.id} className="text-[8px] text-muted-foreground truncate max-w-[80px]">· {v.title}</span>)}
-                                    {r.videos.length > 2 && <span className="text-[8px] text-muted-foreground">...</span>}
+                              <TableCell>
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-1.5">
+                                    <Badge variant={r.videos.length > 0 ? "default" : "outline"} className={`text-[9px] h-5 min-w-8 justify-center ${r.videos.length > 0 ? 'bg-red-500 hover:bg-red-600' : 'text-muted-foreground opacity-50'}`}>
+                                      V: {r.videos.length}
+                                    </Badge>
                                   </div>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
+                                  <div className="flex items-center gap-1.5">
+                                    <Badge variant={r.pdfs.length > 0 ? "default" : "outline"} className={`text-[9px] h-5 min-w-8 justify-center ${r.pdfs.length > 0 ? 'bg-blue-500 hover:bg-blue-600' : 'text-muted-foreground opacity-50'}`}>
+                                      F: {r.pdfs.length}
+                                    </Badge>
+                                  </div>
+                                  {r.videos.length > 0 && (
+                                    <div className="flex gap-1 overflow-hidden">
+                                      {r.videos.slice(0, 2).map(v => <span key={v.id} className="text-[8px] text-muted-foreground truncate max-w-[80px]">· {v.title}</span>)}
+                                      {r.videos.length > 2 && <span className="text-[8px] text-muted-foreground">...</span>}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
                       })
                     })}
                     {filteredCoursesForSheet?.length === 0 && (
@@ -556,9 +563,18 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
 
   const chapterStatus = useMemo(() => {
     if (!selectedCourse || !selectedSubject) return []
-    const total = getChapterCount(selectedCourse.id, selectedSubject.name)
+    const standardTotal = getChapterCount(selectedCourse.id, selectedSubject.name)
+    const dbChapters = (materials || [])
+      .filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id)
+      .map(m => Number(m.chapter))
+    
+    const allChapterNums = Array.from(new Set([
+      ...Array.from({ length: standardTotal }, (_, i) => i + 1),
+      ...dbChapters
+    ])).sort((a, b) => a - b)
+
     const result = []
-    for (let i = 1; i <= total; i++) {
+    for (const i of allChapterNums) {
       const chMaterials = (materials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id && Number(m.chapter) === i)
       const video = chMaterials.find(m => m.type === 'video')
       const pdf = chMaterials.find(m => m.type === 'pdf')
@@ -596,8 +612,9 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
 
   const handleAddRow = () => {
     if (bulkRows.length >= 20) return
-    const currentChapterIds = bulkRows.map(r => r.chapter)
-    const nextIncomplete = incompleteChapters.find(c => !currentChapterIds.includes(c.chapter))
+    const currentRowsChapters = bulkRows.map(r => r.chapter)
+    const nextIncomplete = incompleteChapters.find(c => !currentRowsChapters.includes(c.chapter))
+    
     if (nextIncomplete) {
       setBulkRows([...bulkRows, {
         chapter: nextIncomplete.chapter,
@@ -608,6 +625,15 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
         pdfId: nextIncomplete.pdfId,
         isFetchingTitle: false
       }])
+    } else {
+      const maxChapter = Math.max(0, ...chapterStatus.map(c => c.chapter), ...currentRowsChapters)
+      setBulkRows([...bulkRows, {
+        chapter: maxChapter + 1,
+        title: '',
+        videoUrl: '',
+        pdfUrl: '',
+        isFetchingTitle: false
+      }])
     }
   }
 
@@ -616,7 +642,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     updated[index] = { ...updated[index], [field]: value }
     setBulkRows(updated)
 
-    if (field === 'videoUrl' && value.trim()) {
+    if (field === 'videoUrl' && typeof value === 'string' && value.trim()) {
       const videoId = getYouTubeID(value);
       if (videoId) {
         updated[index].isFetchingTitle = true;
@@ -657,7 +683,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
             subjectId: selectedSubject.id,
             type: 'video',
             url: row.videoUrl.trim(),
-            chapter: row.chapter,
+            chapter: Number(row.chapter),
             createdAt: serverTimestamp()
           }, { merge: true })
         }
@@ -670,7 +696,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
             subjectId: selectedSubject.id,
             type: 'pdf',
             url: row.pdfUrl.trim(),
-            chapter: row.chapter,
+            chapter: Number(row.chapter),
             createdAt: serverTimestamp()
           }, { merge: true })
         }
@@ -711,17 +737,25 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
                     {chapterStatus.filter(c => c.completed).map(c => <Badge key={c.chapter} variant="secondary" className="bg-green-100 text-green-700">Ch {c.chapter} (Done)</Badge>)}
                   </div>
                   <div className="flex justify-between items-center">
-                    <h4 className="text-sm font-bold uppercase text-primary">Bulk Entry</h4>
-                    <Button variant="outline" size="sm" onClick={handleAddRow} disabled={bulkRows.length >= 20 || bulkRows.length >= incompleteChapters.length}><Plus size={14} className="mr-1" /> Add Row</Button>
+                    <h4 className="text-sm font-bold uppercase text-primary">Bulk Entry (Max 20 rows)</h4>
+                    <Button variant="outline" size="sm" onClick={handleAddRow} disabled={bulkRows.length >= 20}><Plus size={14} className="mr-1" /> Add Row</Button>
                   </div>
                   <div className="space-y-3">
                     {bulkRows.map((row, idx) => (
                       <div key={idx} className="grid grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-2xl border border-accent/10">
-                        <div className="col-span-1 text-center font-bold text-primary">Ch {row.chapter}</div>
+                        <div className="col-span-1">
+                          <Label className="text-[10px] opacity-60">Ch #</Label>
+                          <Input 
+                            type="number" 
+                            className="bg-white" 
+                            value={row.chapter} 
+                            onChange={e => handleUpdateRow(idx, 'chapter', Number(e.target.value))} 
+                          />
+                        </div>
                         <div className="col-span-3">
                           <Label className="text-[10px] opacity-60">Chapter Title</Label>
                           <div className="relative">
-                            <Input className="bg-white" placeholder="Auto-fetched if empty" value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />
+                            <Input className="bg-white" placeholder="Auto-fetched from Video" value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />
                             {row.isFetchingTitle && <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-accent" />}
                           </div>
                         </div>
