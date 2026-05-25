@@ -39,9 +39,8 @@ function getChapterCount(courseId: string, subjectName: string): number {
   if (name.includes('maths')) return MATHS_CHAPTER_COUNT[courseId] || 1;
   if (name.includes('hamara adhbhut sansar')) return 10;
   if (name.includes('jigyasa')) {
-    if (courseId === 'class-6' || courseId === 'class-7') return 12;
     if (courseId === 'class-8') return 13;
-    return 12;
+    return 12; // Class 6 and 7
   }
   if (name.includes('exploration')) return 13;
   if (name.includes('vigyan')) return 13;
@@ -127,7 +126,6 @@ export function StudentManagement() {
   const sortedMaterials = useMemo(() => {
     if (!materials) return [];
     return [...materials].sort((a, b) => {
-      // Sort by class first, then subject, then chapter
       if (a.courseId !== b.courseId) return a.courseId.localeCompare(b.courseId);
       if (a.subjectId !== b.subjectId) return a.subjectId.localeCompare(b.subjectId);
       return (a.chapter || 0) - (b.chapter || 0);
@@ -343,7 +341,31 @@ export function StudentManagement() {
                   <Button className="w-full bg-primary" disabled={isUploading}>Save Material</Button>
                 </form>
                 <ScrollArea className="h-[250px]"><Table><TableHeader><TableRow><TableHead>Preview</TableHead><TableHead>Material</TableHead><TableHead>Details</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                  <TableBody>{sortedMaterials?.map((m: any) => (<TableRow key={m.id}><TableCell><div className="h-10 w-10 border rounded flex items-center justify-center">{m.type === 'video' ? <PlayCircle size={18} /> : <FileText size={18} />}</div></TableCell><TableCell><span className="text-sm font-medium">{m.title}</span></TableCell><TableCell className="text-[10px] uppercase font-bold">{courses?.find(c => c.id === m.courseId)?.name} (Ch {m.chapter})</TableCell><TableCell className="text-right flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)}><Trash2 size={12} /></Button></TableCell></TableRow>))}</TableBody>
+                  <TableBody>{sortedMaterials?.map((m: any) => {
+                    const youtubeId = getYouTubeID(m.url);
+                    const thumbnail = youtubeId ? `https://img.youtube.com/vi/${youtubeId}/default.jpg` : null;
+                    return (
+                      <TableRow key={m.id}>
+                        <TableCell>
+                          <div className="h-10 w-16 border rounded overflow-hidden flex items-center justify-center bg-muted/30">
+                            {m.type === 'video' ? (
+                              thumbnail ? (
+                                <img src={thumbnail} alt="preview" className="w-full h-full object-cover" />
+                              ) : <PlayCircle size={18} />
+                            ) : <FileText size={18} />}
+                          </div>
+                        </TableCell>
+                        <TableCell><span className="text-sm font-medium">{m.title}</span></TableCell>
+                        <TableCell>
+                           <div className="flex flex-col gap-0.5">
+                             <span className="text-[10px] uppercase font-bold text-primary">{courses?.find(c => c.id === m.courseId)?.name}</span>
+                             <span className="text-[9px] text-muted-foreground">Chapter {m.chapter}</span>
+                           </div>
+                        </TableCell>
+                        <TableCell className="text-right flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)}><Trash2 size={12} /></Button></TableCell>
+                      </TableRow>
+                    )
+                  })}</TableBody>
                 </Table></ScrollArea>
               </CardContent>
             </Card>
@@ -351,50 +373,99 @@ export function StudentManagement() {
         </TabsContent>
 
         <TabsContent value="academic-sheet">
-          <Card className="border-accent/20"><CardHeader><CardTitle className="flex items-center gap-2"><ListChecks className="text-accent" /> Academic Resource Sheet</CardTitle>
-            <CardDescription>Curriculum View: Classes &rarr; Subjects &rarr; Chapters &rarr; Materials.</CardDescription>
-          </CardHeader>
+          <Card className="border-accent/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ListChecks className="text-accent" /> Academic Resource Sheet</CardTitle>
+              <CardDescription>Curriculum View: Classes → Subjects → Chapters → Materials.</CardDescription>
+            </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex gap-4 p-4 bg-muted/30 rounded-2xl border border-dashed border-accent/20">
                 <div className="flex-1"><Label className="text-[10px] uppercase">Class</Label><Select onValueChange={setOverviewClassFilter} value={overviewClassFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Classes</SelectItem>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
-                <div className="flex-1"><Label className="text-[10px] uppercase">Subject</Label><Input value={overviewSubjectSearch} onChange={e => setOverviewSubjectSearch(e.target.value)} /></div>
+                <div className="flex-1"><Label className="text-[10px] uppercase">Subject Search</Label><div className="relative"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-8" placeholder="Search Subject..." value={overviewSubjectSearch} onChange={e => setOverviewSubjectSearch(e.target.value)} /></div></div>
               </div>
-              <Table><TableHeader className="bg-muted/50"><TableRow><TableHead>Class & Subject</TableHead><TableHead>Chapter</TableHead><TableHead>Materials</TableHead></TableRow></TableHeader>
-                <TableBody>{filteredCoursesForSheet?.map(course => {
-                  let cSubs = subjects?.filter(s => s.courseId === course.id) || []
-                  if (overviewSubjectSearch) cSubs = cSubs.filter(s => s.name.toLowerCase().includes(overviewSubjectSearch.toLowerCase()))
-                  return cSubs.flatMap(sub => {
-                    const total = getChapterCount(course.id, sub.name)
-                    const rows = []
-                    for (let ch = 1; ch <= total; ch++) {
-                      const chMat = materials?.filter(m => m.courseId === course.id && m.subjectId === sub.id && m.chapter === ch) || []
-                      rows.push({ ch, videos: chMat.filter(m => m.type === 'video'), pdfs: chMat.filter(m => m.type === 'pdf') })
-                    }
-                    return rows.map((r, i) => (
-                      <TableRow key={`${sub.id}-${r.ch}`}>
-                        <TableCell className="font-bold border-r" rowSpan={i === 0 ? total : 0}>{i === 0 ? sub.name : null}</TableCell>
-                        <TableCell 
-                          className="text-center w-32 border-r cursor-pointer hover:bg-accent/5 hover:text-accent font-medium transition-colors"
-                          onClick={() => setSelectedChapterInfo({
-                            className: course.name,
-                            subjectName: sub.name,
-                            chapter: r.ch,
-                            materials: [...r.videos, ...r.pdfs]
-                          })}
-                        >
-                          Ch {r.ch}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <div><span className="text-[10px] font-bold text-red-600 mr-2">V:</span>{r.videos.map(v => <Badge key={v.id} variant="outline" className="mr-1 text-[8px]">{v.title}</Badge>)}</div>
-                            <div><span className="text-[10px] font-bold text-blue-600 mr-2">F:</span>{r.pdfs.map(p => <Badge key={p.id} variant="outline" className="mr-1 text-[8px]">{p.title}</Badge>)}</div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  })
-                })}</TableBody>
-              </Table>
+              
+              <div className="rounded-xl border overflow-hidden shadow-sm">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead className="w-1/4">Class & Subject</TableHead>
+                      <TableHead className="w-1/6">Chapter</TableHead>
+                      <TableHead>Materials Count</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCoursesForSheet?.flatMap(course => {
+                      let cSubs = subjects?.filter(s => s.courseId === course.id) || []
+                      if (overviewSubjectSearch) {
+                        cSubs = cSubs.filter(s => s.name.toLowerCase().includes(overviewSubjectSearch.toLowerCase()))
+                      }
+                      
+                      return cSubs.flatMap(sub => {
+                        const total = getChapterCount(course.id, sub.name)
+                        const rows = []
+                        for (let ch = 1; ch <= total; ch++) {
+                          const chMat = materials?.filter(m => m.courseId === course.id && m.subjectId === sub.id && m.chapter === ch) || []
+                          rows.push({ 
+                            ch, 
+                            videos: chMat.filter(m => m.type === 'video'), 
+                            pdfs: chMat.filter(m => m.type === 'pdf') 
+                          })
+                        }
+                        
+                        return rows.map((r, i) => (
+                          <TableRow key={`${sub.id}-${r.ch}`} className="hover:bg-accent/5">
+                            {i === 0 && (
+                              <TableCell className="font-bold border-r align-top bg-muted/5" rowSpan={total}>
+                                <div className="flex flex-col">
+                                  <span>{sub.name}</span>
+                                  <span className="text-[10px] text-muted-foreground uppercase font-normal">{course.name}</span>
+                                </div>
+                              </TableCell>
+                            )}
+                            <TableCell 
+                              className="text-center border-r font-medium cursor-pointer hover:bg-accent hover:text-white transition-all group"
+                              onClick={() => setSelectedChapterInfo({
+                                className: course.name,
+                                subjectName: sub.name,
+                                chapter: r.ch,
+                                materials: [...r.videos, ...r.pdfs]
+                              })}
+                            >
+                              <div className="flex items-center justify-center gap-2">
+                                Ch {r.ch}
+                                <ExternalLink size={10} className="opacity-0 group-hover:opacity-100" />
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-1.5">
+                                  <Badge variant={r.videos.length > 0 ? "default" : "outline"} className={`text-[9px] h-5 min-w-8 justify-center ${r.videos.length > 0 ? 'bg-red-500 hover:bg-red-600' : 'text-muted-foreground opacity-50'}`}>
+                                    V: {r.videos.length}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Badge variant={r.pdfs.length > 0 ? "default" : "outline"} className={`text-[9px] h-5 min-w-8 justify-center ${r.pdfs.length > 0 ? 'bg-blue-500 hover:bg-blue-600' : 'text-muted-foreground opacity-50'}`}>
+                                    F: {r.pdfs.length}
+                                  </Badge>
+                                </div>
+                                {r.videos.length > 0 && (
+                                  <div className="flex gap-1 overflow-hidden">
+                                    {r.videos.slice(0, 2).map(v => <span key={v.id} className="text-[8px] text-muted-foreground truncate max-w-[80px]">· {v.title}</span>)}
+                                    {r.videos.length > 2 && <span className="text-[8px] text-muted-foreground">...</span>}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      })
+                    })}
+                    {filteredCoursesForSheet?.length === 0 && (
+                      <TableRow><TableCell colSpan={3} className="text-center py-12 text-muted-foreground italic">No data found for these filters.</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -408,7 +479,12 @@ export function StudentManagement() {
       </Dialog>
       <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}>
         <DialogContent><DialogHeader><DialogTitle>Edit Material</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4"><Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} /><Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} /></div>
+          <div className="space-y-4 py-4">
+            <Label>Title</Label>
+            <Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} />
+            <Label>URL</Label>
+            <Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} />
+          </div>
           <DialogFooter><Button onClick={handleUpdateMaterial}>Save</Button></DialogFooter>
         </DialogContent>
       </Dialog>
@@ -501,7 +577,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
 
   useEffect(() => {
     if (selectedClassId && selectedSubjectId) {
-      const initial = incompleteChapters.slice(0, 1).map(c => ({
+      const initialRows = incompleteChapters.slice(0, 1).map(c => ({
         chapter: c.chapter,
         title: c.title,
         videoUrl: c.videoUrl,
@@ -510,7 +586,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
         pdfId: c.pdfId,
         isFetchingTitle: false
       }))
-      setBulkRows(initial)
+      setBulkRows(initialRows)
     } else {
       setBulkRows([])
     }
