@@ -31,14 +31,18 @@ const MATHS_CHAPTER_COUNT: Record<string, number> = {
   'class-7': 8,
   'class-8': 7,
   'class-9': 8,
-  'class-10': 14
+  'class-10': 15
 };
 
 function getChapterCount(courseId: string, subjectName: string): number {
   const name = subjectName.toLowerCase();
   if (name.includes('maths')) return MATHS_CHAPTER_COUNT[courseId] || 1;
   if (name.includes('hamara adhbhut sansar')) return 10;
-  if (name.includes('jigyasa')) return (courseId === 'class-8') ? 13 : 12;
+  if (name.includes('jigyasa')) {
+    if (courseId === 'class-6' || courseId === 'class-7') return 12;
+    if (courseId === 'class-8') return 13;
+    return 12;
+  }
   if (name.includes('exploration')) return 13;
   if (name.includes('vigyan')) return 13;
   return 1;
@@ -119,6 +123,16 @@ export function StudentManagement() {
   const { data: materials } = useCollection(materialsQuery)
 
   const courses = useMemo(() => sortClasses(rawCourses || []), [rawCourses]);
+
+  const sortedMaterials = useMemo(() => {
+    if (!materials) return [];
+    return [...materials].sort((a, b) => {
+      // Sort by class first, then subject, then chapter
+      if (a.courseId !== b.courseId) return a.courseId.localeCompare(b.courseId);
+      if (a.subjectId !== b.subjectId) return a.subjectId.localeCompare(b.subjectId);
+      return (a.chapter || 0) - (b.chapter || 0);
+    });
+  }, [materials]);
 
   const handleRegisterStudent = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -329,7 +343,7 @@ export function StudentManagement() {
                   <Button className="w-full bg-primary" disabled={isUploading}>Save Material</Button>
                 </form>
                 <ScrollArea className="h-[250px]"><Table><TableHeader><TableRow><TableHead>Preview</TableHead><TableHead>Material</TableHead><TableHead>Details</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                  <TableBody>{materials?.map((m: any) => (<TableRow key={m.id}><TableCell><div className="h-10 w-10 border rounded flex items-center justify-center">{m.type === 'video' ? <PlayCircle size={18} /> : <FileText size={18} />}</div></TableCell><TableCell><span className="text-sm font-medium">{m.title}</span></TableCell><TableCell className="text-[10px] uppercase font-bold">{courses?.find(c => c.id === m.courseId)?.name} (Ch {m.chapter})</TableCell><TableCell className="text-right flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)}><Trash2 size={12} /></Button></TableCell></TableRow>))}</TableBody>
+                  <TableBody>{sortedMaterials?.map((m: any) => (<TableRow key={m.id}><TableCell><div className="h-10 w-10 border rounded flex items-center justify-center">{m.type === 'video' ? <PlayCircle size={18} /> : <FileText size={18} />}</div></TableCell><TableCell><span className="text-sm font-medium">{m.title}</span></TableCell><TableCell className="text-[10px] uppercase font-bold">{courses?.find(c => c.id === m.courseId)?.name} (Ch {m.chapter})</TableCell><TableCell className="text-right flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)}><Trash2 size={12} /></Button></TableCell></TableRow>))}</TableBody>
                 </Table></ScrollArea>
               </CardContent>
             </Card>
