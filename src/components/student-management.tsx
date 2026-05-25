@@ -595,7 +595,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   }, [selectedClassId, selectedSubjectId, incompleteChapters])
 
   const handleAddRow = () => {
-    if (bulkRows.length >= 10) return
+    if (bulkRows.length >= 20) return
     const currentChapterIds = bulkRows.map(r => r.chapter)
     const nextIncomplete = incompleteChapters.find(c => !currentChapterIds.includes(c.chapter))
     if (nextIncomplete) {
@@ -712,7 +712,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
                   </div>
                   <div className="flex justify-between items-center">
                     <h4 className="text-sm font-bold uppercase text-primary">Bulk Entry</h4>
-                    <Button variant="outline" size="sm" onClick={handleAddRow} disabled={bulkRows.length >= 10 || bulkRows.length >= incompleteChapters.length}><Plus size={14} className="mr-1" /> Add Row</Button>
+                    <Button variant="outline" size="sm" onClick={handleAddRow} disabled={bulkRows.length >= 20 || bulkRows.length >= incompleteChapters.length}><Plus size={14} className="mr-1" /> Add Row</Button>
                   </div>
                   <div className="space-y-3">
                     {bulkRows.map((row, idx) => (
