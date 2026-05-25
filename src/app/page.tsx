@@ -200,7 +200,8 @@ function Dashboard() {
       ...STUDY_MATERIALS.filter(m => m.courseId === selectedCourse.id && m.title.toLowerCase().includes(selectedSubject.name.toLowerCase())),
       ...(allMaterials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id)
     ];
-    return combined;
+    // Sort strictly by chapter number
+    return combined.sort((a, b) => (Number(a.chapter) || 0) - (Number(b.chapter) || 0));
   }, [selectedCourse, selectedSubject, allMaterials]);
 
   const notes = currentMaterials.filter((m) => m.type === 'pdf');
@@ -262,7 +263,7 @@ function Dashboard() {
       type,
       timestamp: serverTimestamp(),
       duration: Math.max(0, duration),
-      metadata: { title: material.title, courseId: material.courseId, materialId: material.id },
+      metadata: { title: material.title, courseId: material.courseId, materialId: material.id, chapter: material.chapter },
     });
   };
 
@@ -422,7 +423,10 @@ function Dashboard() {
                                   )}
                                 </div>
                                 <CardHeader className="p-4 flex flex-row items-center justify-between bg-card">
-                                  <CardTitle className="text-sm font-bold">{v.title}</CardTitle>
+                                  <div className="flex flex-col">
+                                    <CardTitle className="text-sm font-bold">{v.title}</CardTitle>
+                                    <span className="text-[10px] text-muted-foreground uppercase font-bold mt-0.5">Chapter {v.chapter}</span>
+                                  </div>
                                   {isYoutube && (
                                     <Badge variant="secondary" className="text-[10px] flex items-center gap-1.5 px-2 py-1 bg-white/5 border-none">
                                       <Youtube className="h-3.5 w-3.5 text-red-500" /> YouTube
@@ -438,7 +442,10 @@ function Dashboard() {
                            {notes.map(n => (
                             <Card key={n.id} className="hover:bg-muted/30 transition-colors">
                               <CardContent className="p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-3"><FileText className="text-blue-500" /> <span className="font-bold">{n.title}</span></div>
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-3"><FileText className="text-blue-500 h-4 w-4" /> <span className="font-bold">{n.title}</span></div>
+                                  <span className="text-[10px] text-muted-foreground uppercase font-bold ml-7">Chapter {n.chapter}</span>
+                                </div>
                                 <Button size="sm" onClick={() => handleOpenMaterial(n)} className="rounded-xl px-4">Open</Button>
                               </CardContent>
                             </Card>
@@ -448,7 +455,7 @@ function Dashboard() {
                       </Tabs>
                     ) : (
                       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-muted/20 rounded-3xl border border-dashed border-primary/20">
-                        <BookOpen size={48} className="mb-4 opacity-20 text-primary" />
+                        <BookOpen size={48} className="mb-4 Discord text-primary" />
                         <p className="font-medium">Select a subject to view educational materials.</p>
                       </div>
                     )}

@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -126,9 +125,12 @@ export function StudentManagement() {
   const sortedMaterials = useMemo(() => {
     if (!materials) return [];
     return [...materials].sort((a, b) => {
+      // Primary sort: Class
       if (a.courseId !== b.courseId) return a.courseId.localeCompare(b.courseId);
+      // Secondary sort: Subject
       if (a.subjectId !== b.subjectId) return a.subjectId.localeCompare(b.subjectId);
-      return (a.chapter || 0) - (b.chapter || 0);
+      // Tertiary sort: Chapter (Numerical)
+      return (Number(a.chapter) || 0) - (Number(b.chapter) || 0);
     });
   }, [materials]);
 
@@ -359,7 +361,7 @@ export function StudentManagement() {
                         <TableCell>
                            <div className="flex flex-col gap-0.5">
                              <span className="text-[10px] uppercase font-bold text-primary">{courses?.find(c => c.id === m.courseId)?.name}</span>
-                             <span className="text-[9px] text-muted-foreground">Chapter {m.chapter}</span>
+                             <span className="text-[9px] text-muted-foreground font-bold">Chapter {m.chapter}</span>
                            </div>
                         </TableCell>
                         <TableCell className="text-right flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)}><Trash2 size={12} /></Button></TableCell>
@@ -404,7 +406,7 @@ export function StudentManagement() {
                         const total = getChapterCount(course.id, sub.name)
                         const rows = []
                         for (let ch = 1; ch <= total; ch++) {
-                          const chMat = materials?.filter(m => m.courseId === course.id && m.subjectId === sub.id && m.chapter === ch) || []
+                          const chMat = materials?.filter(m => m.courseId === course.id && m.subjectId === sub.id && Number(m.chapter) === ch) || []
                           rows.push({ 
                             ch, 
                             videos: chMat.filter(m => m.type === 'video'), 
@@ -557,7 +559,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     const total = getChapterCount(selectedCourse.id, selectedSubject.name)
     const result = []
     for (let i = 1; i <= total; i++) {
-      const chMaterials = materials.filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id && m.chapter === i)
+      const chMaterials = materials.filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id && Number(m.chapter) === i)
       const video = chMaterials.find(m => m.type === 'video')
       const pdf = chMaterials.find(m => m.type === 'pdf')
       result.push({
