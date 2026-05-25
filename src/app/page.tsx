@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -102,17 +101,22 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
 }
 
 function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register' | 'admin-login') => void }) {
-  const quotes = [
-    { text: "For it is the Creator who bestows wisdom, and from His words flow all knowledge and understanding.", ref: "Proverbs 2:6 (Rephrased)" },
-    { text: "The heart of a learner thrives on wisdom, and the ears of the dedicated seek out understanding with joy.", ref: "Proverbs 18:15 (Rephrased)" },
-    { text: "Guide a young mind on the path of light, and they will walk in wisdom throughout their journey.", ref: "Proverbs 22:6 (Rephrased)" }
+  const allQuotes = [
+    "True wisdom is a gift from the Creator, and every word of truth brings deep understanding and insight.",
+    "An intelligent heart is always searching for knowledge, and the ears of the wise are constantly listening for truth.",
+    "Guide a young mind on the path of light and wisdom, and they will walk in strength throughout their journey.",
+    "To those who are dedicated to learning, the Creator bestows the skill of understanding and the light of knowledge in all paths of study.",
+    "The heart of a learner thrives on wisdom, and the ears of the dedicated seek out understanding with joy.",
+    "True knowledge begins with a deep respect for truth; those who seek wisdom will find a path to greatness.",
+    "Commit your works to the light, and your plans will be established in wisdom."
   ];
 
-  const [quoteIdx, setQuoteIdx] = useState(0);
+  const [quote, setQuote] = useState("");
 
   useEffect(() => {
-    const interval = setInterval(() => setQuoteIdx((p) => (p + 1) % quotes.length), 8000);
-    return () => clearInterval(interval);
+    // Pick a random quote on mount to avoid hydration mismatch
+    const randomIdx = Math.floor(Math.random() * allQuotes.length);
+    setQuote(allQuotes[randomIdx]);
   }, []);
 
   return (
@@ -124,9 +128,8 @@ function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register
         <h1 className="text-6xl font-black text-primary tracking-tighter">DANIEL 120</h1>
         <div className="h-24 flex flex-col items-center justify-center">
           <p className="text-2xl font-medium text-foreground/80 italic animate-in fade-in slide-in-from-bottom-2 duration-1000">
-            "{quotes[quoteIdx].text}"
+            {quote ? `"${quote}"` : "..."}
           </p>
-          <p className="text-sm text-accent font-bold mt-2 uppercase tracking-widest">{quotes[quoteIdx].ref}</p>
         </div>
       </div>
 
@@ -367,7 +370,14 @@ function Dashboard() {
                                 <iframe src={getYouTubeEmbedUrl(v.url)} className="absolute inset-0 w-full h-full" allowFullScreen />
                               </div>
                               <CardHeader className="p-4 bg-card">
-                                <CardTitle className="text-sm font-bold">{v.title} - Ch {v.chapter}</CardTitle>
+                                <div className="flex items-center justify-between">
+                                  <CardTitle className="text-sm font-bold">{v.title} - Ch {v.chapter}</CardTitle>
+                                  {isAdmin && (
+                                    <Button variant="ghost" size="icon" onClick={() => setEditingMaterial(v)} className="h-8 w-8 text-muted-foreground">
+                                      <Edit2 size={14} />
+                                    </Button>
+                                  )}
+                                </div>
                               </CardHeader>
                             </Card>
                           ))}
@@ -376,8 +386,18 @@ function Dashboard() {
                            {currentMaterials.filter(m => m.type === 'pdf').map(n => (
                             <Card key={n.id} className="hover:bg-muted/30 transition-colors">
                               <CardContent className="p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-3"><FileText className="text-blue-500 h-4 w-4" /> <span className="font-bold">{n.title} (Ch {n.chapter})</span></div>
-                                <Button size="sm" onClick={() => window.open(n.url, '_blank')} className="rounded-xl px-4">Open</Button>
+                                <div className="flex items-center gap-3">
+                                  <FileText className="text-blue-500 h-4 w-4" /> 
+                                  <span className="font-bold">{n.title} (Ch {n.chapter})</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {isAdmin && (
+                                    <Button variant="ghost" size="icon" onClick={() => setEditingMaterial(n)} className="h-8 w-8 text-muted-foreground">
+                                      <Edit2 size={14} />
+                                    </Button>
+                                  )}
+                                  <Button size="sm" onClick={() => window.open(n.url, '_blank')} className="rounded-xl px-4">Open</Button>
+                                </div>
                               </CardContent>
                             </Card>
                           ))}
@@ -405,6 +425,39 @@ function Dashboard() {
           </div>
         </main>
       </div>
+
+      <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Material</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input 
+                value={editingMaterial?.title || ''} 
+                onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>URL</Label>
+              <Input 
+                value={editingMaterial?.url || ''} 
+                onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={async () => {
+              if (db && editingMaterial) {
+                await updateDoc(doc(db, 'materials', editingMaterial.id), { ...editingMaterial });
+                setEditingMaterial(null);
+                toast({ title: "Updated successfully" });
+              }
+            }}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }
