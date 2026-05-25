@@ -216,6 +216,56 @@ export function StudentManagement() {
     return courses.filter(c => c.id === overviewClassFilter);
   }, [courses, overviewClassFilter]);
 
+  const downloadOverviewCSV = () => {
+    if (!filteredCoursesForSheet || !subjects || !materials) return;
+    
+    const headers = ["Class", "Subject", "Chapter", "Videos Count", "PDFs Count", "Material Titles"];
+    const rows: any[] = [];
+
+    filteredCoursesForSheet.forEach(course => {
+      let cSubs = subjects.filter(s => s.courseId === course.id);
+      if (overviewSubjectSearch) {
+        cSubs = cSubs.filter(s => s.name.toLowerCase().includes(overviewSubjectSearch.toLowerCase()));
+      }
+
+      cSubs.forEach(sub => {
+        const standardTotal = getChapterCount(course.id, sub.name);
+        const dbChapters = (materials || [])
+          .filter(m => m.courseId === course.id && m.subjectId === sub.id)
+          .map(m => Number(m.chapter));
+        
+        const allChapters = Array.from(new Set([
+          ...Array.from({ length: standardTotal }, (_, i) => i + 1),
+          ...dbChapters
+        ])).sort((a, b) => a - b);
+
+        allChapters.forEach(ch => {
+          const chMat = materials.filter(m => m.courseId === course.id && m.subjectId === sub.id && Number(m.chapter) === ch);
+          const videos = chMat.filter(m => m.type === 'video');
+          const pdfs = chMat.filter(m => m.type === 'pdf');
+          const titles = chMat.map(m => m.title).join(" | ");
+
+          rows.push([
+            course.name,
+            sub.name,
+            `Ch ${ch}`,
+            videos.length,
+            pdfs.length,
+            titles
+          ]);
+        });
+      });
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => `"${e.join('","')}"`).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `academic_overview_${overviewClassFilter === 'all' ? 'full' : overviewClassFilter}.csv`);
+    document.body.appendChild(link);
+    link.click();
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -374,9 +424,14 @@ export function StudentManagement() {
 
         <TabsContent value="academic-sheet">
           <Card className="border-accent/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ListChecks className="text-accent" /> Academic Resource Sheet</CardTitle>
-              <CardDescription>Curriculum View: Classes → Subjects → Chapters → Materials.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2"><ListChecks className="text-accent" /> Academic Resource Sheet</CardTitle>
+                <CardDescription>Curriculum View: Classes → Subjects → Chapters → Materials.</CardDescription>
+              </div>
+              <Button onClick={downloadOverviewCSV} className="bg-accent rounded-xl gap-2">
+                <Download size={16} /> Download CSV
+              </Button>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex gap-4 p-4 bg-muted/30 rounded-2xl border border-dashed border-accent/20">
