@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AuthProvider, useAuth } from '@/components/auth-wrapper';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
-import { STUDY_MATERIALS } from '@/lib/mock-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -12,16 +11,15 @@ import { Badge } from '@/components/ui/badge';
 import { StudentManagement } from '@/components/student-management';
 import { InactivityMonitor } from '@/components/inactivity-monitor';
 import { ChatInterface } from '@/components/chat-interface';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, MessageSquare, Youtube, Edit2, Sparkles, BookHeart, ShieldCheck, HeartHandshake, Search, Send, Clock, UserRound } from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, MessageSquare, Sparkles, ShieldCheck, HeartHandshake, Search, Send, Edit2, Loader2, UserRound, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
-import { FirebaseClientProvider, useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, addDoc, serverTimestamp, query, where, orderBy, doc, onSnapshot, updateDoc, setDoc } from 'firebase/firestore';
+import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
+import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc } from 'firebase/firestore';
 
 function getYouTubeEmbedUrl(url: string) {
   if (!url) return '';
@@ -45,9 +43,6 @@ function sortClasses(classes: any[]) {
   });
 }
 
-/**
- * Public Doubts Pool for Mentors
- */
 function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
   const db = useFirestore();
   const doubtsQuery = useMemo(() => db ? query(collection(db, 'publicDoubts'), where('status', 'in', ['open', 'assigned'])) : null, [db]);
@@ -67,30 +62,36 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold flex items-center gap-2"><HeartHandshake className="text-accent" /> Public Doubts</h3>
+      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><HeartHandshake className="text-accent" /> Shared Doubt Pool</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
+        <Card className="border-accent/20">
           <CardHeader><CardTitle className="text-sm">Assigned to Me ({myAssigned.length})</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-4">
+            {myAssigned.length === 0 && <p className="text-xs text-muted-foreground italic">No active assignments.</p>}
             {myAssigned.map(d => (
-              <div key={d.id} className="p-3 border rounded-xl bg-accent/5">
-                <p className="font-bold text-sm">{d.studentName} ({d.className})</p>
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{d.question}</p>
-                <div className="mt-2"><ChatInterface chatId={`public_${d.id}`} currentUser={{ id: mentorId, name: 'Mentor', role: 'mentor' }} otherUserName={d.studentName} /></div>
+              <div key={d.id} className="p-4 border rounded-2xl bg-accent/5 space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-bold text-sm">{d.className}</p>
+                    <p className="text-xs text-muted-foreground">Question: {d.question}</p>
+                  </div>
+                </div>
+                <ChatInterface chatId={`public_${d.id}`} currentUser={{ id: mentorId, name: 'Mentor', role: 'mentor' }} otherUserName="Student" />
               </div>
             ))}
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-sm">Available in Pool ({unassigned.length})</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Open Pool ({unassigned.length})</CardTitle></CardHeader>
           <CardContent className="space-y-2">
+            {unassigned.length === 0 && <p className="text-xs text-muted-foreground italic">Pool is currently empty.</p>}
             {unassigned.map(d => (
-              <div key={d.id} className="p-3 border rounded-xl flex justify-between items-center">
-                <div>
-                  <p className="font-bold text-sm">{d.studentName}</p>
-                  <p className="text-xs text-muted-foreground">{d.className}</p>
+              <div key={d.id} className="p-3 border rounded-xl flex justify-between items-center hover:bg-muted/30 transition-colors">
+                <div className="flex-1 mr-4">
+                  <p className="font-bold text-sm">{d.className}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-1">{d.question}</p>
                 </div>
-                <Button size="sm" onClick={() => handleClaim(d.id)}>Claim & Reply</Button>
+                <Button size="sm" onClick={() => handleClaim(d.id)} className="rounded-xl">Claim & Reply</Button>
               </div>
             ))}
           </CardContent>
@@ -114,7 +115,6 @@ function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register
   const [quote, setQuote] = useState("");
 
   useEffect(() => {
-    // Pick a random quote on mount to avoid hydration mismatch
     const randomIdx = Math.floor(Math.random() * allQuotes.length);
     setQuote(allQuotes[randomIdx]);
   }, []);
@@ -169,6 +169,66 @@ function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register
   );
 }
 
+function LoginScreen({ mode, onBack }: { mode: 'standard' | 'admin', onBack: () => void }) {
+  const { login } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ id: '', password: '' });
+  const [loginType, setLoginType] = useState<'student' | 'mentor'>(mode === 'admin' ? 'student' : 'student');
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const success = await login(form.id, form.password, mode === 'admin' ? 'admin' : loginType);
+    if (!success) {
+      toast({ variant: 'destructive', title: 'Login Failed', description: 'Invalid ID or password.' });
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-muted/20 p-6">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardHeader className="text-center space-y-4">
+          <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center text-white ${mode === 'admin' ? 'bg-orange-500' : 'bg-primary'}`}>
+            {mode === 'admin' ? <ShieldCheck size={32} /> : <UserRound size={32} />}
+          </div>
+          <CardTitle className="text-2xl font-bold">{mode === 'admin' ? 'Management Login' : 'Daniel 120 Login'}</CardTitle>
+          <CardDescription>Please enter your credentials to continue.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-6">
+            {mode === 'standard' && (
+              <Tabs value={loginType} onValueChange={(v: any) => setLoginType(v)} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="student">Student</TabsTrigger>
+                  <TabsTrigger value="mentor">Mentor</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>ID / Username</Label>
+                <Input value={form.id} onChange={e => setForm({...form, id: e.target.value})} placeholder="Enter your ID" />
+              </div>
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <Input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="••••••••" />
+              </div>
+            </div>
+            <Button type="submit" className={`w-full py-6 rounded-2xl ${mode === 'admin' ? 'bg-orange-500' : 'bg-primary'}`} disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={onBack} type="button">
+              <ArrowLeft size={16} className="mr-2" /> Back to Home
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function Dashboard() {
   const { user, logout, login } = useAuth();
   const { toast } = useToast();
@@ -178,14 +238,16 @@ function Dashboard() {
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [activeMaterial, setActiveMaterial] = useState<any | null>(null);
-  const [selectedChatStudent, setSelectedChatStudent] = useState<any>(null);
   const [editingMaterial, setEditingMaterial] = useState<any>(null);
   const [publicReg, setPublicReg] = useState({ name: '', classId: '' });
 
   const isAdmin = user?.role === 'admin';
   const isMentor = user?.role === 'mentor';
   const isPublic = user?.role === 'public_student';
+
+  useEffect(() => {
+    if (user) setView('dashboard');
+  }, [user]);
 
   const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db]);
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db]);
@@ -221,21 +283,20 @@ function Dashboard() {
       role: 'public_student',
       createdAt: serverTimestamp()
     });
-    // Auto login
     login(publicId, '', 'student');
-    setView('dashboard');
   };
 
   const navigateToHome = () => {
     setSelectedCourse(null);
     setSelectedSubject(null);
     setShowAdminPanel(false);
-    setSelectedChatStudent(null);
   };
 
-  if (!user && view === 'landing') return <LandingPage onSelect={(v) => setView(v)} />;
+  if (view === 'landing' && !user) return <LandingPage onSelect={(v) => setView(v)} />;
+  if (view === 'login' && !user) return <LoginScreen mode="standard" onBack={() => setView('landing')} />;
+  if (view === 'admin-login' && !user) return <LoginScreen mode="admin" onBack={() => setView('landing')} />;
   
-  if (!user && view === 'public-register') {
+  if (view === 'public-register' && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/20 p-6">
         <Card className="w-full max-w-md shadow-2xl border-accent/20">
@@ -262,8 +323,7 @@ function Dashboard() {
     );
   }
 
-  // Fallback to login screen if not logged in and not public
-  if (!user) return <AuthProvider><div /></AuthProvider>;
+  if (!user) return <div />;
 
   return (
     <SidebarProvider>
@@ -283,10 +343,10 @@ function Dashboard() {
                   <Home className="mr-2" /> Dashboard
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              {isAdmin && (
+              {(isAdmin || isMentor) && (
                 <SidebarMenuItem>
                   <SidebarMenuButton isActive={showAdminPanel} onClick={() => setShowAdminPanel(true)} className="py-6 rounded-xl text-accent hover:bg-accent/10">
-                    <Users className="mr-2" /> Management Panel
+                    <Users className="mr-2" /> {isAdmin ? 'Management Panel' : 'Mentor Dashboard'}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
@@ -309,7 +369,7 @@ function Dashboard() {
 
         <main className="flex-1 overflow-y-auto p-8">
           <div className="max-w-6xl mx-auto space-y-8">
-            {showAdminPanel ? (
+            {showAdminPanel && isAdmin ? (
               <StudentManagement />
             ) : !selectedCourse ? (
               <section className="space-y-8">
@@ -414,7 +474,7 @@ function Dashboard() {
                           <CardDescription>Ask our mentors anything about your studies.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <PublicDoubtForm studentName={user.name} className={selectedCourse.name} />
+                          <PublicDoubtForm className={selectedCourse.name} />
                         </CardContent>
                       </Card>
                     )}
@@ -434,17 +494,11 @@ function Dashboard() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Title</Label>
-              <Input 
-                value={editingMaterial?.title || ''} 
-                onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} 
-              />
+              <Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} />
             </div>
             <div className="space-y-2">
               <Label>URL</Label>
-              <Input 
-                value={editingMaterial?.url || ''} 
-                onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} 
-              />
+              <Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} />
             </div>
           </div>
           <DialogFooter>
@@ -462,15 +516,16 @@ function Dashboard() {
   );
 }
 
-function PublicDoubtForm({ studentName, className }: { studentName: string, className: string }) {
+function PublicDoubtForm({ className }: { className: string }) {
+  const { user } = useAuth();
   const db = useFirestore();
   const [question, setQuestion] = useState('');
   const [sent, setSent] = useState(false);
 
   const handleSubmit = async () => {
-    if (!db || !question.trim()) return;
+    if (!db || !question.trim() || !user) return;
     await addDoc(collection(db, 'publicDoubts'), {
-      studentName,
+      studentName: user.name,
       className,
       question: question.trim(),
       status: 'open',
