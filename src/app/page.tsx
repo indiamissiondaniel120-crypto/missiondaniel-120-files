@@ -1,24 +1,11 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AuthProvider, useAuth } from '@/components/auth-wrapper';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarFooter,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-} from '@/components/ui/sidebar';
+import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { STUDY_MATERIALS } from '@/lib/mock-data';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { AICompanion } from '@/components/ai-companion';
@@ -27,169 +14,175 @@ import { StudentManagement } from '@/components/student-management';
 import { InactivityMonitor } from '@/components/inactivity-monitor';
 import { ChatInterface } from '@/components/chat-interface';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import {
-  LogOut,
-  Home,
-  BookOpen,
-  PlayCircle,
-  ChevronRight,
-  GraduationCap,
-  Users,
-  FileText,
-  MessageSquare,
-  Youtube,
-  Edit2,
-} from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, MessageSquare, Youtube, Edit2, Sparkles, BookHeart, ShieldCheck, HeartHandshake, Search, Send, Clock, UserRound } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection, useDoc } from '@/firebase';
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  query,
-  where,
-  orderBy,
-  doc,
-  onSnapshot,
-  updateDoc,
-} from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, orderBy, doc, onSnapshot, updateDoc, setDoc } from 'firebase/firestore';
 
 function getYouTubeEmbedUrl(url: string) {
   if (!url) return '';
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
   if (match && match[2].length === 11) {
-    const videoId = match[2];
-    return `https://www.youtube.com/embed/${videoId}?modestbranding=1&rel=0&color=white&showinfo=0&iv_load_policy=3&controls=1`;
+    return `https://www.youtube.com/embed/${match[2]}?modestbranding=1&rel=0&color=white`;
   }
   return url;
 }
 
-/**
- * Utility to sort classes numerically (Class 4, Class 5, ..., Class 10, JEE, NEET)
- */
 function sortClasses(classes: any[]) {
   if (!classes) return [];
   return [...classes].sort((a, b) => {
     const numA = parseInt(a.name.match(/\d+/)?.[0] || '0');
     const numB = parseInt(b.name.match(/\d+/)?.[0] || '0');
-    
-    // If both have numbers, sort by number
     if (numA !== 0 && numB !== 0) return numA - numB;
-    // If only one has a number, the one with the number comes first
     if (numA !== 0) return -1;
     if (numB !== 0) return 1;
-    // Otherwise alphabetical
     return a.name.localeCompare(b.name);
   });
 }
 
-function StudentListWithUnread({
-  students,
-  mentorId,
-  onSelect,
-  selectedStudent,
-}: {
-  students: any[];
-  mentorId: string;
-  onSelect: (s: any) => void;
-  selectedStudent: any;
-}) {
+/**
+ * Public Doubts Pool for Mentors
+ */
+function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
+  const db = useFirestore();
+  const doubtsQuery = useMemo(() => db ? query(collection(db, 'publicDoubts'), where('status', 'in', ['open', 'assigned'])) : null, [db]);
+  const { data: doubts } = useCollection(doubtsQuery);
+
+  const myAssigned = doubts?.filter(d => d.mentorId === mentorId) || [];
+  const unassigned = doubts?.filter(d => d.status === 'open') || [];
+
+  const handleClaim = (doubtId: string) => {
+    if (!db) return;
+    updateDoc(doc(db, 'publicDoubts', doubtId), {
+      status: 'assigned',
+      mentorId: mentorId,
+      assignedAt: serverTimestamp()
+    });
+  };
+
   return (
-    <div className="space-y-2">
-      {students.map((student) => (
-        <StudentListItem
-          key={student.id}
-          student={student}
-          mentorId={mentorId}
-          onSelect={onSelect}
-          isSelected={selectedStudent?.id === student.id}
-        />
-      ))}
+    <div className="space-y-4">
+      <h3 className="text-xl font-bold flex items-center gap-2"><HeartHandshake className="text-accent" /> Public Doubts</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Assigned to Me ({myAssigned.length})</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {myAssigned.map(d => (
+              <div key={d.id} className="p-3 border rounded-xl bg-accent/5">
+                <p className="font-bold text-sm">{d.studentName} ({d.className})</p>
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{d.question}</p>
+                <div className="mt-2"><ChatInterface chatId={`public_${d.id}`} currentUser={{ id: mentorId, name: 'Mentor', role: 'mentor' }} otherUserName={d.studentName} /></div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Available in Pool ({unassigned.length})</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {unassigned.map(d => (
+              <div key={d.id} className="p-3 border rounded-xl flex justify-between items-center">
+                <div>
+                  <p className="font-bold text-sm">{d.studentName}</p>
+                  <p className="text-xs text-muted-foreground">{d.className}</p>
+                </div>
+                <Button size="sm" onClick={() => handleClaim(d.id)}>Claim & Reply</Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
 
-function StudentListItem({
-  student,
-  mentorId,
-  onSelect,
-  isSelected,
-}: {
-  student: any;
-  mentorId: string;
-  onSelect: (s: any) => void;
-  isSelected: boolean;
-}) {
-  const db = useFirestore();
-  const [unreadCount, setUnreadCount] = useState(0);
+function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register' | 'admin-login') => void }) {
+  const quotes = [
+    { text: "For it is the Creator who bestows wisdom, and from His words flow all knowledge and understanding.", ref: "Proverbs 2:6 (Rephrased)" },
+    { text: "The heart of a learner thrives on wisdom, and the ears of the dedicated seek out understanding with joy.", ref: "Proverbs 18:15 (Rephrased)" },
+    { text: "Guide a young mind on the path of light, and they will walk in wisdom throughout their journey.", ref: "Proverbs 22:6 (Rephrased)" }
+  ];
+
+  const [quoteIdx, setQuoteIdx] = useState(0);
 
   useEffect(() => {
-    if (!db || !student.id || !mentorId) return;
-
-    const chatId = `${student.id}_${mentorId}`;
-    const q = query(
-      collection(db, 'chats', chatId, 'messages'),
-      where('senderId', '==', student.id),
-      where('read', '==', false)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setUnreadCount(snapshot.size);
-    });
-
-    return () => unsubscribe();
-  }, [db, student.id, mentorId]);
+    const interval = setInterval(() => setQuoteIdx((p) => (p + 1) % quotes.length), 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <Button
-      variant={isSelected ? 'secondary' : 'ghost'}
-      className="w-full justify-between items-center group relative overflow-hidden h-12 px-4 rounded-xl"
-      onClick={() => onSelect(student)}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={`w-2 h-2 rounded-full ${isSelected ? 'bg-primary' : 'bg-transparent'}`}
-        />
-        <span className="font-medium">{student.name}</span>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center space-y-12">
+      <div className="max-w-3xl space-y-6">
+        <div className="mx-auto w-24 h-24 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl mb-8">
+          <GraduationCap size={48} />
+        </div>
+        <h1 className="text-6xl font-black text-primary tracking-tighter">DANIEL 120</h1>
+        <div className="h-24 flex flex-col items-center justify-center">
+          <p className="text-2xl font-medium text-foreground/80 italic animate-in fade-in slide-in-from-bottom-2 duration-1000">
+            "{quotes[quoteIdx].text}"
+          </p>
+          <p className="text-sm text-accent font-bold mt-2 uppercase tracking-widest">{quotes[quoteIdx].ref}</p>
+        </div>
       </div>
-      {unreadCount > 0 && (
-        <Badge
-          variant="destructive"
-          className="ml-2 h-5 min-w-5 flex items-center justify-center rounded-full p-0 text-[10px]"
-        >
-          {unreadCount}
-        </Badge>
-      )}
-    </Button>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl">
+        <Card className="group hover:border-primary/50 transition-all cursor-pointer shadow-xl overflow-hidden" onClick={() => onSelect('login')}>
+          <div className="h-2 bg-primary" />
+          <CardHeader>
+            <CardTitle className="text-2xl">Daniel 120</CardTitle>
+            <CardDescription>Official Portal for Students & Mentors</CardDescription>
+          </CardHeader>
+          <CardContent><Button className="w-full bg-primary py-6 rounded-2xl group-hover:scale-105 transition-transform">Click to Login</Button></CardContent>
+        </Card>
+
+        <Card className="group hover:border-accent/50 transition-all cursor-pointer shadow-xl overflow-hidden" onClick={() => onSelect('public-register')}>
+          <div className="h-2 bg-accent" />
+          <CardHeader>
+            <CardTitle className="text-2xl">Students Corner</CardTitle>
+            <CardDescription>Uplifting education for every child.</CardDescription>
+          </CardHeader>
+          <CardContent><Button className="w-full bg-accent py-6 rounded-2xl group-hover:scale-105 transition-transform">Click to Open</Button></CardContent>
+        </Card>
+
+        <Card className="group hover:border-orange-500/50 transition-all cursor-pointer shadow-xl overflow-hidden opacity-60 grayscale hover:grayscale-0">
+          <div className="h-2 bg-orange-500" />
+          <CardHeader>
+            <CardTitle className="text-2xl">Muskhan</CardTitle>
+            <CardDescription>Supportive community access.</CardDescription>
+          </CardHeader>
+          <CardContent><Button variant="outline" className="w-full py-6 rounded-2xl">Click to Login</Button></CardContent>
+        </Card>
+      </div>
+
+      <Button variant="ghost" className="text-muted-foreground hover:text-primary mt-12 gap-2" onClick={() => onSelect('admin-login')}>
+        <ShieldCheck size={18} /> Management Login
+      </Button>
+    </div>
   );
 }
 
 function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, login } = useAuth();
   const { toast } = useToast();
   const db = useFirestore();
+  
+  const [view, setView] = useState<'landing' | 'login' | 'admin-login' | 'public-register' | 'dashboard'>(user ? 'dashboard' : 'landing');
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [activeMaterial, setActiveMaterial] = useState<any | null>(null);
   const [selectedChatStudent, setSelectedChatStudent] = useState<any>(null);
   const [editingMaterial, setEditingMaterial] = useState<any>(null);
-
-  const viewStartTime = useRef<number | null>(null);
+  const [publicReg, setPublicReg] = useState({ name: '', classId: '' });
 
   const isAdmin = user?.role === 'admin';
   const isMentor = user?.role === 'mentor';
+  const isPublic = user?.role === 'public_student';
 
   const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db]);
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db]);
@@ -210,52 +203,24 @@ function Dashboard() {
 
   const currentMaterials = useMemo(() => {
     if (!selectedSubject || !selectedCourse) return [];
-    const combined = [
-      ...STUDY_MATERIALS.filter(m => m.courseId === selectedCourse.id && m.title.toLowerCase().includes(selectedSubject.name.toLowerCase())),
-      ...(allMaterials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id)
-    ];
-    // Sort strictly by chapter number
-    return combined.sort((a, b) => (Number(a.chapter) || 0) - (Number(b.chapter) || 0));
+    return (allMaterials || [])
+      .filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id)
+      .sort((a, b) => (Number(a.chapter) || 0) - (Number(b.chapter) || 0));
   }, [selectedCourse, selectedSubject, allMaterials]);
 
-  const notes = currentMaterials.filter((m) => m.type === 'pdf');
-  const videos = currentMaterials.filter((m) => m.type === 'video');
-
-  const activityQuery = useMemo(() => {
-    if (!db || !user?.id || user.role !== 'student') return null;
-    return query(collection(db, 'students', user.id, 'activity'), orderBy('timestamp', 'desc'));
-  }, [db, user?.id, user?.role]);
-
-  const { data: activities } = useCollection(activityQuery);
-
-  const mentorStudentsQuery = useMemo(() => {
-    if (!db || !user?.id || user.role !== 'mentor') return null;
-    return query(collection(db, 'students'), where('mentorId', '==', user.id));
-  }, [db, user?.id, user?.role]);
-
-  const { data: myStudents } = useCollection(mentorStudentsQuery);
-
-  const mentorRef = useMemo(() => {
-    if (!db || !user?.mentorId) return null;
-    return doc(db, 'mentors', user.mentorId);
-  }, [db, user?.mentorId]);
-  const { data: myMentorData } = useDoc(mentorRef);
-
-  const totalUsageSeconds = useMemo(() => {
-    if (!activities) return 0;
-    return activities.reduce((acc, curr: any) => {
-      if (curr.type === 'pdf_view' || curr.type === 'video_view') {
-        return acc + (Number(curr.duration) || 0);
-      }
-      return acc;
-    }, 0);
-  }, [activities]);
-
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    return hours > 0 ? `${hours}h ${minutes}m ${s}s` : `${minutes}m ${s}s`;
+  const handlePublicRegister = async () => {
+    if (!db || !publicReg.name || !publicReg.classId) return;
+    const publicId = `PUBLIC-${Date.now()}`;
+    await setDoc(doc(db, 'students', publicId), {
+      id: publicId,
+      name: publicReg.name,
+      class: publicReg.classId,
+      role: 'public_student',
+      createdAt: serverTimestamp()
+    });
+    // Auto login
+    login(publicId, '', 'student');
+    setView('dashboard');
   };
 
   const navigateToHome = () => {
@@ -265,52 +230,37 @@ function Dashboard() {
     setSelectedChatStudent(null);
   };
 
-  const handleSelectCourse = (course: any) => {
-    setSelectedCourse(course);
-    setSelectedSubject(null);
-    setShowAdminPanel(false);
-  };
+  if (!user && view === 'landing') return <LandingPage onSelect={(v) => setView(v)} />;
+  
+  if (!user && view === 'public-register') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/20 p-6">
+        <Card className="w-full max-w-md shadow-2xl border-accent/20">
+          <CardHeader className="text-center space-y-2">
+            <div className="mx-auto w-16 h-16 bg-accent/10 text-accent rounded-full flex items-center justify-center">
+              <Users size={32} />
+            </div>
+            <CardTitle className="text-2xl font-bold">Students Corner</CardTitle>
+            <CardDescription>Register your name to access free education.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2"><Label>Your Name</Label><Input placeholder="Enter your full name" value={publicReg.name} onChange={e => setPublicReg({...publicReg, name: e.target.value})} /></div>
+            <div className="space-y-2"><Label>Select Class</Label>
+              <Select onValueChange={v => setPublicReg({...publicReg, classId: v})} value={publicReg.classId}>
+                <SelectTrigger><SelectValue placeholder="Which class do you study in?" /></SelectTrigger>
+                <SelectContent>{sortedCourses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full bg-accent py-6 rounded-2xl" onClick={handlePublicRegister} disabled={!publicReg.name || !publicReg.classId}>Open Learning Portal</Button>
+            <Button variant="ghost" className="w-full" onClick={() => setView('landing')}>Back to Home</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  const logContentActivity = (material: any, type: 'pdf_view' | 'video_view', duration: number) => {
-    if (!user || !db || user.role !== 'student' || duration < 1) return;
-    addDoc(collection(db, 'students', user.id, 'activity'), {
-      type,
-      timestamp: serverTimestamp(),
-      duration: Math.max(0, duration),
-      metadata: { title: material.title, courseId: material.courseId, materialId: material.id, chapter: material.chapter },
-    });
-  };
-
-  const handleOpenMaterial = (material: any) => {
-    if (activeMaterial) handleCloseMaterial();
-    setActiveMaterial(material);
-    viewStartTime.current = Date.now();
-    if (material.type === 'pdf' && material.url !== '#' && material.url.startsWith('http')) {
-      window.open(material.url, '_blank');
-    }
-  };
-
-  const handleCloseMaterial = () => {
-    if (activeMaterial && viewStartTime.current) {
-      const duration = Math.floor((Date.now() - viewStartTime.current) / 1000);
-      logContentActivity(activeMaterial, activeMaterial.type === 'pdf' ? 'pdf_view' : 'video_view', duration);
-      setActiveMaterial(null);
-      viewStartTime.current = null;
-    }
-  };
-
-  const handleUpdateMaterial = async () => {
-    if (!db || !editingMaterial) return;
-    const docRef = doc(db, 'materials', editingMaterial.id);
-    updateDoc(docRef, {
-      title: editingMaterial.title,
-      url: editingMaterial.url,
-      chapter: Number(editingMaterial.chapter)
-    }).then(() => {
-      setEditingMaterial(null);
-      toast({ title: "Material updated successfully" });
-    });
-  };
+  // Fallback to login screen if not logged in and not public
+  if (!user) return <AuthProvider><div /></AuthProvider>;
 
   return (
     <SidebarProvider>
@@ -340,7 +290,7 @@ function Dashboard() {
               <div className="my-4 px-3 text-xs font-semibold text-white/50 uppercase tracking-widest">Classes</div>
               {visibleCourses.map((course: any) => (
                 <SidebarMenuItem key={course.id}>
-                  <SidebarMenuButton isActive={selectedCourse?.id === course.id} onClick={() => handleSelectCourse(course)} className="py-6 rounded-xl hover:bg-white/10">
+                  <SidebarMenuButton isActive={selectedCourse?.id === course.id} onClick={() => setSelectedCourse(course)} className="py-6 rounded-xl hover:bg-white/10">
                     <BookOpen className="mr-2 h-4 w-4" /> {course.name}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -348,7 +298,7 @@ function Dashboard() {
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-6">
-            <Button variant="ghost" className="w-full justify-start text-white/80 hover:text-white" onClick={logout}>
+            <Button variant="ghost" className="w-full justify-start text-white/80 hover:text-white" onClick={() => { logout(); setView('landing'); }}>
               <LogOut className="mr-2 h-4 w-4" /> Logout
             </Button>
           </SidebarFooter>
@@ -360,37 +310,18 @@ function Dashboard() {
               <StudentManagement />
             ) : !selectedCourse ? (
               <section className="space-y-8">
-                <div className="bg-primary rounded-3xl p-10 text-white shadow-xl">
+                <div className={`rounded-3xl p-10 text-white shadow-xl ${isPublic ? 'bg-accent' : 'bg-primary'}`}>
                   <h2 className="text-4xl font-bold mb-4">Uplifting Education, Shaping Futures</h2>
-                  <p className="text-white/80 text-lg">Welcome, {user?.name}. Your dedicated space for learning.</p>
-                  {user?.role === 'student' && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-                      <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
-                        <p className="text-xs uppercase tracking-wider opacity-60">Study Time</p>
-                        <p className="text-xl font-bold">{formatDuration(totalUsageSeconds)}</p>
-                      </div>
-                      <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
-                        <p className="text-xs uppercase tracking-wider opacity-60">My Mentor</p>
-                        <p className="text-xl font-bold truncate">{myMentorData?.name || 'N/A'}</p>
-                      </div>
-                    </div>
-                  )}
+                  <p className="text-white/80 text-lg">Welcome, {user?.name}. {isPublic ? 'A gift of knowledge for you.' : 'Your dedicated study space.'}</p>
                 </div>
 
-                {isMentor && (
-                   <section className="space-y-4">
-                    <h3 className="text-2xl font-bold text-primary flex items-center gap-2"><Users /> My Students</h3>
-                    <Card><CardContent className="p-4">
-                      <StudentListWithUnread students={myStudents || []} mentorId={user.id} onSelect={setSelectedChatStudent} selectedStudent={selectedChatStudent} />
-                    </CardContent></Card>
-                  </section>
-                )}
+                {isMentor && <PublicDoubtsQueue mentorId={user.id} />}
 
                 <section className="space-y-4">
-                  <h3 className="text-2xl font-bold text-primary">Your Classes</h3>
+                  <h3 className={`text-2xl font-bold ${isPublic ? 'text-accent' : 'text-primary'}`}>Study Area</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {visibleCourses.map((course: any) => (
-                      <Card key={course.id} className="cursor-pointer hover:shadow-xl transition-all" onClick={() => handleSelectCourse(course)}>
+                      <Card key={course.id} className="cursor-pointer hover:shadow-xl transition-all" onClick={() => setSelectedCourse(course)}>
                         <div className="h-32 relative bg-muted"><Image src={`https://picsum.photos/seed/${course.id}/400/200`} fill alt={course.name} className="object-cover rounded-t-lg" /></div>
                         <CardHeader className="p-4"><CardTitle className="text-lg">{course.name}</CardTitle></CardHeader>
                       </Card>
@@ -402,12 +333,12 @@ function Dashboard() {
               <div className="space-y-8">
                 <div className="flex items-center gap-4">
                   <Button variant="outline" size="icon" onClick={() => setSelectedCourse(null)} className="rounded-full"><ChevronRight className="rotate-180" /></Button>
-                  <h2 className="text-3xl font-bold text-primary">{selectedCourse.name}</h2>
+                  <h2 className={`text-3xl font-bold ${isPublic ? 'text-accent' : 'text-primary'}`}>{selectedCourse.name}</h2>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                   <div className="lg:col-span-1 space-y-4">
-                    <h4 className="font-bold text-muted-foreground uppercase text-xs tracking-widest px-2">Select Subject</h4>
+                    <h4 className="font-bold text-muted-foreground uppercase text-xs tracking-widest px-2">Subjects</h4>
                     <div className="space-y-2">
                       {allSubjects?.filter(s => s.courseId === selectedCourse.id).map(subject => (
                         <Button 
@@ -430,145 +361,80 @@ function Dashboard() {
                           <TabsTrigger value="notes"><FileText size={16} className="mr-2" /> Notes</TabsTrigger>
                         </TabsList>
                         <TabsContent value="videos" className="space-y-4">
-                          {videos.map(v => {
-                            const isYoutube = v.url.includes('youtube.com') || v.url.includes('youtu.be');
-                            return (
-                              <Card key={v.id} className="overflow-hidden border-none shadow-lg rounded-2xl group relative">
-                                {isAdmin && (
-                                  <Button 
-                                    variant="secondary" 
-                                    size="icon" 
-                                    className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity rounded-full h-8 w-8 shadow-md"
-                                    onClick={(e) => { e.stopPropagation(); setEditingMaterial(v); }}
-                                  >
-                                    <Edit2 size={14} />
-                                  </Button>
-                                )}
-                                <div className="aspect-video relative bg-black rounded-t-2xl overflow-hidden border-b border-white/5">
-                                  {isYoutube ? (
-                                    <iframe 
-                                      src={getYouTubeEmbedUrl(v.url)}
-                                      className="absolute inset-0 w-full h-full border-none"
-                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                      allowFullScreen
-                                      onLoad={() => handleOpenMaterial(v)}
-                                    />
-                                  ) : (
-                                    <video controls className="w-full h-full" onPlay={() => handleOpenMaterial(v)} onPause={handleCloseMaterial}>
-                                      <source src={v.url} />
-                                    </video>
-                                  )}
-                                </div>
-                                <CardHeader className="p-4 flex flex-row items-center justify-between bg-card">
-                                  <div className="flex flex-col">
-                                    <CardTitle className="text-sm font-bold">{v.title}</CardTitle>
-                                    <span className="text-[10px] text-muted-foreground uppercase font-bold mt-0.5">Chapter {v.chapter}</span>
-                                  </div>
-                                  {isYoutube && (
-                                    <Badge variant="secondary" className="text-[10px] flex items-center gap-1.5 px-2 py-1 bg-white/5 border-none">
-                                      <Youtube className="h-3.5 w-3.5 text-red-500" /> YouTube
-                                    </Badge>
-                                  )}
-                                </CardHeader>
-                              </Card>
-                            )
-                          })}
-                          {videos.length === 0 && <p className="text-center py-12 text-muted-foreground bg-muted/10 rounded-2xl italic">No videos available for this subject.</p>}
+                          {currentMaterials.filter(m => m.type === 'video').map(v => (
+                            <Card key={v.id} className="overflow-hidden border-none shadow-lg rounded-2xl group relative">
+                              <div className="aspect-video relative bg-black">
+                                <iframe src={getYouTubeEmbedUrl(v.url)} className="absolute inset-0 w-full h-full" allowFullScreen />
+                              </div>
+                              <CardHeader className="p-4 bg-card">
+                                <CardTitle className="text-sm font-bold">{v.title} - Ch {v.chapter}</CardTitle>
+                              </CardHeader>
+                            </Card>
+                          ))}
                         </TabsContent>
                         <TabsContent value="notes" className="space-y-2">
-                           {notes.map(n => (
-                            <Card key={n.id} className="hover:bg-muted/30 transition-colors group">
+                           {currentMaterials.filter(m => m.type === 'pdf').map(n => (
+                            <Card key={n.id} className="hover:bg-muted/30 transition-colors">
                               <CardContent className="p-4 flex items-center justify-between">
-                                <div className="flex flex-col gap-0.5">
-                                  <div className="flex items-center gap-3"><FileText className="text-blue-500 h-4 w-4" /> <span className="font-bold">{n.title}</span></div>
-                                  <span className="text-[10px] text-muted-foreground uppercase font-bold ml-7">Chapter {n.chapter}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {isAdmin && (
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                                      onClick={() => setEditingMaterial(n)}
-                                    >
-                                      <Edit2 size={14} />
-                                    </Button>
-                                  )}
-                                  <Button size="sm" onClick={() => handleOpenMaterial(n)} className="rounded-xl px-4">Open</Button>
-                                </div>
+                                <div className="flex items-center gap-3"><FileText className="text-blue-500 h-4 w-4" /> <span className="font-bold">{n.title} (Ch {n.chapter})</span></div>
+                                <Button size="sm" onClick={() => window.open(n.url, '_blank')} className="rounded-xl px-4">Open</Button>
                               </CardContent>
                             </Card>
                           ))}
-                          {notes.length === 0 && <p className="text-center py-12 text-muted-foreground bg-muted/10 rounded-2xl italic">No notes available for this subject.</p>}
                         </TabsContent>
                       </Tabs>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-muted/20 rounded-3xl border border-dashed border-primary/20">
-                        <BookOpen size={48} className="mb-4 Discord text-primary" />
-                        <p className="font-medium">Select a subject to view educational materials.</p>
-                      </div>
-                    )}
+                    ) : <div className="text-center py-20 border-2 border-dashed rounded-3xl">Select a subject to start learning.</div>}
                   </div>
 
-                  <div className="lg:col-span-1"><AICompanion /></div>
+                  <div className="lg:col-span-1">
+                    {!isPublic ? <AICompanion /> : (
+                      <Card className="bg-accent/5 border-accent/20">
+                        <CardHeader>
+                          <CardTitle className="text-accent flex items-center gap-2"><Sparkles /> Student Voice</CardTitle>
+                          <CardDescription>Ask our mentors anything about your studies.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <PublicDoubtForm studentName={user.name} className={selectedCourse.name} />
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
           </div>
         </main>
       </div>
-
-      <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Material</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Input 
-                value={editingMaterial?.title || ''} 
-                onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>URL</Label>
-              <Input 
-                value={editingMaterial?.url || ''} 
-                onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Chapter</Label>
-              <Input 
-                type="number"
-                value={editingMaterial?.chapter || ''} 
-                onChange={e => setEditingMaterial({...editingMaterial, chapter: e.target.value})} 
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditingMaterial(null)}>Cancel</Button>
-            <Button onClick={handleUpdateMaterial} className="bg-primary">Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {user?.role === 'student' && user.mentorId && (
-        <div className="fixed bottom-6 right-6 z-50">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button size="icon" className="h-14 w-14 rounded-full shadow-2xl bg-accent hover:bg-accent/90 relative">
-                <MessageSquare size={24} />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[350px] p-0 border-none shadow-2xl" align="end">
-              <ChatInterface chatId={`${user.id}_${user.mentorId}`} currentUser={{ id: user.id, name: user.name, role: user.role }} otherUserName={myMentorData?.name || 'Mentor'} />
-            </PopoverContent>
-          </Popover>
-        </div>
-      )}
     </SidebarProvider>
+  );
+}
+
+function PublicDoubtForm({ studentName, className }: { studentName: string, className: string }) {
+  const db = useFirestore();
+  const [question, setQuestion] = useState('');
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!db || !question.trim()) return;
+    await addDoc(collection(db, 'publicDoubts'), {
+      studentName,
+      className,
+      question: question.trim(),
+      status: 'open',
+      mentorId: null,
+      createdAt: serverTimestamp()
+    });
+    setSent(true);
+    setQuestion('');
+  };
+
+  if (sent) return <div className="text-center p-4 bg-green-50 text-green-700 rounded-xl">Thank you! A mentor will respond to you soon.</div>;
+
+  return (
+    <div className="space-y-4">
+      <Input placeholder="What is your doubt?" value={question} onChange={e => setQuestion(e.target.value)} />
+      <Button className="w-full bg-accent" onClick={handleSubmit} disabled={!question.trim()}>Ask Mentors</Button>
+    </div>
   );
 }
 

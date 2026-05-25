@@ -6,91 +6,26 @@
       "description": "A student registered in the DANIEL 120 platform.",
       "type": "object",
       "properties": {
-        "id": { "type": "string", "description": "The login ID for the student." },
-        "password": { "type": "string", "description": "The login password for the student." },
-        "name": { "type": "string", "description": "Full name of the student." },
-        "schoolName": { "type": "string", "description": "Name of the school the student attends." },
-        "location": { "type": "string", "description": "Geographical location of the student/school." },
-        "class": { "type": "string", "description": "The ID of the course/class assigned." },
-        "mentorId": { "type": "string", "description": "The ID of the assigned mentor." },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of registration." }
-      },
-      "required": ["id", "password", "name", "class"]
-    },
-    "Mentor": {
-      "title": "Mentor",
-      "description": "A mentor who guides students.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string", "description": "Login ID for the mentor." },
-        "password": { "type": "string", "description": "Login password for the mentor." },
-        "name": { "type": "string", "description": "Full name of the mentor." },
-        "expertise": { "type": "string", "description": "Subject or area of expertise." },
-        "phone": { "type": "string", "description": "Contact number." },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "password", "name"]
-    },
-    "Course": {
-      "title": "Course",
-      "description": "An academic class or stream (e.g., Class 10, NEET).",
-      "type": "object",
-      "properties": {
         "id": { "type": "string" },
+        "password": { "type": "string" },
         "name": { "type": "string" },
-        "description": { "type": "string" },
-        "image": { "type": "string", "description": "URL to a cover image." }
-      },
-      "required": ["id", "name"]
-    },
-    "Subject": {
-      "title": "Subject",
-      "description": "An academic subject (e.g., Maths, Science) linked to a class.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "courseId": { "type": "string" }
-      },
-      "required": ["name", "courseId"]
-    },
-    "Material": {
-      "title": "Material",
-      "description": "Educational resource (PDF, Video, etc.)",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "type": { "type": "string", "enum": ["video", "pdf", "other"] },
-        "url": { "type": "string" },
-        "courseId": { "type": "string" },
-        "subjectId": { "type": "string" },
-        "chapter": { "type": "number", "description": "The chapter number this material belongs to." },
+        "class": { "type": "string" },
+        "mentorId": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "public_student"] },
         "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["title", "type", "url", "courseId", "subjectId"]
-    },
-    "ActivityLog": {
-      "title": "ActivityLog",
-      "description": "Log of student activities (logins, material access).",
-      "type": "object",
-      "properties": {
-        "type": { "type": "string", "enum": ["login", "logout", "pdf_view", "video_view", "inactivity_logout", "tab_away"] },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "duration": { "type": "number", "description": "Duration in seconds for views." },
-        "metadata": { "type": "object", "description": "Additional info like title of material." }
       }
     },
-    "ChatMessage": {
-      "title": "ChatMessage",
-      "description": "A single message in a chat room.",
+    "PublicDoubt": {
+      "title": "PublicDoubt",
+      "description": "A doubt asked by a public student in the Students Corner.",
       "type": "object",
       "properties": {
-        "senderId": { "type": "string" },
-        "senderName": { "type": "string" },
-        "text": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "read": { "type": "boolean", "description": "Whether the message has been read by the recipient." }
+        "studentName": { "type": "string" },
+        "className": { "type": "string" },
+        "question": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "assigned", "resolved"] },
+        "mentorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -100,31 +35,11 @@
   "firestore": {
     "/students/{studentId}": {
       "schema": "Student",
-      "description": "Collection of registered students."
+      "description": "Registered students."
     },
-    "/mentors/{mentorId}": {
-      "schema": "Mentor",
-      "description": "Collection of registered mentors."
-    },
-    "/courses/{courseId}": {
-      "schema": "Course",
-      "description": "Available classes and streams."
-    },
-    "/subjects/{subjectId}": {
-      "schema": "Subject",
-      "description": "Subjects available for courses."
-    },
-    "/materials/{materialId}": {
-      "schema": "Material",
-      "description": "Uploaded educational materials."
-    },
-    "/students/{studentId}/activity/{activityId}": {
-      "schema": "ActivityLog",
-      "description": "Real-time activity logs for a student."
-    },
-    "/chats/{chatId}/messages/{messageId}": {
-      "schema": "ChatMessage",
-      "description": "Messages in a specific mentor-student chat room."
+    "/publicDoubts/{doubtId}": {
+      "schema": "PublicDoubt",
+      "description": "Doubts from the public Students Corner."
     }
   }
 }
