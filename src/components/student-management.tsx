@@ -112,7 +112,7 @@ export function StudentManagement() {
   const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db])
   const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db])
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db])
-  const materialsQuery = useMemo(() => db ? query(collection(db, 'materials'), orderBy('createdAt', 'desc')) : null, [db])
+  const materialsQuery = useMemo(() => db ? query(collection(db, 'materials'), orderBy('chapter', 'asc')) : null, [db])
 
   const { data: students } = useCollection(studentsQuery)
   const { data: mentors } = useCollection(mentorsQuery)
@@ -559,7 +559,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     const total = getChapterCount(selectedCourse.id, selectedSubject.name)
     const result = []
     for (let i = 1; i <= total; i++) {
-      const chMaterials = materials.filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id && Number(m.chapter) === i)
+      const chMaterials = (materials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id && Number(m.chapter) === i)
       const video = chMaterials.find(m => m.type === 'video')
       const pdf = chMaterials.find(m => m.type === 'pdf')
       result.push({
@@ -697,10 +697,10 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button className="bg-primary rounded-xl"><Layers className="mr-2 h-4 w-4" /> Bulk Upload</Button></DialogTrigger>
-        <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-2"><DialogTitle>Bulk Material Upload</DialogTitle></DialogHeader>
-          <ScrollArea className="flex-1 p-6 pt-2">
-            <div className="space-y-6">
+          <div className="flex-1 overflow-y-auto px-6 py-2">
+            <div className="space-y-6 pb-8">
               <div className="grid grid-cols-2 gap-4">
                 <Select onValueChange={setSelectedClassId} value={selectedClassId}><SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
                 <Select onValueChange={setSelectedSubjectId} value={selectedSubjectId} disabled={!selectedClassId}><SelectTrigger><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.filter(s => s.courseId === selectedClassId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
@@ -733,7 +733,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
           <DialogFooter className="p-6 border-t bg-muted/20">
             <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={validateAndUpload} disabled={loading || bulkRows.length === 0}>Upload All</Button>
