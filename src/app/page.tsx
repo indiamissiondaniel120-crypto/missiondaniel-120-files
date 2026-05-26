@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, MessageSquare, Sparkles, ShieldCheck, HeartHandshake, Search, Send, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, Calculator } from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, MessageSquare, Sparkles, ShieldCheck, HeartHandshake, Search, Send, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, Calculator, User } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -91,7 +91,7 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
       <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><HeartHandshake className="text-accent" /> Shared Doubt Pool</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border-accent/20">
-          <CardHeader><CardTitle className="text-sm">Assigned to Me ({myAssigned.length})</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Public Doubts Assigned to Me ({myAssigned.length})</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {myAssigned.length === 0 && <p className="text-xs text-muted-foreground italic">No active assignments.</p>}
             {myAssigned.map(d => (
@@ -108,7 +108,7 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-sm">Open Pool ({unassigned.length})</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Open Public Pool ({unassigned.length})</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {unassigned.length === 0 && <p className="text-xs text-muted-foreground italic">Pool is currently empty.</p>}
             {unassigned.map(d => (
@@ -122,6 +122,52 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
             ))}
           </CardContent>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+function MentorMyStudents({ mentorId }: { mentorId: string }) {
+  const db = useFirestore();
+  const studentsQuery = useMemo(() => db ? query(collection(db, 'students'), where('mentorId', '==', mentorId)) : null, [db]);
+  const { data: myStudents } = useCollection(studentsQuery);
+
+  if (!myStudents || myStudents.length === 0) return null;
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><Users className="text-accent" /> My Assigned Students</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {myStudents.map(student => (
+          <Card key={student.id} className="border-primary/20 bg-primary/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <UserRound size={16} className="text-primary" />
+                {student.name}
+              </CardTitle>
+              <CardDescription className="text-xs">Class: {student.class}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="w-full rounded-xl">Chat with Student</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-xl h-[600px] flex flex-col p-0 overflow-hidden">
+                  <DialogHeader className="p-4 border-b">
+                    <DialogTitle>Chatting with {student.name}</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex-1 overflow-hidden">
+                    <ChatInterface 
+                      chatId={`private_${student.id}`} 
+                      currentUser={{ id: mentorId, name: 'Mentor', role: 'mentor' }} 
+                      otherUserName={student.name} 
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );
@@ -458,7 +504,12 @@ function Dashboard() {
                   <Sparkles className="absolute top-10 right-20 text-white/20 animate-pulse" size={120} />
                 </div>
 
-                {isMentor && <PublicDoubtsQueue mentorId={user.id} />}
+                {isMentor && (
+                  <>
+                    <MentorMyStudents mentorId={user.id} />
+                    <PublicDoubtsQueue mentorId={user.id} />
+                  </>
+                )}
 
                 <section className="space-y-8">
                   <div className="flex items-center justify-between">
@@ -577,7 +628,24 @@ function Dashboard() {
                   </div>
 
                   <div className="lg:col-span-1">
-                    {!isPublic ? <AICompanion /> : (
+                    {!isPublic ? (
+                      <Tabs defaultValue="ai" className="bg-white/60 backdrop-blur-md border-primary/20 rounded-[3rem] shadow-2xl overflow-hidden p-2">
+                        <TabsList className="grid w-full grid-cols-2 rounded-[2rem] h-14 bg-muted/30 mb-2">
+                          <TabsTrigger value="ai" className="rounded-[1.5rem] font-black gap-2"><Sparkles size={16} /> AI Assistant</TabsTrigger>
+                          <TabsTrigger value="mentor" className="rounded-[1.5rem] font-black gap-2"><MessageSquare size={16} /> Mentor Chat</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="ai">
+                          <AICompanion />
+                        </TabsContent>
+                        <TabsContent value="mentor" className="h-[600px]">
+                           <ChatInterface 
+                             chatId={`private_${user.id}`} 
+                             currentUser={{ id: user.id, name: user.name, role: user.role }} 
+                             otherUserName="My Mentor" 
+                           />
+                        </TabsContent>
+                      </Tabs>
+                    ) : (
                       <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[3rem] shadow-2xl overflow-hidden">
                         <div className="h-3 bg-accent" />
                         <CardHeader className="p-10">
