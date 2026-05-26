@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -137,9 +136,16 @@ export function StudentManagement() {
     if (!db || !studentForm.id || !studentForm.name) return
     setLoading(true)
     const docRef = doc(db, 'students', studentForm.id)
-    setDoc(docRef, { ...studentForm, createdAt: serverTimestamp() }).then(() => {
+    const data = { ...studentForm, createdAt: serverTimestamp() };
+    setDoc(docRef, data).then(() => {
       toast({ title: "Student Registered" })
       setStudentForm({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
+    }).catch(async () => {
+       errorEmitter.emit('permission-error', new FirestorePermissionError({
+         path: docRef.path,
+         operation: 'create',
+         requestResourceData: data
+       }));
     }).finally(() => setLoading(false))
   }
 
@@ -148,9 +154,16 @@ export function StudentManagement() {
     if (!db || !mentorForm.id || !mentorForm.name) return
     setLoading(true)
     const docRef = doc(db, 'mentors', mentorForm.id)
-    setDoc(docRef, { ...mentorForm, createdAt: serverTimestamp() }).then(() => {
+    const data = { ...mentorForm, createdAt: serverTimestamp() };
+    setDoc(docRef, data).then(() => {
       toast({ title: "Mentor Registered" })
       setMentorForm({ id: '', password: '', name: '', expertise: '', phone: '' })
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'create',
+        requestResourceData: data
+      }));
     }).finally(() => setLoading(false))
   }
 
@@ -159,9 +172,16 @@ export function StudentManagement() {
     if (!db || !courseForm.id || !courseForm.name) return
     setLoading(true)
     const docRef = doc(db, 'courses', courseForm.id)
-    setDoc(docRef, { ...courseForm }).then(() => {
+    const data = { ...courseForm };
+    setDoc(docRef, data).then(() => {
       toast({ title: "Class Registered" })
       setCourseForm({ id: '', name: '', description: '', image: '' })
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'create',
+        requestResourceData: data
+      }));
     }).finally(() => setLoading(false))
   }
 
@@ -169,7 +189,17 @@ export function StudentManagement() {
     e.preventDefault()
     if (!db || !subjectForm.name) return
     setLoading(true)
-    const promises = subjectForm.selectedCourseIds.map(courseId => addDoc(collection(db, 'subjects'), { name: subjectForm.name, courseId }))
+    const collRef = collection(db, 'subjects');
+    const promises = subjectForm.selectedCourseIds.map(courseId => {
+       const data = { name: subjectForm.name, courseId };
+       return addDoc(collRef, data).catch(async () => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: collRef.path,
+            operation: 'create',
+            requestResourceData: data
+          }));
+       });
+    })
     await Promise.all(promises)
     setSubjectForm({ name: '', selectedCourseIds: [] })
     setLoading(false)
@@ -180,33 +210,76 @@ export function StudentManagement() {
     if (!db || !materialForm.courseId || !materialForm.subjectId) return
     setIsUploading(true)
     setUploadProgress(50)
-    await addDoc(collection(db, 'materials'), { ...materialForm, createdAt: serverTimestamp() })
-    setUploadProgress(100)
-    setTimeout(() => {
-      setIsUploading(false)
-      setMaterialForm({ title: '', courseId: '', subjectId: '', type: 'video', url: '', chapter: 1 })
-      toast({ title: "Material Added" })
-    }, 500)
+    const collRef = collection(db, 'materials');
+    const data = { ...materialForm, createdAt: serverTimestamp() };
+    addDoc(collRef, data).then(() => {
+      setUploadProgress(100)
+      setTimeout(() => {
+        setIsUploading(false)
+        setMaterialForm({ title: '', courseId: '', subjectId: '', type: 'video', url: '', chapter: 1 })
+        toast({ title: "Material Added" })
+      }, 500)
+    }).catch(async () => {
+       setIsUploading(false);
+       errorEmitter.emit('permission-error', new FirestorePermissionError({
+         path: collRef.path,
+         operation: 'create',
+         requestResourceData: data
+       }));
+    });
   }
 
-  const handleDeleteSubject = (id: string) => db && deleteDoc(doc(db, 'subjects', id))
-  const handleDeleteMaterial = (id: string) => db && deleteDoc(doc(db, 'materials', id))
+  const handleDeleteSubject = (id: string) => {
+    if (!db) return;
+    const docRef = doc(db, 'subjects', id);
+    deleteDoc(docRef).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'delete',
+      }));
+    });
+  }
+
+  const handleDeleteMaterial = (id: string) => {
+    if (!db) return;
+    const docRef = doc(db, 'materials', id);
+    deleteDoc(docRef).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'delete',
+      }));
+    });
+  }
 
   const handleUpdateStudent = async () => {
     if (!db || !editingStudent) return
     setLoading(true)
-    updateDoc(doc(db, 'students', editingStudent.id), { ...editingStudent }).then(() => {
+    const docRef = doc(db, 'students', editingStudent.id);
+    updateDoc(docRef, { ...editingStudent }).then(() => {
       setEditingStudent(null)
       toast({ title: "Updated" })
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: editingStudent
+      }));
     }).finally(() => setLoading(false))
   }
 
   const handleUpdateMaterial = async () => {
     if (!db || !editingMaterial) return
     setLoading(true)
-    updateDoc(doc(db, 'materials', editingMaterial.id), { ...editingMaterial }).then(() => {
+    const docRef = doc(db, 'materials', editingMaterial.id);
+    updateDoc(docRef, { ...editingMaterial }).then(() => {
       setEditingMaterial(null)
       toast({ title: "Updated" })
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: editingMaterial
+      }));
     }).finally(() => setLoading(false))
   }
 
@@ -737,7 +810,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
         
         if (row.videoUrl.trim()) {
           const vRef = row.videoId ? doc(db, 'materials', row.videoId) : doc(collection(db, 'materials'))
-          batch.set(vRef, {
+          const data = {
             title: finalTitle || `Chapter ${row.chapter} Video`,
             courseId: selectedCourse.id,
             subjectId: selectedSubject.id,
@@ -745,12 +818,13 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
             url: row.videoUrl.trim(),
             chapter: Number(row.chapter),
             createdAt: serverTimestamp()
-          }, { merge: true })
+          };
+          batch.set(vRef, data, { merge: true })
         }
         
         if (row.pdfUrl.trim()) {
           const pRef = row.pdfId ? doc(db, 'materials', row.pdfId) : doc(collection(db, 'materials'))
-          batch.set(pRef, {
+          const data = {
             title: finalTitle ? `${finalTitle} (Notes)` : `Chapter ${row.chapter} Notes`,
             courseId: selectedCourse.id,
             subjectId: selectedSubject.id,
@@ -758,7 +832,8 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
             url: row.pdfUrl.trim(),
             chapter: Number(row.chapter),
             createdAt: serverTimestamp()
-          }, { merge: true })
+          };
+          batch.set(pRef, data, { merge: true })
         }
       })
       await batch.commit()

@@ -20,6 +20,8 @@ import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users,
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 function getYouTubeEmbedUrl(url: string) {
   if (!url) return '';
@@ -79,10 +81,16 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
 
   const handleClaim = (doubtId: string) => {
     if (!db) return;
-    updateDoc(doc(db, 'publicDoubts', doubtId), {
+    const docRef = doc(db, 'publicDoubts', doubtId);
+    updateDoc(docRef, {
       status: 'assigned',
       mentorId: mentorId,
       assignedAt: serverTimestamp()
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+      }));
     });
   };
 
@@ -338,7 +346,8 @@ function Dashboard() {
       if (activeMaterial && materialStartTimeRef.current) {
         const durationSec = Math.floor((Date.now() - materialStartTimeRef.current) / 1000);
         if (durationSec > 5) {
-          addDoc(collection(db, 'students', user.id, 'activity'), {
+          const activityRef = collection(db, 'students', user.id, 'activity');
+          const data = {
             type: activeMaterial.type === 'video' ? 'view_video' : 'view_pdf',
             timestamp: serverTimestamp(),
             duration: durationSec,
@@ -347,6 +356,13 @@ function Dashboard() {
               chapter: activeMaterial.chapter,
               materialId: activeMaterial.id
             }
+          };
+          addDoc(activityRef, data).catch(async () => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+               path: activityRef.path,
+               operation: 'create',
+               requestResourceData: data
+             }));
           });
         }
         materialStartTimeRef.current = null;
@@ -381,14 +397,23 @@ function Dashboard() {
   const handlePublicRegister = async () => {
     if (!db || !publicReg.name || !publicReg.classId) return;
     const publicId = `PUBLIC-${Date.now()}`;
-    await setDoc(doc(db, 'students', publicId), {
+    const docRef = doc(db, 'students', publicId);
+    const data = {
       id: publicId,
       name: publicReg.name,
       class: publicReg.classId,
       role: 'public_student',
       createdAt: serverTimestamp()
+    };
+    setDoc(docRef, data).then(() => {
+      login(publicId, '', 'student');
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'create',
+        requestResourceData: data
+      }));
     });
-    login(publicId, '', 'student');
   };
 
   const navigateToHome = () => {
@@ -399,9 +424,18 @@ function Dashboard() {
 
   const handleLogout = async () => {
     if (user && db && user.role !== 'admin') {
-      await addDoc(collection(db, user.role.includes('student') ? 'students' : 'mentors', user.id, 'activity'), {
+      const collName = user.role.includes('student') ? 'students' : 'mentors';
+      const activityRef = collection(db, collName, user.id, 'activity');
+      const data = {
         type: 'logout',
         timestamp: serverTimestamp()
+      };
+      addDoc(activityRef, data).catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: activityRef.path,
+          operation: 'create',
+          requestResourceData: data
+        }));
       });
     }
     logout();
@@ -653,7 +687,7 @@ function Dashboard() {
                           <CardDescription className="text-foreground/70 font-bold text-base mt-2">Ask our expert mentors anything about your studies.</CardDescription>
                         </CardHeader>
                         <CardContent className="p-10 pt-0">
-                          <PublicDoubtForm className={selectedCourse.name} />
+                          <PublicDoubtForm className={selectedCourse?.name || ''} />
                         </CardContent>
                       </Card>
                     )}
@@ -682,11 +716,19 @@ function Dashboard() {
             </div>
           </div>
           <DialogFooter className="p-0">
-            <Button className="w-full h-16 rounded-3xl text-xl font-black bg-primary shadow-2xl shadow-primary/30" onClick={async () => {
+            <Button className="w-full h-16 rounded-3xl text-xl font-black bg-primary shadow-2xl shadow-primary/30" onClick={() => {
               if (db && editingMaterial) {
-                await updateDoc(doc(db, 'materials', editingMaterial.id), { ...editingMaterial });
-                setEditingMaterial(null);
-                toast({ title: "Updated successfully" });
+                const docRef = doc(db, 'materials', editingMaterial.id);
+                updateDoc(docRef, { ...editingMaterial }).then(() => {
+                  setEditingMaterial(null);
+                  toast({ title: "Updated successfully" });
+                }).catch(async () => {
+                   errorEmitter.emit('permission-error', new FirestorePermissionError({
+                     path: docRef.path,
+                     operation: 'update',
+                     requestResourceData: editingMaterial
+                   }));
+                });
               }
             }}>Save Changes</Button>
           </DialogFooter>
@@ -704,7 +746,8 @@ function PublicDoubtForm({ className }: { className: string }) {
 
   const handleSubmit = async () => {
     if (!db || !question.trim() || !user) return;
-    await addDoc(collection(db, 'publicDoubts'), {
+    const doubtsRef = collection(db, 'publicDoubts');
+    const data = {
       studentId: user.id,
       studentName: user.name,
       className,
@@ -712,9 +755,17 @@ function PublicDoubtForm({ className }: { className: string }) {
       status: 'open',
       mentorId: null,
       createdAt: serverTimestamp()
+    };
+    addDoc(doubtsRef, data).then(() => {
+      setSent(true);
+      setQuestion('');
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: doubtsRef.path,
+        operation: 'create',
+        requestResourceData: data
+      }));
     });
-    setSent(true);
-    setQuestion('');
   };
 
   if (sent) return <div className="text-center p-12 bg-green-50 text-green-800 rounded-[2.5rem] border-2 border-green-200 font-black text-xl animate-in zoom-in duration-500 shadow-xl shadow-green-100/50">Thank you!<br/><span className="text-sm font-bold opacity-70">A mentor will respond to you soon.</span></div>;
