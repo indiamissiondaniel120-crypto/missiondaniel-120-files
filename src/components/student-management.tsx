@@ -61,7 +61,6 @@ async function fetchYouTubeTitle(url: string): Promise<string | null> {
     const data = await response.json();
     return data.title || null;
   } catch (e) {
-    console.error('Error fetching YouTube title:', e);
     return null;
   }
 }
@@ -131,61 +130,73 @@ export function StudentManagement() {
     });
   }, [materials]);
 
-  const handleRegisterStudent = async (e: React.FormEvent) => {
+  const handleRegisterStudent = (e: React.FormEvent) => {
     e.preventDefault()
     if (!db || !studentForm.id || !studentForm.name) return
     setLoading(true)
     const docRef = doc(db, 'students', studentForm.id)
     const data = { ...studentForm, createdAt: serverTimestamp() };
-    setDoc(docRef, data).then(() => {
-      toast({ title: "Student Registered" })
-      setStudentForm({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
-    }).catch(async () => {
-       errorEmitter.emit('permission-error', new FirestorePermissionError({
-         path: docRef.path,
-         operation: 'create',
-         requestResourceData: data
-       }));
-    }).finally(() => setLoading(false))
+    setDoc(docRef, data)
+      .then(() => {
+        toast({ title: "Student Registered" })
+        setStudentForm({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
+        setLoading(false)
+      })
+      .catch(async () => {
+        setLoading(false)
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'write',
+          requestResourceData: data
+        }));
+      });
   }
 
-  const handleRegisterMentor = async (e: React.FormEvent) => {
+  const handleRegisterMentor = (e: React.FormEvent) => {
     e.preventDefault()
     if (!db || !mentorForm.id || !mentorForm.name) return
     setLoading(true)
     const docRef = doc(db, 'mentors', mentorForm.id)
     const data = { ...mentorForm, createdAt: serverTimestamp() };
-    setDoc(docRef, data).then(() => {
-      toast({ title: "Mentor Registered" })
-      setMentorForm({ id: '', password: '', name: '', expertise: '', phone: '' })
-    }).catch(async () => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'create',
-        requestResourceData: data
-      }));
-    }).finally(() => setLoading(false))
+    setDoc(docRef, data)
+      .then(() => {
+        toast({ title: "Mentor Registered" })
+        setMentorForm({ id: '', password: '', name: '', expertise: '', phone: '' })
+        setLoading(false)
+      })
+      .catch(async () => {
+        setLoading(false)
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'write',
+          requestResourceData: data
+        }));
+      });
   }
 
-  const handleRegisterCourse = async (e: React.FormEvent) => {
+  const handleRegisterCourse = (e: React.FormEvent) => {
     e.preventDefault()
     if (!db || !courseForm.id || !courseForm.name) return
     setLoading(true)
     const docRef = doc(db, 'courses', courseForm.id)
     const data = { ...courseForm };
-    setDoc(docRef, data).then(() => {
-      toast({ title: "Class Registered" })
-      setCourseForm({ id: '', name: '', description: '', image: '' })
-    }).catch(async () => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'create',
-        requestResourceData: data
-      }));
-    }).finally(() => setLoading(false))
+    setDoc(docRef, data)
+      .then(() => {
+        toast({ title: "Class Registered" })
+        setCourseForm({ id: '', name: '', description: '', image: '' })
+        setLoading(false)
+      })
+      .catch(async () => {
+        setLoading(false)
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'write',
+          requestResourceData: data
+        }));
+      });
   }
 
-  const handleAddSubject = async (e: React.FormEvent) => {
+  const handleAddSubject = (e: React.FormEvent) => {
     e.preventDefault()
     if (!db || !subjectForm.name) return
     setLoading(true)
@@ -200,12 +211,13 @@ export function StudentManagement() {
           }));
        });
     })
-    await Promise.all(promises)
-    setSubjectForm({ name: '', selectedCourseIds: [] })
-    setLoading(false)
+    Promise.all(promises).then(() => {
+      setSubjectForm({ name: '', selectedCourseIds: [] })
+      setLoading(false)
+    });
   }
 
-  const handleUploadMaterial = async (e: React.FormEvent) => {
+  const handleUploadMaterial = (e: React.FormEvent) => {
     e.preventDefault()
     if (!db || !materialForm.courseId || !materialForm.subjectId) return
     setIsUploading(true)
@@ -251,36 +263,40 @@ export function StudentManagement() {
     });
   }
 
-  const handleUpdateStudent = async () => {
+  const handleUpdateStudent = () => {
     if (!db || !editingStudent) return
     setLoading(true)
     const docRef = doc(db, 'students', editingStudent.id);
     updateDoc(docRef, { ...editingStudent }).then(() => {
       setEditingStudent(null)
       toast({ title: "Updated" })
+      setLoading(false)
     }).catch(async () => {
+      setLoading(false)
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
         operation: 'update',
         requestResourceData: editingStudent
       }));
-    }).finally(() => setLoading(false))
+    });
   }
 
-  const handleUpdateMaterial = async () => {
+  const handleUpdateMaterial = () => {
     if (!db || !editingMaterial) return
     setLoading(true)
     const docRef = doc(db, 'materials', editingMaterial.id);
     updateDoc(docRef, { ...editingMaterial }).then(() => {
       setEditingMaterial(null)
       toast({ title: "Updated" })
+      setLoading(false)
     }).catch(async () => {
+      setLoading(false)
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
         operation: 'update',
         requestResourceData: editingMaterial
       }));
-    }).finally(() => setLoading(false))
+    });
   }
 
   const filteredCoursesForSheet = useMemo(() => {
@@ -799,53 +815,57 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     }
   }
 
-  const handleSaveBulk = async () => {
+  const handleSaveBulk = () => {
     if (!db || !selectedCourse || !selectedSubject) return
     setLoading(true)
     const batch = writeBatch(db)
     
-    try {
-      bulkRows.forEach(row => {
-        const finalTitle = row.title.trim();
-        
-        if (row.videoUrl.trim()) {
-          const vRef = row.videoId ? doc(db, 'materials', row.videoId) : doc(collection(db, 'materials'))
-          const data = {
-            title: finalTitle || `Chapter ${row.chapter} Video`,
-            courseId: selectedCourse.id,
-            subjectId: selectedSubject.id,
-            type: 'video',
-            url: row.videoUrl.trim(),
-            chapter: Number(row.chapter),
-            createdAt: serverTimestamp()
-          };
-          batch.set(vRef, data, { merge: true })
-        }
-        
-        if (row.pdfUrl.trim()) {
-          const pRef = row.pdfId ? doc(db, 'materials', row.pdfId) : doc(collection(db, 'materials'))
-          const data = {
-            title: finalTitle ? `${finalTitle} (Notes)` : `Chapter ${row.chapter} Notes`,
-            courseId: selectedCourse.id,
-            subjectId: selectedSubject.id,
-            type: 'pdf',
-            url: row.pdfUrl.trim(),
-            chapter: Number(row.chapter),
-            createdAt: serverTimestamp()
-          };
-          batch.set(pRef, data, { merge: true })
-        }
+    bulkRows.forEach(row => {
+      const finalTitle = row.title.trim();
+      
+      if (row.videoUrl.trim()) {
+        const vRef = row.videoId ? doc(db, 'materials', row.videoId) : doc(collection(db, 'materials'))
+        const data = {
+          title: finalTitle || `Chapter ${row.chapter} Video`,
+          courseId: selectedCourse.id,
+          subjectId: selectedSubject.id,
+          type: 'video',
+          url: row.videoUrl.trim(),
+          chapter: Number(row.chapter),
+          createdAt: serverTimestamp()
+        };
+        batch.set(vRef, data, { merge: true })
+      }
+      
+      if (row.pdfUrl.trim()) {
+        const pRef = row.pdfId ? doc(db, 'materials', row.pdfId) : doc(collection(db, 'materials'))
+        const data = {
+          title: finalTitle ? `${finalTitle} (Notes)` : `Chapter ${row.chapter} Notes`,
+          courseId: selectedCourse.id,
+          subjectId: selectedSubject.id,
+          type: 'pdf',
+          url: row.pdfUrl.trim(),
+          chapter: Number(row.chapter),
+          createdAt: serverTimestamp()
+        };
+        batch.set(pRef, data, { merge: true })
+      }
+    })
+
+    batch.commit()
+      .then(() => {
+        toast({ title: "Bulk Upload Successful" })
+        setOpen(false)
+        setShowConfirm(false)
+        setLoading(false)
       })
-      await batch.commit()
-      toast({ title: "Bulk Upload Successful" })
-      setOpen(false)
-      setShowConfirm(false)
-    } catch (e) {
-      console.error(e)
-      toast({ variant: "destructive", title: "Upload Failed" })
-    } finally {
-      setLoading(false)
-    }
+      .catch(async () => {
+        setLoading(false)
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'materials',
+          operation: 'write'
+        }));
+      });
   }
 
   const emptySummary = useMemo(() => {
@@ -997,7 +1017,6 @@ function ActivityViewer({ student, mentors }: { student: any, mentors: any[] }) 
       document.body.appendChild(link);
       link.click();
     } catch (e) {
-      console.error(e);
     }
   }
 

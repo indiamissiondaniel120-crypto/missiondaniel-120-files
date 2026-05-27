@@ -14,6 +14,8 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { useFirestore } from '@/firebase'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { errorEmitter } from '@/firebase/error-emitter'
+import { FirestorePermissionError } from '@/firebase/errors'
 
 const INACTIVITY_LIMIT = 120000 // 2 minutes
 const COUNTDOWN_LIMIT = 5 // 5 seconds
@@ -29,9 +31,10 @@ export function InactivityMonitor() {
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const wentHiddenAtRef = useRef<number | null>(null)
 
-  const handleLogout = async (reason: string = 'auto_logout', duration: number = 0) => {
+  const handleLogout = (reason: string = 'auto_logout', duration: number = 0) => {
     if (user && db) {
-      addDoc(collection(db, 'students', user.id, 'activity'), {
+      const activityRef = collection(db, 'students', user.id, 'activity');
+      const data = {
         type: 'inactivity_logout',
         timestamp: serverTimestamp(),
         duration,
@@ -39,7 +42,15 @@ export function InactivityMonitor() {
           reason,
           inactiveAt: new Date().toISOString()
         }
-      })
+      };
+      addDoc(activityRef, data)
+        .catch(async () => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: activityRef.path,
+            operation: 'create',
+            requestResourceData: data
+          }));
+        });
     }
     logout()
     setShowWarning(false)
@@ -80,14 +91,22 @@ export function InactivityMonitor() {
           if (awayDurationMs >= TOTAL_LIMIT) {
             handleLogout('tab_away_timeout', awayDurationSec)
           } else {
-            // Log the "away" duration so admin knows exactly how much time was spent in background
             if (awayDurationSec > 5 && db && user) {
-              addDoc(collection(db, 'students', user.id, 'activity'), {
+              const activityRef = collection(db, 'students', user.id, 'activity');
+              const data = {
                 type: 'tab_away',
                 timestamp: serverTimestamp(),
                 duration: awayDurationSec,
                 metadata: { returnTimestamp: new Date().toISOString() }
-              })
+              };
+              addDoc(activityRef, data)
+                .catch(async () => {
+                  errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: activityRef.path,
+                    operation: 'create',
+                    requestResourceData: data
+                  }));
+                });
             }
             resetTimer()
           }
@@ -105,7 +124,6 @@ export function InactivityMonitor() {
     }
   }, [user, showWarning, db])
 
-  // Countdown logic
   useEffect(() => {
     if (showWarning) {
       countdownIntervalRef.current = setInterval(() => {

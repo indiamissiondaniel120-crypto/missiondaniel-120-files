@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, createContext, useContext, useMemo, useEffect } from 'react';
@@ -41,12 +40,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const collectionName = user.role.includes('student') ? 'students' : 'mentors';
     const docRef = doc(db, collectionName, user.id);
 
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setUser((prev) => prev ? { ...prev, name: data.name, class: data.class, role: data.role || prev.role } : null);
+    const unsubscribe = onSnapshot(
+      docRef, 
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setUser((prev) => prev ? { ...prev, name: data.name, class: data.class, role: data.role || prev.role } : null);
+        }
+      },
+      async (serverError) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'get'
+        }));
       }
-    });
+    );
 
     return () => unsubscribe();
   }, [user?.id, db]);
@@ -72,11 +80,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(userData);
             
             // Log attendance
-            addDoc(collection(db, coll, id, 'activity'), {
+            const activityRef = collection(db, coll, id, 'activity');
+            const logData = {
               type: 'login',
               timestamp: serverTimestamp(),
               metadata: { role: data.role || loginType }
-            });
+            };
+            addDoc(activityRef, logData)
+              .catch(async () => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                  path: activityRef.path,
+                  operation: 'create',
+                  requestResourceData: logData
+                }));
+              });
 
             return true;
           }

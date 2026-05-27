@@ -35,7 +35,6 @@ export function ChatInterface({ chatId, currentUser, otherUserName, readonly = f
 
   const { data: messages } = useCollection(messagesQuery)
 
-  // Mark incoming messages as read
   useEffect(() => {
     if (!db || !messages || readonly) return
 
@@ -46,7 +45,12 @@ export function ChatInterface({ chatId, currentUser, otherUserName, readonly = f
         const msgRef = doc(db, 'chats', chatId, 'messages', msg.id)
         batch.update(msgRef, { read: true })
       })
-      batch.commit().catch(e => console.error("Error updating read status:", e))
+      batch.commit().catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `chats/${chatId}/messages`,
+          operation: 'update'
+        }))
+      })
     }
   }, [db, messages, currentUser.id, chatId, readonly])
 
@@ -107,7 +111,6 @@ export function ChatInterface({ chatId, currentUser, otherUserName, readonly = f
           <div className="space-y-4">
             {messages?.map((msg: any, i: number) => {
               const isMe = msg.senderId === currentUser.id
-              // Anonymous mode for public chats: students don't see mentor names
               const isPublicChat = chatId.startsWith('public_')
               const isOtherMentor = !isMe && msg.senderId.includes('mentor') || msg.senderId === 'mentor'
               const displayName = (isPublicChat && currentUser.role.includes('student') && isOtherMentor) 
