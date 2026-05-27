@@ -60,5 +60,21 @@ service cloud.firestore {
             
       allow delete: if isAdmin();
     }
+
+    // --- PRIVATE DOUBT CLEARANCE ---
+    match /privateDoubts/{doubtId} {
+      allow read, list: if isAdmin() 
+        || (isStudent() && resource.data.studentId == request.auth.uid)
+        || (isMentor() && resource.data.mentorId == request.auth.uid);
+      
+      allow create: if isStudent() && request.resource.data.studentId == request.auth.uid;
+      
+      allow update: if isAdmin()
+        || (isMentor() && resource.data.mentorId == request.auth.uid)
+        || (isStudent() && resource.data.studentId == request.auth.uid);
+        
+      allow delete: if isAdmin()
+        || (isStudent() && resource.data.studentId == request.auth.uid);
+    }
   }
 }

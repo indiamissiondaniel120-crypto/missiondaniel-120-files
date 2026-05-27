@@ -29,6 +29,21 @@
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
+    "PrivateDoubt": {
+      "title": "PrivateDoubt",
+      "description": "A private doubt between a registered student and their assigned mentor.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "mentorId": { "type": "string" },
+        "question": { "type": "string" },
+        "answer": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "answered"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "openedAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "Admin": {
       "title": "Admin",
       "description": "An administrative user record.",
@@ -49,6 +64,10 @@
     "/publicDoubts/{doubtId}": {
       "schema": { "$ref": "#/backend/entities/PublicDoubt" },
       "description": "Doubts from the public Students Corner."
+    },
+    "/privateDoubts/{doubtId}": {
+      "schema": { "$ref": "#/backend/entities/PrivateDoubt" },
+      "description": "Private doubts between assigned students and mentors."
     },
     "/admins/{adminId}": {
       "schema": { "$ref": "#/backend/entities/Admin" },

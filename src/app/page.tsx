@@ -14,15 +14,15 @@ import { InactivityMonitor } from '@/components/inactivity-monitor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks } from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks, MessageSquare, Send, Trash2, Clock, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { ADMINS } from '@/lib/mock-data';
 
 function getYouTubeEmbedUrl(url: string) {
   if (!url) return '';
@@ -203,6 +203,236 @@ function LoginScreen({ mode, onBack }: { mode: 'standard' | 'admin', onBack: () 
   );
 }
 
+function PrivateDoubtClearing({ user }: { user: any }) {
+  const db = useFirestore();
+  const { toast } = useToast();
+  const [question, setQuestion] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const doubtsQuery = useMemo(() => db ? query(collection(db, 'privateDoubts'), where('studentId', '==', user.id), orderBy('createdAt', 'desc')) : null, [db, user.id]);
+  const { data: myDoubts } = useCollection(doubtsQuery);
+
+  // Auto-deletion logic: Delete answered doubts 24 hours after they were opened
+  useEffect(() => {
+    if (!myDoubts || !db) return;
+    const now = Date.now();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+
+    myDoubts.forEach(doubt => {
+      if (doubt.openedAt) {
+        const openedTime = doubt.openedAt.toDate().getTime();
+        if (now - openedTime > twentyFourHours) {
+          const docRef = doc(db, 'privateDoubts', doubt.id);
+          deleteDoc(docRef).catch(() => {});
+        }
+      }
+    });
+  }, [myDoubts, db]);
+
+  const handleSubmit = () => {
+    if (!db || !question.trim() || !user.mentorId) {
+      if (!user.mentorId) toast({ variant: 'destructive', title: "No Mentor Assigned", description: "Please ask your administrator to assign a mentor." });
+      return;
+    }
+    setLoading(true);
+    const doubtsRef = collection(db, 'privateDoubts');
+    const data = {
+      studentId: user.id,
+      studentName: user.name,
+      mentorId: user.mentorId,
+      question: question.trim(),
+      status: 'open',
+      createdAt: serverTimestamp()
+    };
+
+    addDoc(doubtsRef, data).then(() => {
+      setQuestion('');
+      toast({ title: "Doubt Sent", description: "Your assigned mentor has been notified." });
+      setLoading(false);
+    }).catch(async (e) => {
+      setLoading(false);
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: doubtsRef.path,
+        operation: 'create',
+        requestResourceData: data
+      }));
+    });
+  };
+
+  const markAsOpened = (doubt: any) => {
+    if (doubt.status === 'answered' && !doubt.openedAt && db) {
+      const docRef = doc(db, 'privateDoubts', doubt.id);
+      updateDoc(docRef, { openedAt: serverTimestamp() }).catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update'
+        }));
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="rounded-[2rem] border-none shadow-xl bg-white/60 backdrop-blur-sm overflow-hidden">
+        <CardHeader className="bg-primary/10 p-8">
+          <CardTitle className="text-2xl font-black text-primary flex items-center gap-2">
+            <MessageSquare className="text-accent" /> Ask My Mentor
+          </CardTitle>
+          <CardDescription className="font-bold">Private doubt clearance with your allocated mentor.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-8 space-y-6">
+          <div className="space-y-2">
+            <Label className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Your Question</Label>
+            <Textarea 
+              placeholder="What academic help do you need today?" 
+              className="rounded-2xl min-h-[120px] bg-white border-muted font-medium p-6" 
+              value={question}
+              onChange={e => setQuestion(e.target.value)}
+            />
+          </div>
+          <Button className="w-full py-8 rounded-2xl text-lg font-black bg-primary shadow-xl shadow-primary/20" onClick={handleSubmit} disabled={loading || !question.trim()}>
+            {loading ? <Loader2 className="animate-spin" /> : <><Send size={20} className="mr-2" /> Send to Mentor</>}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-4">
+        <h4 className="font-black text-primary uppercase text-xs tracking-[0.2em] px-4">Doubt History</h4>
+        <div className="grid gap-4">
+          {myDoubts?.map(doubt => (
+            <Dialog key={doubt.id} onOpenChange={(open) => open && markAsOpened(doubt)}>
+              <DialogTrigger asChild>
+                <Card className={`cursor-pointer transition-all hover:scale-[1.01] rounded-2xl border-none shadow-md ${doubt.status === 'answered' ? 'bg-green-50' : 'bg-white'}`}>
+                  <CardContent className="p-6 flex items-center justify-between">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-bold text-sm truncate max-w-xs">{doubt.question}</span>
+                      <span className="text-[10px] text-muted-foreground">{new Date(doubt.createdAt?.toDate()).toLocaleString()}</span>
+                    </div>
+                    <Badge className={`rounded-xl px-3 py-1 ${doubt.status === 'answered' ? 'bg-green-600' : 'bg-yellow-500'}`}>
+                      {doubt.status === 'answered' ? <><CheckCircle2 size={12} className="mr-1" /> Answered</> : <><Clock size={12} className="mr-1" /> Pending</>}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </DialogTrigger>
+              <DialogContent className="rounded-[2.5rem] p-10 max-w-xl">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-black text-primary">Doubt Details</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6 py-6">
+                  <div className="space-y-2">
+                    <Label className="font-black text-[10px] uppercase text-muted-foreground">Your Question</Label>
+                    <p className="p-4 bg-muted/20 rounded-xl font-medium">{doubt.question}</p>
+                  </div>
+                  {doubt.answer && (
+                    <div className="space-y-2">
+                      <Label className="font-black text-[10px] uppercase text-green-600">Mentor's Response</Label>
+                      <p className="p-6 bg-green-50 rounded-2xl font-bold text-lg text-green-900 border border-green-200">{doubt.answer}</p>
+                      <p className="text-[10px] text-green-600/60 font-bold italic">* This answer will be automatically removed 24 hours after opening.</p>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          ))}
+          {myDoubts?.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground italic font-medium bg-white/40 rounded-3xl border-2 border-dashed">No doubts posted yet.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MentorDoubtClearing({ mentorId }: { mentorId: string }) {
+  const db = useFirestore();
+  const { toast } = useToast();
+  const [answeringDoubt, setAnsweringDoubt] = useState<any>(null);
+  const [answer, setAnswer] = useState('');
+
+  const doubtsQuery = useMemo(() => db ? query(collection(db, 'privateDoubts'), where('mentorId', '==', mentorId), where('status', '==', 'open'), orderBy('createdAt', 'desc')) : null, [db, mentorId]);
+  const { data: pendingDoubts } = useCollection(doubtsQuery);
+
+  const handleSendAnswer = () => {
+    if (!db || !answeringDoubt || !answer.trim()) return;
+    const docRef = doc(db, 'privateDoubts', answeringDoubt.id);
+    const data = {
+      answer: answer.trim(),
+      status: 'answered',
+      answeredAt: serverTimestamp()
+    };
+
+    updateDoc(docRef, data).then(() => {
+      setAnsweringDoubt(null);
+      setAnswer('');
+      toast({ title: "Answer Sent" });
+    }).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: data
+      }));
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-2xl font-black text-primary flex items-center gap-2 px-4">
+        <ListChecks className="text-accent" /> Student Doubt Clearance
+      </h3>
+      <div className="grid gap-4">
+        {pendingDoubts?.map(doubt => (
+          <Card key={doubt.id} className="border-none shadow-lg rounded-2xl bg-white/70 overflow-hidden">
+            <CardContent className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px] font-black">{doubt.studentName}</Badge>
+                  <span className="text-[10px] text-muted-foreground">{new Date(doubt.createdAt?.toDate()).toLocaleString()}</span>
+                </div>
+                <p className="font-bold text-lg leading-tight">{doubt.question}</p>
+              </div>
+              <Dialog open={answeringDoubt?.id === doubt.id} onOpenChange={(open) => !open && setAnsweringDoubt(null)}>
+                <DialogTrigger asChild>
+                  <Button className="rounded-xl h-14 px-8 bg-accent font-black text-lg" onClick={() => setAnsweringDoubt(doubt)}>Respond Now</Button>
+                </DialogTrigger>
+                <DialogContent className="rounded-[2.5rem] p-10 max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-black">Provide Answer</DialogTitle>
+                    <DialogDescription className="font-bold">Helping {doubt.studentName} understand.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-6 py-6">
+                    <div className="p-4 bg-muted/20 rounded-xl">
+                      <span className="text-[10px] font-black uppercase text-muted-foreground block mb-2">Question</span>
+                      <p className="font-medium">{doubt.question}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="font-black text-[10px] uppercase">Your Answer</Label>
+                      <Textarea 
+                        placeholder="Write your explanation here..." 
+                        className="rounded-2xl min-h-[150px] bg-white border-muted font-medium p-4" 
+                        value={answer}
+                        onChange={e => setAnswer(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button className="w-full h-16 rounded-2xl text-lg font-black bg-primary" onClick={handleSendAnswer} disabled={!answer.trim()}>Send Answer</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+        ))}
+        {pendingDoubts?.length === 0 && (
+          <div className="text-center py-20 bg-muted/10 border-4 border-dashed rounded-[3rem] flex flex-col items-center justify-center space-y-4">
+            <CheckCircle2 className="text-green-500 h-12 w-12" />
+            <p className="font-black text-muted-foreground italic">All student doubts cleared!</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MentorMyStudentsSummary({ mentorId, allMentors }: { mentorId: string, allMentors: any[] }) {
   const db = useFirestore();
   const studentsQuery = useMemo(() => db ? query(collection(db, 'students'), where('mentorId', '==', mentorId)) : null, [db]);
@@ -253,6 +483,7 @@ function Dashboard() {
   const isAdmin = user?.role === 'admin';
   const isMentor = user?.role === 'mentor';
   const isPublic = user?.role === 'public_student';
+  const isStandardStudent = user?.role === 'student';
 
   useEffect(() => {
     if (user) setView('dashboard');
@@ -465,29 +696,62 @@ function Dashboard() {
                 </div>
 
                 {isMentor && (
-                  <MentorMyStudentsSummary mentorId={user.id} allMentors={allMentors || []} />
+                  <div className="space-y-12">
+                    <MentorMyStudentsSummary mentorId={user.id} allMentors={allMentors || []} />
+                    <MentorDoubtClearing mentorId={user.id} />
+                  </div>
                 )}
 
-                <section className="space-y-8">
-                  <div className="flex items-center justify-between">
-                    <h3 className={`text-3xl font-black tracking-tight ${isPublic ? 'text-accent' : 'text-primary'}`}>Academic Core</h3>
-                    <div className="h-1 flex-1 mx-8 bg-muted/40 rounded-full" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                    {visibleCourses.map((course: any) => (
-                      <Card key={course.id} className="cursor-pointer group hover:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] transition-all duration-700 rounded-[3rem] border-none shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm" onClick={() => setSelectedCourse(course)}>
-                        <div className="h-56 relative bg-muted overflow-hidden">
-                          <Image src={`https://picsum.photos/seed/${course.id}/600/400`} fill alt={course.name} className="object-cover group-hover:scale-110 transition-transform duration-1000" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent opacity-60" />
-                          <div className="absolute bottom-6 left-8 text-white font-black text-3xl tracking-tighter">{course.name}</div>
+                {isStandardStudent && (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                    <div className="lg:col-span-2 space-y-8">
+                       <section className="space-y-8">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-3xl font-black tracking-tight text-primary">Academic Core</h3>
                         </div>
-                        <CardHeader className="p-8">
-                          <Button className={`w-full rounded-2xl py-8 font-black text-lg transition-all ${isPublic ? 'bg-accent shadow-accent/20' : 'bg-primary shadow-primary/20'} shadow-lg group-hover:scale-[1.03]`}>Access Materials</Button>
-                        </CardHeader>
-                      </Card>
-                    ))}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          {visibleCourses.map((course: any) => (
+                            <Card key={course.id} className="cursor-pointer group hover:shadow-2xl transition-all duration-700 rounded-[3rem] border-none shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm" onClick={() => setSelectedCourse(course)}>
+                              <div className="h-56 relative bg-muted overflow-hidden">
+                                <Image src={`https://picsum.photos/seed/${course.id}/600/400`} fill alt={course.name} className="object-cover group-hover:scale-110 transition-transform duration-1000" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent opacity-60" />
+                                <div className="absolute bottom-6 left-8 text-white font-black text-3xl tracking-tighter">{course.name}</div>
+                              </div>
+                              <CardHeader className="p-8">
+                                <Button className="w-full rounded-2xl py-8 font-black text-lg transition-all bg-primary shadow-lg shadow-primary/20 group-hover:scale-[1.03]">Access Materials</Button>
+                              </CardHeader>
+                            </Card>
+                          ))}
+                        </div>
+                      </section>
+                    </div>
+                    <div className="lg:col-span-1">
+                      <PrivateDoubtClearing user={user} />
+                    </div>
                   </div>
-                </section>
+                )}
+
+                {isPublic && (
+                  <section className="space-y-8">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-3xl font-black tracking-tight text-accent">Academic Core</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                      {visibleCourses.map((course: any) => (
+                        <Card key={course.id} className="cursor-pointer group hover:shadow-2xl transition-all duration-700 rounded-[3rem] border-none shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm" onClick={() => setSelectedCourse(course)}>
+                          <div className="h-56 relative bg-muted overflow-hidden">
+                            <Image src={`https://picsum.photos/seed/${course.id}/600/400`} fill alt={course.name} className="object-cover group-hover:scale-110 transition-transform duration-1000" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent opacity-60" />
+                            <div className="absolute bottom-6 left-8 text-white font-black text-3xl tracking-tighter">{course.name}</div>
+                          </div>
+                          <CardHeader className="p-8">
+                            <Button className="w-full rounded-2xl py-8 font-black text-lg transition-all bg-accent shadow-lg shadow-accent/20 group-hover:scale-[1.03]">Access Materials</Button>
+                          </CardHeader>
+                        </Card>
+                      ))}
+                    </div>
+                  </section>
+                )}
               </section>
             ) : (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

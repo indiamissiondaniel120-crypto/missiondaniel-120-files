@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react'
 import { useFirestore } from '@/firebase'
-import { collection, doc, setDoc, serverTimestamp, query, orderBy, updateDoc, deleteDoc, addDoc, writeBatch } from 'firebase/firestore'
+import { collection, doc, setDoc, serverTimestamp, query, orderBy, updateDoc, deleteDoc, addDoc, writeBatch, where } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link } from 'lucide-react'
+import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link, MessageSquare } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -122,12 +122,14 @@ export function StudentManagement() {
   const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db])
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db])
   const materialsQuery = useMemo(() => db ? query(collection(db, 'materials'), orderBy('chapter', 'asc')) : null, [db])
+  const privateDoubtsQuery = useMemo(() => db ? query(collection(db, 'privateDoubts'), orderBy('createdAt', 'desc')) : null, [db])
 
   const { data: students } = useCollection(studentsQuery)
   const { data: mentors } = useCollection(mentorsQuery)
   const { data: rawCourses } = useCollection(coursesQuery)
   const { data: subjects } = useCollection(subjectsQuery)
   const { data: materials } = useCollection(materialsQuery)
+  const { data: allPrivateDoubts } = useCollection(privateDoubtsQuery)
 
   const courses = useMemo(() => sortClasses(rawCourses || []), [rawCourses]);
 
@@ -376,6 +378,7 @@ export function StudentManagement() {
               <TabsTrigger value="mentors" className="flex items-center gap-2 px-6"><UserRound size={16} /> Mentors</TabsTrigger>
               <TabsTrigger value="courses" className="flex items-center gap-2 px-6"><BookOpen size={16} /> Classes</TabsTrigger>
               <TabsTrigger value="materials" className="flex items-center gap-2 px-6"><Library size={16} /> Materials & Subjects</TabsTrigger>
+              <TabsTrigger value="doubts" className="flex items-center gap-2 px-6"><MessageSquare size={16} /> Private Doubts</TabsTrigger>
             </>
           )}
           <TabsTrigger value="academic-sheet" className="flex items-center gap-2 px-6"><ListChecks size={16} /> Overview Sheet</TabsTrigger>
@@ -423,6 +426,40 @@ export function StudentManagement() {
               </div>
             </TabsContent>
 
+            <TabsContent value="doubts" className="space-y-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Private Doubt Safety Monitor</CardTitle>
+                  <CardDescription>Overseeing all student-mentor interactions.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Mentor</TableHead>
+                        <TableHead>Question</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Response</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allPrivateDoubts?.map((doubt: any) => (
+                        <TableRow key={doubt.id}>
+                          <TableCell className="font-bold">{doubt.studentName}</TableCell>
+                          <TableCell>{mentors?.find(m => m.id === doubt.mentorId)?.name || 'Unknown'}</TableCell>
+                          <TableCell className="max-w-xs truncate">{doubt.question}</TableCell>
+                          <TableCell><Badge variant={doubt.status === 'answered' ? 'default' : 'outline'}>{doubt.status}</Badge></TableCell>
+                          <TableCell className="max-w-xs truncate italic">{doubt.answer || 'No response yet'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            {/* Rest of existing Admin Tabs Content... (mentors, courses, materials omitted for brevity but remain intact in actual file) */}
             <TabsContent value="mentors" className="space-y-8">
                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <Card className="lg:col-span-1 border-orange-200"><CardHeader><CardTitle className="text-orange-600 flex items-center gap-2"><UserPlus size={20} /> Register Mentor</CardTitle></CardHeader>
@@ -767,7 +804,6 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   const [selectedSubjectId, setSelectedSubjectId] = useState('')
   const [loading, setLoading] = useState(false)
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([])
-  const [showConfirm, setShowConfirm] = useState(false)
 
   const selectedCourse = useMemo(() => courses.find(c => c.id === selectedClassId), [courses, selectedClassId])
   const selectedSubject = useMemo(() => subjects.find(s => s.id === selectedSubjectId), [subjects, selectedSubjectId])
@@ -909,7 +945,6 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
       .then(() => {
         toast({ title: "Bulk Upload Successful" })
         setOpen(false)
-        setShowConfirm(false)
         setLoading(false)
       })
       .catch(async () => {
@@ -922,60 +957,56 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   }
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild><Button className="bg-primary rounded-xl"><Layers className="mr-2 h-4 w-4" /> Bulk Upload</Button></DialogTrigger>
-        <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-2"><DialogTitle>Bulk Material Upload</DialogTitle></DialogHeader>
-          <div className="flex-1 overflow-y-auto px-6 py-2">
-            <div className="space-y-6 pb-8">
-              <div className="grid grid-cols-2 gap-4">
-                <Select onValueChange={setSelectedClassId} value={selectedClassId}><SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
-                <Select onValueChange={setSelectedSubjectId} value={selectedSubjectId} disabled={!selectedClassId}><SelectTrigger><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.filter(s => s.courseId === selectedClassId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
-              </div>
-              {selectedSubject && (
-                <div className="space-y-6">
-                  <div className="bg-muted/30 p-4 rounded-2xl border border-dashed flex flex-wrap gap-2">
-                    {chapterStatus.filter(c => c.completed).map(c => <Badge key={c.chapter} variant="secondary" className="bg-green-100 text-green-700">Ch {c.chapter} (Done)</Badge>)}
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-sm font-bold uppercase text-primary">Bulk Entry (Max 20 rows)</h4>
-                    <Button variant="outline" size="sm" onClick={handleAddRow} disabled={bulkRows.length >= 20}><Plus size={14} className="mr-1" /> Add Row</Button>
-                  </div>
-                  <div className="space-y-3">
-                    {bulkRows.map((row, idx) => (
-                      <div key={idx} className="grid grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-2xl border border-accent/10">
-                        <div className="col-span-1">
-                          <Label className="text-[10px] opacity-60">Ch #</Label>
-                          <Input 
-                            type="number" 
-                            className="bg-white" 
-                            value={row.chapter} 
-                            onChange={e => handleUpdateRow(idx, 'chapter', Number(e.target.value))} 
-                          />
-                        </div>
-                        <div className="col-span-3">
-                          <Label className="text-[10px] opacity-60">Chapter Title</Label>
-                          <div className="relative">
-                            <Input className="bg-white" placeholder="Auto-fetched from Video" value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />
-                          </div>
-                        </div>
-                        <div className="col-span-4"><Label className="text-[10px] opacity-60">Video URL</Label><Input className="bg-white" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} /></div>
-                        <div className="col-span-4"><Label className="text-[10px] opacity-60">PDF URL</Label><Input className="bg-white" value={row.pdfUrl} onChange={e => handleUpdateRow(idx, 'pdfUrl', e.target.value)} /></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild><Button className="bg-primary rounded-xl"><Layers className="mr-2 h-4 w-4" /> Bulk Upload</Button></DialogTrigger>
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-2"><DialogTitle>Bulk Material Upload</DialogTitle></DialogHeader>
+        <div className="flex-1 overflow-y-auto px-6 py-2">
+          <div className="space-y-6 pb-8">
+            <div className="grid grid-cols-2 gap-4">
+              <Select onValueChange={setSelectedClassId} value={selectedClassId}><SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
+              <Select onValueChange={setSelectedSubjectId} value={selectedSubjectId} disabled={!selectedClassId}><SelectTrigger><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.filter(s => s.courseId === selectedClassId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
             </div>
+            {selectedSubject && (
+              <div className="space-y-6">
+                <div className="bg-muted/30 p-4 rounded-2xl border border-dashed flex flex-wrap gap-2">
+                  {chapterStatus.filter(c => c.completed).map(c => <Badge key={c.chapter} variant="secondary" className="bg-green-100 text-green-700">Ch {c.chapter} (Done)</Badge>)}
+                </div>
+                <div className="flex justify-between items-center">
+                  <h4 className="text-sm font-bold uppercase text-primary">Bulk Entry (Max 20 rows)</h4>
+                  <Button variant="outline" size="sm" onClick={handleAddRow} disabled={bulkRows.length >= 20}><Plus size={14} className="mr-1" /> Add Row</Button>
+                </div>
+                <div className="space-y-3">
+                  {bulkRows.map((row, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-2xl border border-accent/10">
+                      <div className="col-span-1">
+                        <Label className="text-[10px] opacity-60">Ch #</Label>
+                        <Input 
+                          type="number" 
+                          className="bg-white" 
+                          value={row.chapter} 
+                          onChange={e => handleUpdateRow(idx, 'chapter', Number(e.target.value))} 
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Label className="text-[10px] opacity-60">Chapter Title</Label>
+                        <Input className="bg-white" placeholder="Auto-fetched" value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />
+                      </div>
+                      <div className="col-span-4"><Label className="text-[10px] opacity-60">Video URL</Label><Input className="bg-white" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} /></div>
+                      <div className="col-span-4"><Label className="text-[10px] opacity-60">PDF URL</Label><Input className="bg-white" value={row.pdfUrl} onChange={e => handleUpdateRow(idx, 'pdfUrl', e.target.value)} /></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter className="p-6 border-t bg-muted/20">
-            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveBulk} disabled={loading || bulkRows.length === 0}>Upload All</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+        </div>
+        <DialogFooter className="p-6 border-t bg-muted/20">
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={handleSaveBulk} disabled={loading || bulkRows.length === 0}>Upload All</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
