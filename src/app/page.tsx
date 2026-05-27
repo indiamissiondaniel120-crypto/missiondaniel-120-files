@@ -73,7 +73,7 @@ function DecorativeGraphics() {
 
 function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
   const db = useFirestore();
-  const doubtsQuery = useMemo(() => db ? query(collection(db, 'publicDoubts'), where('status', 'in', ['open', 'assigned'])) : null, [db]);
+  const doubtsQuery = useMemo(() => db ? query(collection(db, 'publicDoubts'), where('status', 'in', ['open', 'answered'])) : null, [db]);
   const { data: doubts } = useCollection(doubtsQuery);
 
   const myAssigned = doubts?.filter(d => d.mentorId === mentorId) || [];
@@ -82,14 +82,17 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
   const handleClaim = (doubtId: string) => {
     if (!db) return;
     const docRef = doc(db, 'publicDoubts', doubtId);
-    updateDoc(docRef, {
-      status: 'assigned',
+    // Rules expect 'answered' status for a mentor to claim/update
+    const updateData = {
+      status: 'answered',
       mentorId: mentorId,
       assignedAt: serverTimestamp()
-    }).catch(async () => {
+    };
+    updateDoc(docRef, updateData).catch(async () => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
         operation: 'update',
+        requestResourceData: updateData
       }));
     });
   };
@@ -719,14 +722,15 @@ function Dashboard() {
             <Button className="w-full h-16 rounded-3xl text-xl font-black bg-primary shadow-2xl shadow-primary/30" onClick={() => {
               if (db && editingMaterial) {
                 const docRef = doc(db, 'materials', editingMaterial.id);
-                updateDoc(docRef, { ...editingMaterial }).then(() => {
+                const updateData = { ...editingMaterial };
+                updateDoc(docRef, updateData).then(() => {
                   setEditingMaterial(null);
                   toast({ title: "Updated successfully" });
                 }).catch(async () => {
                    errorEmitter.emit('permission-error', new FirestorePermissionError({
                      path: docRef.path,
                      operation: 'update',
-                     requestResourceData: editingMaterial
+                     requestResourceData: updateData
                    }));
                 });
               }

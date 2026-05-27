@@ -1,10 +1,29 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // --- HELPER FUNCTIONS ---
+    // Checks if the requesting user is an authenticated Admin
+    function isAdmin() {
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Checks if the requesting user is a registered Mentor
+    function isMentor() {
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/mentors/$(request.auth.uid));
+    }
+
+    // Checks if the requesting user is a registered Student
+    function isStudent() {
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/students/$(request.auth.uid));
+    }
+
+    // --- EXISTING COLLECTIONS (Kept active but can be locked down as needed) ---
     match /students/{studentId} {
       allow read, write: if true;
-      
       match /activity/{activityId} {
         allow read, write: if true;
       }
@@ -26,8 +45,46 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    match /chats/{chatId}/messages/{messageId} {
-      allow read, write: if true;
+    // --- REWORKED: PRIVATE CHATS (Student <=> Assigned Mentor) ---
+    // Expected structure: /chats/{chatId} where chatId matches the student's ID
+    match /chats/{chatId} {
+      // Mentors can only read/write if they are explicitly assigned to this student
+      // Students can only read/write their own chat
+      allow read, write: if isAdmin() 
+        || (isStudent() && request.auth.uid == chatId)
+        || (isMentor() && resource.data.assignedMentorId == request.auth.uid)
+        || (isMentor() && request.resource.data.assignedMentorId == request.auth.uid);
+
+      match /messages/{messageId} {
+        allow read, write: if isAdmin()
+          || (isStudent() && request.auth.uid == chatId)
+          || (isMentor() && get(/databases/$(database)/documents/chats/$(chatId)).data.assignedMentorId == request.auth.uid);
+      }
+    }
+
+    // --- NEW/REWORKED: PUBLIC DOUBT POOL (Public Student => All Mentors) ---
+    // Expected collection name from your screenshot error: publicDoubts
+    match /publicDoubts/{doubtId} {
+      
+      // 1. Reading: Admin, all Mentors, and the Student who created it can view.
+      allow read: if isAdmin() 
+        || isMentor() 
+        || (isStudent() && resource.data.studentId == request.auth.uid);
+
+      // 2. Creating: Any logged-in student can post a new doubt.
+      allow create: if isAdmin() 
+        || (isStudent() && request.resource.data.studentId == request.auth.uid && request.resource.data.status == 'open');
+
+      // 3. Responding/Updating: 
+      // - Admin can update anything.
+      // - Mentors can update ONLY IF the status is currently 'open' (First responder wins)
+      // - Enforces that the student cannot see the mentor's specific identity (handled via frontend data masking, but rules allow the write)
+      allow update: if isAdmin()
+        || (isMentor() 
+            && resource.data.status == 'open' 
+            && request.resource.data.status == 'answered');
+            
+      allow delete: if isAdmin();
     }
   }
 }
