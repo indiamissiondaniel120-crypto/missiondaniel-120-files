@@ -1,22 +1,22 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
     // --- HELPER FUNCTIONS ---
-    function isAuth() {
-      return request.auth != null;
-    }
-
     function isAdmin() {
-      return isAuth() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
     function isMentor() {
-      return isAuth() && exists(/databases/$(database)/documents/mentors/$(request.auth.uid));
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/mentors/$(request.auth.uid));
     }
 
     function isStudent() {
-      return isAuth() && exists(/databases/$(database)/documents/students/$(request.auth.uid));
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/students/$(request.auth.uid));
     }
 
     // --- CORE COLLECTIONS ---
@@ -35,43 +35,30 @@ service cloud.firestore {
     }
 
     match /courses/{courseId} {
-      allow read: if true;
-      allow write: if isAuth();
+      allow read, write: if true;
     }
 
     match /subjects/{subjectId} {
-      allow read: if true;
-      allow write: if isAuth();
+      allow read, write: if true;
     }
 
     match /materials/{materialId} {
-      allow read: if true;
-      allow write: if isAuth();
-    }
-
-    // --- PRIVATE CHATS ---
-    // Simplified to allow all authenticated users (Anonymous or otherwise) 
-    // to read/write chat messages for the MVP.
-    match /chats/{chatId} {
-      allow read, write: if isAuth();
-
-      match /messages/{messageId} {
-        allow read, write: if isAuth();
-      }
+      allow read, write: if true;
     }
 
     // --- PUBLIC DOUBT POOL ---
     match /publicDoubts/{doubtId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
-      allow delete: if isAdmin();
-    }
+      allow read, list: if isAdmin() || isMentor() || (isStudent() && resource.data.studentId == request.auth.uid);
 
-    // --- ADMINS ---
-    match /admins/{adminId} {
-      allow read: if isAuth();
-      allow write: if isAdmin();
+      allow create: if isAdmin() 
+        || (isStudent() && request.resource.data.studentId == request.auth.uid && request.resource.data.status == 'open');
+
+      allow update: if isAdmin()
+        || (isMentor() 
+            && resource.data.status == 'open' 
+            && request.resource.data.status == 'answered');
+            
+      allow delete: if isAdmin();
     }
   }
 }

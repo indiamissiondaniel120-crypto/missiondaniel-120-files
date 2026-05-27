@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react'
 import { useFirestore } from '@/firebase'
-import { collection, doc, setDoc, serverTimestamp, query, orderBy, where, updateDoc, deleteDoc, addDoc, writeBatch, getDocs } from 'firebase/firestore'
+import { collection, doc, setDoc, serverTimestamp, query, orderBy, updateDoc, deleteDoc, addDoc, writeBatch } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,15 +11,14 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, Clock, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, MessageSquare, BookOpen, Trash2, Plus, Upload, Loader2, Library, CheckCircle2, Link, Youtube, ExternalLink, ListChecks, Search, Filter, Layers, AlertTriangle, FileSpreadsheet } from 'lucide-react'
+import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -98,7 +97,6 @@ export function StudentManagement() {
   const [subjectForm, setSubjectForm] = useState({ name: '', selectedCourseIds: [] as string[] })
   const [materialForm, setMaterialForm] = useState({ title: '', courseId: '', subjectId: '', type: 'video' as 'video' | 'pdf', url: '', chapter: 1 })
 
-  const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
 
   const [editingStudent, setEditingStudent] = useState<any>(null)
@@ -147,17 +145,9 @@ export function StudentManagement() {
     if (!db || !studentForm.id || !studentForm.name || !isAdmin) return
     setLoading(true)
     
-    const batch = writeBatch(db);
-    const studentRef = doc(db, 'students', studentForm.id);
-    const studentData = { ...studentForm, createdAt: serverTimestamp() };
-    batch.set(studentRef, studentData);
-
-    if (studentForm.mentorId && studentForm.mentorId !== 'none') {
-      const chatRef = doc(db, 'chats', studentForm.id);
-      batch.set(chatRef, { assignedMentorId: studentForm.mentorId }, { merge: true });
-    }
-
-    batch.commit()
+    const docRef = doc(db, 'students', studentForm.id);
+    const data = { ...studentForm, createdAt: serverTimestamp() };
+    setDoc(docRef, data)
       .then(() => {
         toast({ title: "Student Registered" })
         setStudentForm({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
@@ -166,9 +156,9 @@ export function StudentManagement() {
       .catch(async () => {
         setLoading(false)
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: studentRef.path,
+          path: docRef.path,
           operation: 'write',
-          requestResourceData: studentData
+          requestResourceData: data
         }));
       });
   }
@@ -242,16 +232,12 @@ export function StudentManagement() {
     e.preventDefault()
     if (!db || !materialForm.courseId || !materialForm.subjectId || !isAdmin) return
     setIsUploading(true)
-    setUploadProgress(50)
     const collRef = collection(db, 'materials');
     const data = { ...materialForm, createdAt: serverTimestamp() };
     addDoc(collRef, data).then(() => {
-      setUploadProgress(100)
-      setTimeout(() => {
-        setIsUploading(false)
-        setMaterialForm({ title: '', courseId: '', subjectId: '', type: 'video', url: '', chapter: 1 })
-        toast({ title: "Material Added" })
-      }, 500)
+      setIsUploading(false)
+      setMaterialForm({ title: '', courseId: '', subjectId: '', type: 'video', url: '', chapter: 1 })
+      toast({ title: "Material Added" })
     }).catch(async () => {
        setIsUploading(false);
        errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -287,16 +273,8 @@ export function StudentManagement() {
   const handleUpdateStudent = () => {
     if (!db || !editingStudent || !isAdmin) return
     setLoading(true)
-    const batch = writeBatch(db);
     const studentRef = doc(db, 'students', editingStudent.id);
-    batch.update(studentRef, { ...editingStudent });
-
-    if (editingStudent.mentorId) {
-      const chatRef = doc(db, 'chats', editingStudent.id);
-      batch.set(chatRef, { assignedMentorId: editingStudent.mentorId }, { merge: true });
-    }
-
-    batch.commit().then(() => {
+    updateDoc(studentRef, { ...editingStudent }).then(() => {
       setEditingStudent(null)
       toast({ title: "Updated" })
       setLoading(false)
@@ -717,7 +695,6 @@ export function StudentManagement() {
 
 export function ActivityViewer({ student, mentors }: { student: any, mentors: any[] }) {
   const db = useFirestore()
-  const { toast } = useToast()
   const activityQuery = useMemo(() => db && student.id ? query(collection(db, 'students', student.id, 'activity'), orderBy('timestamp', 'desc')) : null, [db, student.id])
   const { data: activities, loading } = useCollection(activityQuery)
 
@@ -741,50 +718,6 @@ export function ActivityViewer({ student, mentors }: { student: any, mentors: an
     link.click();
   }
 
-  const downloadChatCSV = async () => {
-    if (!db) return;
-    toast({ title: "Preparing chat history..." });
-    
-    try {
-      const chatsRef = collection(db, 'chats');
-      const chatsSnap = await getDocs(chatsRef);
-      let allMessages: any[] = [];
-
-      for (const chatDoc of chatsSnap.docs) {
-        if (chatDoc.id.includes(student.id)) {
-          const msgsRef = collection(db, 'chats', chatDoc.id, 'messages');
-          const msgsSnap = await getDocs(query(msgsRef, orderBy('timestamp', 'asc')));
-          allMessages = [...allMessages, ...msgsSnap.docs.map(d => ({ ...d.data(), chatId: chatDoc.id }))];
-        }
-      }
-
-      const publicDoubtsRef = collection(db, 'publicDoubts');
-      const publicSnap = await getDocs(query(publicDoubtsRef, where('studentId', '==', student.id)));
-      
-      for (const doubtDoc of publicSnap.docs) {
-        const msgsRef = collection(db, 'chats', `public_${doubtDoc.id}`, 'messages');
-        const msgsSnap = await getDocs(query(msgsRef, orderBy('timestamp', 'asc')));
-        allMessages = [...allMessages, ...msgsSnap.docs.map(d => ({ ...d.data(), chatId: `public_${doubtDoc.id}` }))];
-      }
-
-      const headers = ["Date", "Chat Room", "Sender", "Message"]
-      const rows = allMessages.map(m => [
-        m.timestamp?.toDate()?.toLocaleString() || '',
-        m.chatId,
-        m.senderName,
-        m.text.replace(/"/g, '""')
-      ]);
-
-      const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
-      const link = document.createElement("a");
-      link.setAttribute("href", encodeURI(csvContent));
-      link.setAttribute("download", `chat_history_${student.id}.csv`);
-      document.body.appendChild(link);
-      link.click();
-    } catch (e) {
-    }
-  }
-
   return (
     <Dialog>
       <DialogTrigger asChild><Button variant="ghost" size="sm" className="text-accent"><Activity size={16} /></Button></DialogTrigger>
@@ -797,9 +730,6 @@ export function ActivityViewer({ student, mentors }: { student: any, mentors: an
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={downloadAttendanceCSV} className="gap-2">
               <FileSpreadsheet size={16} /> Attendance
-            </Button>
-            <Button variant="outline" size="sm" onClick={downloadChatCSV} className="gap-2">
-              <MessageSquare size={16} /> Chats
             </Button>
           </div>
         </DialogHeader>
@@ -938,15 +868,6 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     }
   }
 
-  const validateAndUpload = () => {
-    const hasEmpty = bulkRows.some(r => !r.videoUrl.trim() || !r.pdfUrl.trim());
-    if (hasEmpty) {
-      setShowConfirm(true)
-    } else {
-      handleSaveBulk()
-    }
-  }
-
   const handleSaveBulk = () => {
     if (!db || !selectedCourse || !selectedSubject) return
     setLoading(true)
@@ -1037,7 +958,6 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
                           <Label className="text-[10px] opacity-60">Chapter Title</Label>
                           <div className="relative">
                             <Input className="bg-white" placeholder="Auto-fetched from Video" value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />
-                            {row.isFetchingTitle && <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-accent" />}
                           </div>
                         </div>
                         <div className="col-span-4"><Label className="text-[10px] opacity-60">Video URL</Label><Input className="bg-white" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} /></div>
@@ -1051,25 +971,10 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
           </div>
           <DialogFooter className="p-6 border-t bg-muted/20">
             <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={validateAndUpload} disabled={loading || bulkRows.length === 0}>Upload All</Button>
+            <Button onClick={handleSaveBulk} disabled={loading || bulkRows.length === 0}>Upload All</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="text-orange-500" /> Missing Information</AlertDialogTitle>
-            <AlertDialogDescription>
-              Some chapters are missing links. Continue anyway?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Go Back</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSaveBulk}>Continue Anyway</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }

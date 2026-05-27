@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Student": {
@@ -35,26 +36,6 @@
       "properties": {
         "name": { "type": "string" }
       }
-    },
-    "Chat": {
-      "title": "Chat",
-      "description": "A chat session metadata document.",
-      "type": "object",
-      "properties": {
-        "assignedMentorId": { "type": "string" }
-      }
-    },
-    "Message": {
-      "title": "Message",
-      "description": "A message within a chat session.",
-      "type": "object",
-      "properties": {
-        "senderId": { "type": "string" },
-        "senderName": { "type": "string" },
-        "text": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "read": { "type": "boolean" }
-      }
     }
   },
   "auth": {
@@ -72,14 +53,6 @@
     "/admins/{adminId}": {
       "schema": { "$ref": "#/backend/entities/Admin" },
       "description": "Administrative user records for security rules."
-    },
-    "/chats/{chatId}": {
-      "schema": { "$ref": "#/backend/entities/Chat" },
-      "description": "Private chat metadata for rules."
-    },
-    "/chats/{chatId}/messages/{messageId}": {
-      "schema": { "$ref": "#/backend/entities/Message" },
-      "description": "Individual chat messages."
     }
   }
 }

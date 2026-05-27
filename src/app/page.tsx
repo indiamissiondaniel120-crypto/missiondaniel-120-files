@@ -11,18 +11,18 @@ import { AICompanion } from '@/components/ai-companion';
 import { Badge } from '@/components/ui/badge';
 import { StudentManagement, ActivityViewer } from '@/components/student-management';
 import { InactivityMonitor } from '@/components/inactivity-monitor';
-import { ChatInterface } from '@/components/chat-interface';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, MessageSquare, Sparkles, ShieldCheck, HeartHandshake, Search, Send, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, User, ExternalLink, Activity } from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { ADMINS } from '@/lib/mock-data';
 
 function getYouTubeEmbedUrl(url: string) {
   if (!url) return '';
@@ -68,129 +68,6 @@ function DecorativeGraphics() {
         <Sparkles size={80} />
       </div>
       <div className="absolute bottom-0 right-0 w-full h-1/3 bg-primary/5 -skew-y-3 origin-bottom-right" />
-    </div>
-  );
-}
-
-function PublicDoubtsQueue({ mentorId, mentorName }: { mentorId: string, mentorName: string }) {
-  const db = useFirestore();
-  const doubtsQuery = useMemo(() => db ? query(collection(db, 'publicDoubts'), where('status', 'in', ['open', 'answered'])) : null, [db]);
-  const { data: doubts } = useCollection(doubtsQuery);
-
-  const myAssigned = doubts?.filter(d => d.mentorId === mentorId) || [];
-  const unassigned = doubts?.filter(d => d.status === 'open') || [];
-
-  const handleClaim = (doubtId: string) => {
-    if (!db) return;
-    const docRef = doc(db, 'publicDoubts', doubtId);
-    const updateData = {
-      status: 'answered',
-      mentorId: mentorId,
-      assignedAt: serverTimestamp()
-    };
-    updateDoc(docRef, updateData).catch(async () => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'update',
-        requestResourceData: updateData
-      }));
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><HeartHandshake className="text-accent" /> Students Corner Doubts</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="border-accent/20 h-[500px] flex flex-col">
-          <CardHeader><CardTitle className="text-sm">Public Doubts I Responded To ({myAssigned.length})</CardTitle></CardHeader>
-          <CardContent className="space-y-4 overflow-y-auto flex-1">
-            {myAssigned.length === 0 && <p className="text-xs text-muted-foreground italic">No active assignments.</p>}
-            {myAssigned.map(d => (
-              <div key={d.id} className="p-4 border rounded-2xl bg-accent/5 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-bold text-sm">{d.className}</p>
-                    <p className="text-xs text-muted-foreground">Question: {d.question}</p>
-                  </div>
-                </div>
-                <div className="h-[300px]">
-                  <ChatInterface 
-                    chatId={`public_${d.id}`} 
-                    currentUser={{ id: mentorId, name: mentorName, role: 'mentor' }} 
-                    otherUserName="Public Student" 
-                  />
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-        <Card className="h-[500px] flex flex-col">
-          <CardHeader><CardTitle className="text-sm">Open Doubt Pool ({unassigned.length})</CardTitle></CardHeader>
-          <CardContent className="space-y-2 flex-1 overflow-y-auto">
-            {unassigned.length === 0 && <p className="text-xs text-muted-foreground italic">Pool is currently empty.</p>}
-            {unassigned.map(d => (
-              <div key={d.id} className="p-3 border rounded-xl flex justify-between items-center hover:bg-muted/30 transition-colors">
-                <div className="flex-1 mr-4">
-                  <p className="font-bold text-sm">{d.className}</p>
-                  <p className="text-xs text-muted-foreground line-clamp-1">{d.question}</p>
-                </div>
-                <Button size="sm" onClick={() => handleClaim(d.id)} className="rounded-xl">Claim & Reply</Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function MentorMyStudents({ mentorId, mentorName, allMentors }: { mentorId: string, mentorName: string, allMentors: any[] }) {
-  const db = useFirestore();
-  const studentsQuery = useMemo(() => db ? query(collection(db, 'students'), where('mentorId', '==', mentorId)) : null, [db]);
-  const { data: myStudents } = useCollection(studentsQuery);
-
-  if (!myStudents || myStudents.length === 0) return null;
-
-  return (
-    <div className="space-y-4">
-      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><Users className="text-accent" /> My Assigned Students</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {myStudents.map(student => (
-          <Card key={student.id} className="border-primary/20 bg-primary/5">
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <UserRound size={16} className="text-primary" />
-                    {student.name}
-                  </CardTitle>
-                  <CardDescription className="text-xs">Class: {student.class}</CardDescription>
-                </div>
-                <ActivityViewer student={student} mentors={allMentors} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="w-full rounded-xl">Chat with Student</Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-xl h-[600px] flex flex-col p-0 overflow-hidden">
-                  <DialogHeader className="p-4 border-b">
-                    <DialogTitle>Daniel 120 Chat: {student.name}</DialogTitle>
-                  </DialogHeader>
-                  <div className="flex-1 overflow-hidden">
-                    <ChatInterface 
-                      chatId={`private_${student.id}`} 
-                      currentUser={{ id: mentorId, name: mentorName, role: 'mentor' }} 
-                      otherUserName={student.name} 
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
     </div>
   );
 }
@@ -322,6 +199,38 @@ function LoginScreen({ mode, onBack }: { mode: 'standard' | 'admin', onBack: () 
           </form>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function MentorMyStudentsSummary({ mentorId, allMentors }: { mentorId: string, allMentors: any[] }) {
+  const db = useFirestore();
+  const studentsQuery = useMemo(() => db ? query(collection(db, 'students'), where('mentorId', '==', mentorId)) : null, [db]);
+  const { data: myStudents } = useCollection(studentsQuery);
+
+  if (!myStudents || myStudents.length === 0) return null;
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><Users className="text-accent" /> My Assigned Students</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {myStudents.map(student => (
+          <Card key={student.id} className="border-primary/20 bg-primary/5">
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <UserRound size={16} className="text-primary" />
+                    {student.name}
+                  </CardTitle>
+                  <CardDescription className="text-xs">Class: {student.class}</CardDescription>
+                </div>
+                <ActivityViewer student={student} mentors={allMentors} />
+              </div>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
@@ -517,7 +426,7 @@ function Dashboard() {
               {(isAdmin || isMentor) && (
                 <SidebarMenuItem>
                   <SidebarMenuButton isActive={showAdminPanel} onClick={() => setShowAdminPanel(true)} className="py-8 rounded-2xl bg-white/20 text-white font-black hover:bg-white/30 border border-white/20 mb-4">
-                    {isAdmin ? <Users className="mr-2" /> : <ListChecks className="mr-2" />} 
+                    <ListChecks className="mr-2" /> 
                     {isAdmin ? 'Management Panel' : 'Academic Overview'}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -556,10 +465,7 @@ function Dashboard() {
                 </div>
 
                 {isMentor && (
-                  <>
-                    <MentorMyStudents mentorId={user.id} mentorName={user.name} allMentors={allMentors || []} />
-                    <PublicDoubtsQueue mentorId={user.id} mentorName={user.name} />
-                  </>
+                  <MentorMyStudentsSummary mentorId={user.id} allMentors={allMentors || []} />
                 )}
 
                 <section className="space-y-8">
@@ -680,31 +586,18 @@ function Dashboard() {
 
                   <div className="lg:col-span-1">
                     {!isPublic ? (
-                      <Tabs defaultValue="ai" className="bg-white/60 backdrop-blur-md border-primary/20 rounded-[3rem] shadow-2xl overflow-hidden p-2">
-                        <TabsList className="grid w-full grid-cols-2 rounded-[2rem] h-14 bg-muted/30 mb-2">
-                          <TabsTrigger value="ai" className="rounded-[1.5rem] font-black gap-2"><Sparkles size={16} /> AI Assistant</TabsTrigger>
-                          <TabsTrigger value="mentor" className="rounded-[1.5rem] font-black gap-2"><MessageSquare size={16} /> Mentor Chat</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="ai">
-                          <AICompanion />
-                        </TabsContent>
-                        <TabsContent value="mentor" className="h-[600px]">
-                           <ChatInterface 
-                             chatId={`private_${user.id}`} 
-                             currentUser={{ id: user.id, name: user.name, role: user.role }} 
-                             otherUserName="My Daniel 120 Mentor" 
-                           />
-                        </TabsContent>
-                      </Tabs>
+                      <Card className="bg-white/60 backdrop-blur-md border-primary/20 rounded-[3rem] shadow-2xl overflow-hidden p-2">
+                        <AICompanion />
+                      </Card>
                     ) : (
                       <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[3rem] shadow-2xl overflow-hidden">
                         <div className="h-3 bg-accent" />
                         <CardHeader className="p-10">
                           <CardTitle className="text-accent flex items-center gap-4 text-3xl font-black tracking-tighter"><Sparkles size={32} /> Students Corner</CardTitle>
-                          <CardDescription className="text-foreground/70 font-bold text-base mt-2">Post your doubt and our mentors will respond anonymously.</CardDescription>
+                          <CardDescription className="text-foreground/70 font-bold text-base mt-2">Post your doubt for our mentors to review.</CardDescription>
                         </CardHeader>
                         <CardContent className="p-10 pt-0">
-                          <PublicDoubtFlow selectedClassName={selectedCourse?.name || ''} />
+                          <PublicDoubtFlowSimple selectedClassName={selectedCourse?.name || ''} />
                         </CardContent>
                       </Card>
                     )}
@@ -756,19 +649,12 @@ function Dashboard() {
   );
 }
 
-function PublicDoubtFlow({ selectedClassName }: { selectedClassName: string }) {
+function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: string }) {
   const { user } = useAuth();
   const db = useFirestore();
   const [question, setQuestion] = useState('');
+  const { toast } = useToast();
   
-  const doubtsQuery = useMemo(() => {
-    if (!db || !user) return null;
-    return query(collection(db, 'publicDoubts'), where('studentId', '==', user.id), where('status', 'in', ['open', 'answered']));
-  }, [db, user]);
-
-  const { data: myDoubts } = useCollection(doubtsQuery);
-  const activeDoubt = myDoubts?.[0];
-
   const handleSubmit = async () => {
     if (!db || !question.trim() || !user) return;
     const doubtsRef = collection(db, 'publicDoubts');
@@ -781,35 +667,17 @@ function PublicDoubtFlow({ selectedClassName }: { selectedClassName: string }) {
       mentorId: null,
       createdAt: serverTimestamp()
     };
-    addDoc(doubtsRef, data).catch(async () => {
+    addDoc(doubtsRef, data).then(() => {
+      toast({ title: "Doubt Posted", description: "Your doubt has been sent to our mentors." });
+      setQuestion('');
+    }).catch(async () => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: doubtsRef.path,
         operation: 'create',
         requestResourceData: data
       }));
     });
-    setQuestion('');
   };
-
-  if (activeDoubt) {
-    return (
-      <div className="space-y-4">
-        <div className="p-4 bg-accent/10 rounded-2xl">
-          <p className="text-xs font-bold text-accent uppercase mb-1">My Active Doubt</p>
-          <p className="text-sm italic">"{activeDoubt.question}"</p>
-          <Badge className="mt-2 bg-accent">{activeDoubt.status === 'open' ? 'Waiting for Mentor' : 'Mentor Responded'}</Badge>
-        </div>
-        <div className="h-[400px]">
-           <ChatInterface 
-             chatId={`public_${activeDoubt.id}`} 
-             currentUser={{ id: user!.id, name: user!.name, role: user!.role }} 
-             otherUserName="Mentor"
-             isPublic
-           />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8">
@@ -817,7 +685,7 @@ function PublicDoubtFlow({ selectedClassName }: { selectedClassName: string }) {
         <Label className="font-black text-[11px] uppercase tracking-[0.2em] text-muted-foreground ml-1">Academic Question</Label>
         <Input placeholder="E.g. Help me understand gravity?" className="rounded-2xl h-16 bg-white border-muted font-medium text-lg px-6" value={question} onChange={e => setQuestion(e.target.value)} />
       </div>
-      <Button className="w-full bg-accent h-16 rounded-[1.5rem] text-xl font-black shadow-xl shadow-accent/20 hover:scale-[1.02] transition-transform" onClick={handleSubmit} disabled={!question.trim()}>Ask Mentors</Button>
+      <Button className="w-full bg-accent h-16 rounded-[1.5rem] text-xl font-black shadow-xl shadow-accent/20 hover:scale-[1.02] transition-transform" onClick={handleSubmit} disabled={!question.trim()}>Submit Doubt</Button>
     </div>
   );
 }
