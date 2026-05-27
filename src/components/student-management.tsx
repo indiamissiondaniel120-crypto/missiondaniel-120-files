@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -11,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link, MessageSquare, Video, Clock, CheckCircle2, MonitorPlay } from 'lucide-react'
+import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link, MessageSquare, Video, Clock, CheckCircle2, MonitorPlay, Globe } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -124,6 +123,7 @@ export function StudentManagement() {
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db])
   const materialsQuery = useMemo(() => db ? collection(db, 'materials') : null, [db])
   const privateDoubtsQuery = useMemo(() => db ? collection(db, 'privateDoubts') : null, [db])
+  const publicDoubtsQuery = useMemo(() => db ? collection(db, 'publicDoubts') : null, [db])
   const liveHistoryQuery = useMemo(() => db ? collection(db, 'liveClassHistory') : null, [db])
 
   const { data: students } = useCollection(studentsQuery)
@@ -132,6 +132,7 @@ export function StudentManagement() {
   const { data: subjects } = useCollection(subjectsQuery)
   const { data: materials } = useCollection(materialsQuery)
   const { data: allPrivateDoubts } = useCollection(privateDoubtsQuery)
+  const { data: allPublicDoubts } = useCollection(publicDoubtsQuery)
   const { data: rawLiveHistory } = useCollection(liveHistoryQuery)
 
   const courses = useMemo(() => sortClasses(rawCourses || []), [rawCourses]);
@@ -391,6 +392,7 @@ export function StudentManagement() {
               <TabsTrigger value="courses" className="flex items-center gap-2 px-6"><BookOpen size={16} /> Classes</TabsTrigger>
               <TabsTrigger value="materials" className="flex items-center gap-2 px-6"><Library size={16} /> Materials & Subjects</TabsTrigger>
               <TabsTrigger value="doubts" className="flex items-center gap-2 px-6"><MessageSquare size={16} /> Private Doubts</TabsTrigger>
+              <TabsTrigger value="public-doubts" className="flex items-center gap-2 px-6"><Globe size={16} /> Public Doubts</TabsTrigger>
               <TabsTrigger value="live-attendance" className="flex items-center gap-2 px-6 relative">
                 <Video size={16} /> Live Attendance
                 {liveHistory?.some(h => !h.viewedByAdmin) && (
@@ -469,6 +471,52 @@ export function StudentManagement() {
                           <TableCell className="max-w-xs truncate">{doubt.question}</TableCell>
                           <TableCell><Badge variant={doubt.status === 'answered' ? 'default' : 'outline'}>{doubt.status}</Badge></TableCell>
                           <TableCell className="max-w-xs truncate italic">{doubt.answer || 'No response yet'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="public-doubts" className="space-y-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Globe className="text-accent" /> Students Corner Doubts</CardTitle>
+                  <CardDescription>Public doubts and mentor contributions.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Public Student</TableHead>
+                        <TableHead>Class</TableHead>
+                        <TableHead>Question</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Mentor Response</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allPublicDoubts?.map((doubt: any) => (
+                        <TableRow key={doubt.id}>
+                          <TableCell className="font-bold">{doubt.studentName}</TableCell>
+                          <TableCell><Badge variant="outline">{doubt.className}</Badge></TableCell>
+                          <TableCell className="max-w-xs truncate">{doubt.question}</TableCell>
+                          <TableCell>
+                            <Badge variant={doubt.status === 'answered' ? 'default' : 'secondary'} className={doubt.status === 'answered' ? 'bg-green-600' : ''}>
+                              {doubt.status === 'answered' ? 'Answered' : 'Open Pool'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {doubt.status === 'answered' ? (
+                              <div className="flex flex-col">
+                                <span className="text-xs font-bold text-primary">By: {doubt.mentorName}</span>
+                                <span className="text-xs italic truncate max-w-[200px]">{doubt.answer}</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">Pending...</span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -807,7 +855,6 @@ export function StudentManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* NEW: Live Attendance Dialog */}
       <LiveAttendanceViewer session={selectedLiveSession} onClose={() => setSelectedLiveSession(null)} />
     </div>
   )
@@ -822,12 +869,10 @@ function LiveAttendanceViewer({ session, onClose }: { session: any, onClose: () 
     if (!session || !db) return;
     setLoading(true);
 
-    // 1. Mark as read
     if (!session.viewedByAdmin) {
       updateDoc(doc(db, 'liveClassHistory', session.id), { viewedByAdmin: true }).catch(console.error);
     }
 
-    // 2. Fetch centralized logs
     const q = query(collection(db, 'liveAttendanceLogs'), where('sessionId', '==', session.id));
     getDocs(q).then(snap => {
       const fetchedLogs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
@@ -896,7 +941,6 @@ function LiveAttendanceViewer({ session, onClose }: { session: any, onClose: () 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* Aggregated view for readability */}
                   {Object.values(logs.reduce((acc: any, log: any) => {
                     if (!acc[log.userId]) {
                       acc[log.userId] = { name: log.userName, role: log.userRole, count: 0, last: log.timestamp };
@@ -996,7 +1040,7 @@ export function ActivityViewer({ student, mentors }: { student: any, mentors: an
 function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], subjects: any[], materials: any[] }) {
   const db = useFirestore()
   const { toast } = useToast()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = false
   const [selectedClassId, setSelectedClassId] = useState('')
   const [selectedSubjectId, setSelectedSubjectId] = useState('')
   const [loading, setLoading] = useState(false)
