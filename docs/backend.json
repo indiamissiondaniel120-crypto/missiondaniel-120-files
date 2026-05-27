@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Student": {
@@ -20,10 +19,11 @@
       "description": "A doubt asked by a public student in the Students Corner.",
       "type": "object",
       "properties": {
+        "studentId": { "type": "string" },
         "studentName": { "type": "string" },
         "className": { "type": "string" },
         "question": { "type": "string" },
-        "status": { "type": "string", "enum": ["open", "assigned", "resolved"] },
+        "status": { "type": "string", "enum": ["open", "assigned", "answered"] },
         "mentorId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
@@ -50,19 +50,19 @@
   },
   "firestore": {
     "/students/{studentId}": {
-      "schema": "Student",
+      "schema": { "$ref": "#/backend/entities/Student" },
       "description": "Registered students."
     },
     "/publicDoubts/{doubtId}": {
-      "schema": "PublicDoubt",
+      "schema": { "$ref": "#/backend/entities/PublicDoubt" },
       "description": "Doubts from the public Students Corner."
     },
     "/admins/{adminId}": {
-      "schema": "Admin",
+      "schema": { "$ref": "#/backend/entities/Admin" },
       "description": "Administrative user records for security rules."
     },
     "/chats/{chatId}": {
-      "schema": "Chat",
+      "schema": { "$ref": "#/backend/entities/Chat" },
       "description": "Private chat metadata."
     }
   }
