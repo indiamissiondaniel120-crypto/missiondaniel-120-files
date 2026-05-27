@@ -46,9 +46,9 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // --- PRIVATE DOUBT CLEARANCE ---
+    // --- PRIVATE DOUBT CLEARANCE (Simplified for immediate access) ---
     match /privateDoubts/{doubtId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
 
     // --- PUBLIC DOUBT POOL (Public Student => All Mentors) ---

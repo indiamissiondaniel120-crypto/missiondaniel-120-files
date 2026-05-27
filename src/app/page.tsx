@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -208,8 +209,15 @@ function PrivateDoubtClearing({ user }: { user: any }) {
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const doubtsQuery = useMemo(() => db ? query(collection(db, 'privateDoubts'), where('studentId', '==', user.id), orderBy('createdAt', 'desc')) : null, [db, user.id]);
-  const { data: myDoubts } = useCollection(doubtsQuery);
+  // Removed orderBy to avoid missing index errors which manifests as permission errors
+  const doubtsQuery = useMemo(() => db ? query(collection(db, 'privateDoubts'), where('studentId', '==', user.id)) : null, [db, user.id]);
+  const { data: rawDoubts } = useCollection(doubtsQuery);
+  
+  // Sort on client side
+  const myDoubts = useMemo(() => {
+    if (!rawDoubts) return null;
+    return [...rawDoubts].sort((a, b) => b.createdAt?.toDate().getTime() - a.createdAt?.toDate().getTime());
+  }, [rawDoubts]);
 
   // Auto-deletion logic: Delete answered doubts 24 hours after they were opened
   useEffect(() => {
@@ -353,8 +361,15 @@ function MentorDoubtClearing({ mentorId }: { mentorId: string }) {
   const [answeringDoubt, setAnsweringDoubt] = useState<any>(null);
   const [answer, setAnswer] = useState('');
 
-  const doubtsQuery = useMemo(() => db ? query(collection(db, 'privateDoubts'), where('mentorId', '==', mentorId), where('status', '==', 'open'), orderBy('createdAt', 'desc')) : null, [db, mentorId]);
-  const { data: pendingDoubts } = useCollection(doubtsQuery);
+  // Removed orderBy to avoid missing index errors
+  const doubtsQuery = useMemo(() => db ? query(collection(db, 'privateDoubts'), where('mentorId', '==', mentorId), where('status', '==', 'open')) : null, [db, mentorId]);
+  const { data: rawDoubts } = useCollection(doubtsQuery);
+  
+  // Sort on client side
+  const pendingDoubts = useMemo(() => {
+    if (!rawDoubts) return null;
+    return [...rawDoubts].sort((a, b) => b.createdAt?.toDate().getTime() - a.createdAt?.toDate().getTime());
+  }, [rawDoubts]);
 
   const handleSendAnswer = () => {
     if (!db || !answeringDoubt || !answer.trim()) return;
