@@ -382,66 +382,72 @@ export function StudentManagement() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-4 bg-muted/50 p-1 flex-wrap h-auto">
+        <TabsList className="mb-4 bg-muted/50 p-1 flex-wrap h-auto gap-1">
           {isAdmin && (
             <>
-              <TabsTrigger value="students" className="flex items-center gap-2 px-6"><GraduationCap size={16} /> Students</TabsTrigger>
-              <TabsTrigger value="mentors" className="flex items-center gap-2 px-6"><UserRound size={16} /> Mentors</TabsTrigger>
-              <TabsTrigger value="courses" className="flex items-center gap-2 px-6"><BookOpen size={16} /> Classes</TabsTrigger>
-              <TabsTrigger value="materials" className="flex items-center gap-2 px-6"><Library size={16} /> Materials & Subjects</TabsTrigger>
-              <TabsTrigger value="doubts" className="flex items-center gap-2 px-6"><MessageSquare size={16} /> Private Doubts</TabsTrigger>
-              <TabsTrigger value="public-doubts" className="flex items-center gap-2 px-6"><Globe size={16} /> Public Doubts</TabsTrigger>
-              <TabsTrigger value="live-attendance" className="flex items-center gap-2 px-6 relative">
-                <Video size={16} /> Live Attendance
+              <TabsTrigger value="students" className="flex items-center gap-2 px-3 md:px-6 text-xs md:text-sm"><GraduationCap size={14} /> Students</TabsTrigger>
+              <TabsTrigger value="mentors" className="flex items-center gap-2 px-3 md:px-6 text-xs md:text-sm"><UserRound size={14} /> Mentors</TabsTrigger>
+              <TabsTrigger value="courses" className="flex items-center gap-2 px-3 md:px-6 text-xs md:text-sm"><BookOpen size={14} /> Classes</TabsTrigger>
+              <TabsTrigger value="materials" className="flex items-center gap-2 px-3 md:px-6 text-xs md:text-sm"><Library size={14} /> Materials</TabsTrigger>
+              <TabsTrigger value="doubts" className="flex items-center gap-2 px-3 md:px-6 text-xs md:text-sm"><MessageSquare size={14} /> Private</TabsTrigger>
+              <TabsTrigger value="public-doubts" className="flex items-center gap-2 px-3 md:px-6 text-xs md:text-sm"><Globe size={14} /> Public</TabsTrigger>
+              <TabsTrigger value="live-attendance" className="flex items-center gap-2 px-3 md:px-6 text-xs md:text-sm relative">
+                <Video size={14} /> Live
                 {liveHistory?.some(h => !h.viewedByAdmin) && (
-                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white" />
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-red-500 rounded-full border-2 border-white" />
                 )}
               </TabsTrigger>
             </>
           )}
-          <TabsTrigger value="academic-sheet" className="flex items-center gap-2 px-6"><ListChecks size={16} /> Overview Sheet</TabsTrigger>
+          <TabsTrigger value="academic-sheet" className="flex items-center gap-2 px-3 md:px-6 text-xs md:text-sm"><ListChecks size={14} /> Overview</TabsTrigger>
         </TabsList>
 
         {isAdmin && (
           <>
-            <TabsContent value="students" className="space-y-8">
-               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <TabsContent value="students" className="space-y-6 md:space-y-8">
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
                 <Card className="lg:col-span-1 border-accent/20">
-                  <CardHeader><CardTitle className="text-accent flex items-center gap-2"><UserPlus size={20} /> Register Student</CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="text-accent flex items-center gap-2 text-xl md:text-2xl"><UserPlus size={18} /> Register Student</CardTitle></CardHeader>
                   <CardContent>
                     <form onSubmit={handleRegisterStudent} className="space-y-4">
-                      <div className="space-y-2"><Label>Student ID</Label><Input value={studentForm.id} onChange={e => setStudentForm({...studentForm, id: e.target.value})} disabled={loading} /></div>
-                      <div className="space-y-2"><Label>Password</Label><Input type="password" value={studentForm.password} onChange={e => setStudentForm({...studentForm, password: e.target.value})} disabled={loading} /></div>
-                      <div className="space-y-2"><Label>Full Name</Label><Input value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} disabled={loading} /></div>
-                      <div className="space-y-2"><Label>Class</Label>
+                      <div className="space-y-2"><Label className="text-xs">Student ID</Label><Input value={studentForm.id} onChange={e => setStudentForm({...studentForm, id: e.target.value})} disabled={loading} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Password</Label><Input type="password" value={studentForm.password} onChange={e => setStudentForm({...studentForm, password: e.target.value})} disabled={loading} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Full Name</Label><Input value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} disabled={loading} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Class</Label>
                         <Select onValueChange={v => setStudentForm({...studentForm, class: v})} value={studentForm.class} disabled={loading}>
-                          <SelectTrigger><SelectValue placeholder="Select Class" /></SelectTrigger>
+                          <SelectTrigger className="h-10 md:h-12"><SelectValue placeholder="Select Class" /></SelectTrigger>
                           <SelectContent>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-2"><Label>Mentor</Label>
+                      <div className="space-y-2"><Label className="text-xs">Mentor</Label>
                         <Select onValueChange={v => setStudentForm({...studentForm, mentorId: v})} value={studentForm.mentorId} disabled={loading}>
-                          <SelectTrigger><SelectValue placeholder="Select Mentor" /></SelectTrigger>
+                          <SelectTrigger className="h-10 md:h-12"><SelectValue placeholder="Select Mentor" /></SelectTrigger>
                           <SelectContent><SelectItem value="none">No Mentor</SelectItem>{mentors?.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
-                      <Button type="submit" className="w-full bg-accent" disabled={loading}>Add Student</Button>
+                      <Button type="submit" className="w-full bg-accent py-5 md:py-6" disabled={loading}>Add Student</Button>
                     </form>
                   </CardContent>
                 </Card>
-                <Card className="lg:col-span-2"><CardHeader><CardTitle>Registered Students</CardTitle></CardHeader>
-                  <CardContent><div className="rounded-md border overflow-hidden">
-                    <Table><TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Class</TableHead><TableHead>Mentor</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                      <TableBody>{students?.map((s: any) => (
-                        <TableRow key={s.id}><TableCell><div className="font-bold">{s.name}</div><div className="text-xs text-muted-foreground">{s.id}</div></TableCell>
-                          <TableCell className="capitalize">{courses?.find(c => c.id === s.class)?.name || s.class}</TableCell>
-                          <TableCell>{s.mentorId && s.mentorId !== 'none' ? mentors?.find(m => m.id === s.mentorId)?.name : 'None'}</TableCell>
-                          <TableCell className="text-right flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={() => setEditingStudent(s)}><Edit2 size={16} /></Button><ActivityViewer student={s} mentors={mentors || []} /></TableCell>
-                        </TableRow>))}
-                      </TableBody>
-                    </Table></div></CardContent>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle className="text-xl md:text-2xl">Registered Students</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="rounded-md border overflow-hidden">
+                      <ScrollArea className="h-[400px]">
+                        <Table>
+                          <TableHeader><TableRow><TableHead>Student</TableHead><TableHead className="hidden md:table-cell">Class</TableHead><TableHead className="hidden md:table-cell">Mentor</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                          <TableBody>{students?.map((s: any) => (
+                            <TableRow key={s.id}><TableCell><div className="font-bold text-xs md:text-sm">{s.name}</div><div className="text-[10px] text-muted-foreground">{s.id} • {courses?.find(c => c.id === s.class)?.name}</div></TableCell>
+                              <TableCell className="capitalize hidden md:table-cell">{courses?.find(c => c.id === s.class)?.name || s.class}</TableCell>
+                              <TableCell className="hidden md:table-cell">{s.mentorId && s.mentorId !== 'none' ? mentors?.find(m => m.id === s.mentorId)?.name : 'None'}</TableCell>
+                              <TableCell className="text-right flex justify-end gap-1 md:gap-2"><Button variant="ghost" size="sm" onClick={() => setEditingStudent(s)} className="h-8 w-8 p-0"><Edit2 size={14} /></Button><ActivityViewer student={s} mentors={mentors || []} /></TableCell>
+                            </TableRow>))}
+                          </TableBody>
+                        </Table>
+                      </ScrollArea>
+                    </div>
+                  </CardContent>
                 </Card>
               </div>
             </TabsContent>
@@ -449,32 +455,33 @@ export function StudentManagement() {
             <TabsContent value="doubts" className="space-y-8">
               <Card>
                 <CardHeader>
-                  <CardTitle>Private Doubt Safety Monitor</CardTitle>
-                  <CardDescription>Overseeing all student-mentor interactions.</CardDescription>
+                  <CardTitle className="text-xl md:text-2xl">Private Doubt Safety Monitor</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Student</TableHead>
-                        <TableHead>Mentor</TableHead>
-                        <TableHead>Question</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Response</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {allPrivateDoubts?.map((doubt: any) => (
-                        <TableRow key={doubt.id}>
-                          <TableCell className="font-bold">{doubt.studentName}</TableCell>
-                          <TableCell>{mentors?.find(m => m.id === doubt.mentorId)?.name || 'Unknown'}</TableCell>
-                          <TableCell className="max-w-xs truncate">{doubt.question}</TableCell>
-                          <TableCell><Badge variant={doubt.status === 'answered' ? 'default' : 'outline'}>{doubt.status}</Badge></TableCell>
-                          <TableCell className="max-w-xs truncate italic">{doubt.answer || 'No response yet'}</TableCell>
+                  <ScrollArea className="h-[500px] rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Student/Mentor</TableHead>
+                          <TableHead className="hidden md:table-cell">Question</TableHead>
+                          <TableHead>Status</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {allPrivateDoubts?.map((doubt: any) => (
+                          <TableRow key={doubt.id}>
+                            <TableCell>
+                              <div className="font-bold text-xs">{doubt.studentName}</div>
+                              <div className="text-[10px] text-muted-foreground">To: {mentors?.find(m => m.id === doubt.mentorId)?.name || 'Unknown'}</div>
+                              <div className="md:hidden text-[10px] italic mt-1 truncate max-w-[150px]">{doubt.question}</div>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell max-w-xs truncate">{doubt.question}</TableCell>
+                            <TableCell><Badge variant={doubt.status === 'answered' ? 'default' : 'outline'} className="text-[10px]">{doubt.status}</Badge></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -482,45 +489,37 @@ export function StudentManagement() {
             <TabsContent value="public-doubts" className="space-y-8">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Globe className="text-accent" /> Students Corner Doubts</CardTitle>
-                  <CardDescription>Public doubts and mentor contributions.</CardDescription>
+                  <CardTitle className="flex items-center gap-2 text-xl md:text-2xl"><Globe className="text-accent" /> Students Corner Doubts</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Public Student</TableHead>
-                        <TableHead>Class</TableHead>
-                        <TableHead>Question</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Mentor Response</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {allPublicDoubts?.map((doubt: any) => (
-                        <TableRow key={doubt.id}>
-                          <TableCell className="font-bold">{doubt.studentName}</TableCell>
-                          <TableCell><Badge variant="outline">{doubt.className}</Badge></TableCell>
-                          <TableCell className="max-w-xs truncate">{doubt.question}</TableCell>
-                          <TableCell>
-                            <Badge variant={doubt.status === 'answered' ? 'default' : 'secondary'} className={doubt.status === 'answered' ? 'bg-green-600' : ''}>
-                              {doubt.status === 'answered' ? 'Answered' : 'Open Pool'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {doubt.status === 'answered' ? (
-                              <div className="flex flex-col">
-                                <span className="text-xs font-bold text-primary">By: {doubt.mentorName}</span>
-                                <span className="text-xs italic truncate max-w-[200px]">{doubt.answer}</span>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground italic">Pending...</span>
-                            )}
-                          </TableCell>
+                  <ScrollArea className="h-[500px] rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Public Student</TableHead>
+                          <TableHead className="hidden md:table-cell">Question</TableHead>
+                          <TableHead>Status</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {allPublicDoubts?.map((doubt: any) => (
+                          <TableRow key={doubt.id}>
+                            <TableCell>
+                              <div className="font-bold text-xs">{doubt.studentName}</div>
+                              <div className="text-[10px] text-muted-foreground">{doubt.className}</div>
+                              <div className="md:hidden text-[10px] italic mt-1 truncate max-w-[150px]">{doubt.question}</div>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell max-w-xs truncate">{doubt.question}</TableCell>
+                            <TableCell>
+                              <Badge variant={doubt.status === 'answered' ? 'default' : 'secondary'} className={`text-[10px] ${doubt.status === 'answered' ? 'bg-green-600' : ''}`}>
+                                {doubt.status === 'answered' ? 'Answered' : 'Open'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -528,61 +527,52 @@ export function StudentManagement() {
             <TabsContent value="live-attendance" className="space-y-8">
               <Card className="border-primary/20">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><MonitorPlay className="text-accent" /> Live Class History</CardTitle>
-                  <CardDescription>View randomized attendance logs for all daily online classes.</CardDescription>
+                  <CardTitle className="flex items-center gap-2 text-xl md:text-2xl"><MonitorPlay className="text-accent" /> Live Class History</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">View attendance logs for daily sessions.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="rounded-xl border overflow-hidden">
-                    <Table>
-                      <TableHeader className="bg-muted/30">
-                        <TableRow>
-                          <TableHead>Class Info</TableHead>
-                          <TableHead>Mentor</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead className="text-right">Report</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {liveHistory?.map((session: any) => (
-                          <TableRow key={session.id} className={!session.viewedByAdmin ? 'bg-primary/5 font-bold' : ''}>
-                            <TableCell>
-                              <div className="flex flex-col">
-                                <span className="text-sm font-black flex items-center gap-2">
-                                  {session.title}
-                                  {!session.viewedByAdmin && <Badge className="h-4 px-1.5 text-[8px] bg-red-500">NEW</Badge>}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground uppercase">{session.className} • {session.subjectName}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">{session.mentorName}</TableCell>
-                            <TableCell>
-                              <Badge variant={session.status === 'active' ? 'default' : 'secondary'} className={session.status === 'active' ? 'bg-green-600' : ''}>
-                                {session.status === 'active' ? 'LIVE NOW' : 'ENDED'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">
-                              {session.createdAt?.toDate?.()?.toLocaleString() || 'Unknown'}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="rounded-xl h-10 gap-2 border-primary/20 hover:bg-primary/10"
-                                onClick={() => setSelectedLiveSession(session)}
-                              >
-                                <FileSpreadsheet size={16} /> View Attendance
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {(!liveHistory || liveHistory.length === 0) && (
+                    <ScrollArea className="h-[400px]">
+                      <Table>
+                        <TableHeader className="bg-muted/30">
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">No live class records found.</TableCell>
+                            <TableHead>Class Info</TableHead>
+                            <TableHead className="hidden md:table-cell">Status</TableHead>
+                            <TableHead className="text-right">Report</TableHead>
                           </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {liveHistory?.map((session: any) => (
+                            <TableRow key={session.id} className={!session.viewedByAdmin ? 'bg-primary/5 font-bold' : ''}>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <span className="text-xs md:text-sm font-black flex items-center gap-1">
+                                    {session.title}
+                                    {!session.viewedByAdmin && <Badge className="h-3 px-1 text-[7px] bg-red-500">NEW</Badge>}
+                                  </span>
+                                  <span className="text-[8px] md:text-[10px] text-muted-foreground uppercase">{session.className} • {session.subjectName}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell">
+                                <Badge variant={session.status === 'active' ? 'default' : 'secondary'} className={`text-[10px] ${session.status === 'active' ? 'bg-green-600' : ''}`}>
+                                  {session.status === 'active' ? 'LIVE' : 'ENDED'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="h-8 md:h-10 text-[10px] md:text-sm gap-1 border-primary/20"
+                                  onClick={() => setSelectedLiveSession(session)}
+                                >
+                                  <FileSpreadsheet size={14} /> View
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   </div>
                 </CardContent>
               </Card>
@@ -590,103 +580,106 @@ export function StudentManagement() {
             
             <TabsContent value="mentors" className="space-y-8">
                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <Card className="lg:col-span-1 border-orange-200"><CardHeader><CardTitle className="text-orange-600 flex items-center gap-2"><UserPlus size={20} /> Register Mentor</CardTitle></CardHeader>
+                <Card className="lg:col-span-1 border-orange-200">
+                  <CardHeader><CardTitle className="text-orange-600 flex items-center gap-2 text-xl md:text-2xl"><UserPlus size={18} /> Register Mentor</CardTitle></CardHeader>
                   <CardContent><form onSubmit={handleRegisterMentor} className="space-y-4">
-                      <div className="space-y-2"><Label>Mentor ID</Label><Input value={mentorForm.id} onChange={e => setMentorForm({...mentorForm, id: e.target.value})} /></div>
-                      <div className="space-y-2"><Label>Password</Label><Input type="password" value={mentorForm.password} onChange={e => setMentorForm({...mentorForm, password: e.target.value})} /></div>
-                      <div className="space-y-2"><Label>Name</Label><Input value={mentorForm.name} onChange={e => setMentorForm({...mentorForm, name: e.target.value})} /></div>
-                      <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600">Add Mentor</Button>
+                      <div className="space-y-2"><Label className="text-xs">Mentor ID</Label><Input value={mentorForm.id} onChange={e => setMentorForm({...mentorForm, id: e.target.value})} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Password</Label><Input type="password" value={mentorForm.password} onChange={e => setMentorForm({...mentorForm, password: e.target.value})} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Name</Label><Input value={mentorForm.name} onChange={e => setMentorForm({...mentorForm, name: e.target.value})} className="h-10 md:h-12" /></div>
+                      <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 py-5">Add Mentor</Button>
                     </form></CardContent>
                 </Card>
-                <Card className="lg:col-span-2"><CardHeader><CardTitle>Mentors</CardTitle></CardHeader>
-                  <CardContent><Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Expertise</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                      <TableBody>{mentors?.map((m: any) => (<TableRow key={m.id}><TableCell className="font-bold">{m.name}</TableCell><TableCell>{m.expertise}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setEditingMentor(m)}><Edit2 size={16} /></Button></TableCell></TableRow>))}</TableBody>
-                    </Table></CardContent>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle className="text-xl md:text-2xl">Mentors</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="rounded-md border overflow-hidden">
+                      <ScrollArea className="h-[400px]">
+                        <Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead className="hidden md:table-cell">Expertise</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                          <TableBody>{mentors?.map((m: any) => (<TableRow key={m.id}><TableCell className="font-bold text-xs md:text-sm">{m.name}</TableCell><TableCell className="hidden md:table-cell">{m.expertise}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setEditingMentor(m)} className="h-8 w-8 p-0"><Edit2 size={14} /></Button></TableCell></TableRow>))}</TableBody>
+                        </Table>
+                      </ScrollArea>
+                    </div>
+                  </CardContent>
                 </Card>
               </div>
             </TabsContent>
 
             <TabsContent value="courses" className="space-y-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <Card className="lg:col-span-1 border-primary/20"><CardHeader><CardTitle className="text-primary flex items-center gap-2"><BookOpen size={20} /> Add Class</CardTitle></CardHeader>
+                <Card className="lg:col-span-1 border-primary/20"><CardHeader><CardTitle className="text-primary flex items-center gap-2 text-xl md:text-2xl"><BookOpen size={18} /> Add Class</CardTitle></CardHeader>
                   <CardContent><form onSubmit={handleRegisterCourse} className="space-y-4">
-                      <div className="space-y-2"><Label>Class ID</Label><Input value={courseForm.id} onChange={e => setCourseForm({...courseForm, id: e.target.value})} /></div>
-                      <div className="space-y-2"><Label>Name</Label><Input value={courseForm.name} onChange={e => setCourseForm({...courseForm, name: e.target.value})} /></div>
-                      <Button type="submit" className="w-full bg-primary">Add Class</Button>
+                      <div className="space-y-2"><Label className="text-xs">Class ID</Label><Input value={courseForm.id} onChange={e => setCourseForm({...courseForm, id: e.target.value})} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Name</Label><Input value={courseForm.name} onChange={e => setCourseForm({...courseForm, name: e.target.value})} className="h-10 md:h-12" /></div>
+                      <Button type="submit" className="w-full bg-primary py-5">Add Class</Button>
                     </form></CardContent>
                 </Card>
-                <Card className="lg:col-span-2"><CardHeader><CardTitle>Available Classes</CardTitle></CardHeader>
-                  <CardContent><Table><TableHeader><TableRow><TableHead>Class</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                      <TableBody>{courses?.map((c: any) => (<TableRow key={c.id}><TableCell className="font-bold">{c.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setEditingCourse(c)}><Edit2 size={16} /></Button></TableCell></TableRow>))}</TableBody>
-                    </Table></CardContent>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle className="text-xl md:text-2xl">Classes</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="rounded-md border overflow-hidden">
+                      <ScrollArea className="h-[400px]">
+                        <Table><TableHeader><TableRow><TableHead>Class</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                          <TableBody>{courses?.map((c: any) => (<TableRow key={c.id}><TableCell className="font-bold text-xs md:text-sm">{c.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setEditingCourse(c)} className="h-8 w-8 p-0"><Edit2 size={14} /></Button></TableCell></TableRow>))}</TableBody>
+                        </Table>
+                      </ScrollArea>
+                    </div>
+                  </CardContent>
                 </Card>
               </div>
             </TabsContent>
 
-            <TabsContent value="materials" className="space-y-8">
-              <div className="flex justify-end mb-4"><BulkUploadDialog courses={courses || []} subjects={subjects || []} materials={materials || []} /></div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <TabsContent value="materials" className="space-y-6 md:space-y-8">
+              <div className="flex justify-end mb-2"><BulkUploadDialog courses={courses || []} subjects={subjects || []} materials={materials || []} /></div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
                 <Card className="border-accent/20">
-                  <CardHeader><CardTitle className="text-accent flex items-center gap-2"><Plus size={20} /> Batch Manage Subjects</CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="text-accent flex items-center gap-2 text-lg md:text-xl"><Plus size={18} /> Manage Subjects</CardTitle></CardHeader>
                   <CardContent className="space-y-6">
-                    <form onSubmit={handleAddSubject} className="space-y-6">
-                      <div className="space-y-2"><Label>Subject Name</Label><Input value={subjectForm.name} onChange={e => setSubjectForm({...subjectForm, name: e.target.value})} /></div>
-                      <div className="space-y-3"><Label>Classes</Label><ScrollArea className="h-[200px] border rounded-lg p-3">
-                          <div className="grid grid-cols-1 gap-3">{courses?.map(course => (
+                    <form onSubmit={handleAddSubject} className="space-y-4">
+                      <div className="space-y-2"><Label className="text-xs">Subject Name</Label><Input value={subjectForm.name} onChange={e => setSubjectForm({...subjectForm, name: e.target.value})} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Select Classes</Label>
+                        <ScrollArea className="h-[120px] md:h-[200px] border rounded-lg p-2">
+                          <div className="grid grid-cols-1 gap-2">{courses?.map(course => (
                             <div key={course.id} className="flex items-center space-x-2"><Checkbox id={course.id} checked={subjectForm.selectedCourseIds.includes(course.id)} onCheckedChange={() => {
                               setSubjectForm(p => ({...p, selectedCourseIds: p.selectedCourseIds.includes(course.id) ? p.selectedCourseIds.filter(id => id !== course.id) : [...p.selectedCourseIds, course.id]}))
-                            }} /><label htmlFor={course.id}>{course.name}</label></div>))}
+                            }} /><label htmlFor={course.id} className="text-xs md:text-sm">{course.name}</label></div>))}
                           </div></ScrollArea></div>
-                      <Button type="submit" className="w-full bg-accent" disabled={loading}>Create Subject</Button>
+                      <Button type="submit" className="w-full bg-accent h-12" disabled={loading}>Create Subject</Button>
                     </form>
-                    <div className="pt-6 border-t"><ScrollArea className="h-[250px]"><Table><TableHeader><TableRow><TableHead>Subject</TableHead><TableHead>Class</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                      <TableBody>{subjects?.map((s: any) => (<TableRow key={s.id}><TableCell>{s.name}</TableCell><TableCell>{courses?.find(c => c.id === s.courseId)?.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => handleDeleteSubject(s.id)}><Trash2 size={14} /></Button></TableCell></TableRow>))}</TableBody>
+                    <div className="pt-4 border-t"><ScrollArea className="h-[200px] md:h-[250px]"><Table><TableHeader><TableRow><TableHead>Subject</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                      <TableBody>{subjects?.map((s: any) => (<TableRow key={s.id}><TableCell className="text-xs">{s.name} ({courses?.find(c => c.id === s.courseId)?.name})</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => handleDeleteSubject(s.id)} className="h-8 w-8 p-0"><Trash2 size={12} /></Button></TableCell></TableRow>))}</TableBody>
                     </Table></ScrollArea></div>
                   </CardContent>
                 </Card>
                 <Card className="border-primary/20">
-                  <CardHeader><CardTitle className="text-primary flex items-center gap-2"><Library size={20} /> Add Materials</CardTitle></CardHeader>
-                  <CardContent className="space-y-6">
+                  <CardHeader><CardTitle className="text-primary flex items-center gap-2 text-lg md:text-xl"><Library size={18} /> Add Materials</CardTitle></CardHeader>
+                  <CardContent className="space-y-4 md:space-y-6">
                     <form onSubmit={handleUploadMaterial} className="space-y-4">
-                      <div className="space-y-2"><Label>Title</Label><Input value={materialForm.title} onChange={e => setMaterialForm({...materialForm, title: e.target.value})} /></div>
-                      <div className="space-y-2"><Label>Type</Label><RadioGroup value={materialForm.type} onValueChange={(v: any) => setMaterialForm({...materialForm, type: v})} className="flex gap-4">
-                          <div className="flex items-center space-x-2"><RadioGroupItem value="video" id="v" /><Label htmlFor="v">Video</Label></div>
-                          <div className="flex items-center space-x-2"><RadioGroupItem value="pdf" id="p" /><Label htmlFor="p">Note</Label></div>
+                      <div className="space-y-2"><Label className="text-xs">Title</Label><Input value={materialForm.title} onChange={e => setMaterialForm({...materialForm, title: e.target.value})} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Type</Label><RadioGroup value={materialForm.type} onValueChange={(v: any) => setMaterialForm({...materialForm, type: v})} className="flex gap-4">
+                          <div className="flex items-center space-x-2"><RadioGroupItem value="video" id="v" /><Label htmlFor="v" className="text-xs">Video</Label></div>
+                          <div className="flex items-center space-x-2"><RadioGroupItem value="pdf" id="p" /><Label htmlFor="p" className="text-xs">Note</Label></div>
                         </RadioGroup></div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <Select onValueChange={v => setMaterialForm({...materialForm, courseId: v, subjectId: ''})} value={materialForm.courseId}><SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
-                        <Select onValueChange={v => setMaterialForm({...materialForm, subjectId: v})} value={materialForm.subjectId} disabled={!materialForm.courseId}><SelectTrigger><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects?.filter(s => s.courseId === materialForm.courseId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
+                      <div className="grid grid-cols-2 gap-2 md:gap-4">
+                        <Select onValueChange={v => setMaterialForm({...materialForm, courseId: v, subjectId: ''})} value={materialForm.courseId}><SelectTrigger className="h-10 md:h-12 text-xs"><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={v => setMaterialForm({...materialForm, subjectId: v})} value={materialForm.subjectId} disabled={!materialForm.courseId}><SelectTrigger className="h-10 md:h-12 text-xs"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects?.filter(s => s.courseId === materialForm.courseId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
                       </div>
-                      <div className="space-y-2"><Label>Chapter</Label><Input type="number" value={materialForm.chapter} onChange={e => setMaterialForm({...materialForm, chapter: Number(e.target.value)})} /></div>
-                      <div className="space-y-2"><Label>URL</Label><Input value={materialForm.url} onChange={e => setMaterialForm({...materialForm, url: e.target.value})} /></div>
-                      <Button className="w-full bg-primary" disabled={isUploading}>Save Material</Button>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label className="text-xs">Chapter</Label><Input type="number" value={materialForm.chapter} onChange={e => setMaterialForm({...materialForm, chapter: Number(e.target.value)})} className="h-10 md:h-12" /></div>
+                        <div className="space-y-2"><Label className="text-xs">URL</Label><Input value={materialForm.url} onChange={e => setMaterialForm({...materialForm, url: e.target.value})} className="h-10 md:h-12" /></div>
+                      </div>
+                      <Button className="w-full bg-primary h-12" disabled={isUploading}>Save Material</Button>
                     </form>
-                    <ScrollArea className="h-[250px]"><Table><TableHeader><TableRow><TableHead>Preview</TableHead><TableHead>Material</TableHead><TableHead>Details</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                      <TableBody>{sortedMaterials?.map((m: any) => {
-                        const youtubeId = getYouTubeID(m.url);
-                        const thumbnail = youtubeId ? `https://img.youtube.com/vi/${youtubeId}/default.jpg` : null;
-                        return (
+                    <ScrollArea className="h-[200px] md:h-[250px]"><Table><TableHeader><TableRow><TableHead>Material</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                      <TableBody>{sortedMaterials?.map((m: any) => (
                           <TableRow key={m.id}>
                             <TableCell>
-                              <div className="h-10 w-16 border rounded overflow-hidden flex items-center justify-center bg-muted/30">
-                                {m.type === 'video' ? (
-                                  thumbnail ? (
-                                    <img src={thumbnail} alt="preview" className="w-full h-full object-cover" />
-                                  ) : <PlayCircle size={18} />
-                                ) : <FileText size={18} />}
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <span className="text-xs font-bold truncate">{m.title}</span>
+                                <span className="text-[9px] uppercase text-primary/60">{courses?.find(c => c.id === m.courseId)?.name} • Ch {m.chapter}</span>
                               </div>
                             </TableCell>
-                            <TableCell><span className="text-sm font-medium">{m.title}</span></TableCell>
-                            <TableCell>
-                               <div className="flex flex-col gap-0.5">
-                                 <span className="text-[10px] uppercase font-bold text-primary">{courses?.find(c => c.id === m.courseId)?.name}</span>
-                                 <span className="text-[9px] text-muted-foreground font-bold">Chapter {m.chapter}</span>
-                               </div>
-                            </TableCell>
-                            <TableCell className="text-right flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)}><Trash2 size={12} /></Button></TableCell>
+                            <TableCell className="text-right flex justify-end gap-1"><Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)} className="h-7 w-7 p-0"><Edit2 size={12} /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)} className="h-7 w-7 p-0"><Trash2 size={12} /></Button></TableCell>
                           </TableRow>
                         )
-                      })}</TableBody>
+                      )}</TableBody>
                     </Table></ScrollArea>
                   </CardContent>
                 </Card>
@@ -697,103 +690,93 @@ export function StudentManagement() {
 
         <TabsContent value="academic-sheet">
           <Card className="border-accent/20">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <CardTitle className="flex items-center gap-2"><ListChecks className="text-accent" /> Academic Resource Sheet</CardTitle>
-                <CardDescription>Curriculum View: Classes → Subjects → Chapters → Materials.</CardDescription>
+                <CardTitle className="flex items-center gap-2 text-lg md:text-2xl"><ListChecks className="text-accent" /> Academic Resource Sheet</CardTitle>
               </div>
-              <Button onClick={downloadOverviewCSV} className="bg-accent rounded-xl gap-2">
-                <Download size={16} /> Download CSV
+              <Button onClick={downloadOverviewCSV} className="bg-accent rounded-xl gap-2 w-full sm:w-auto h-10 md:h-12">
+                <Download size={16} /> Export CSV
               </Button>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex gap-4 p-4 bg-muted/30 rounded-2xl border border-dashed border-accent/20">
-                <div className="flex-1"><Label className="text-[10px] uppercase">Class</Label><Select onValueChange={setOverviewClassFilter} value={overviewClassFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Classes</SelectItem>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
-                <div className="flex-1"><Label className="text-[10px] uppercase">Subject Search</Label><div className="relative"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-8" placeholder="Search Subject..." value={overviewSubjectSearch} onChange={e => setOverviewSubjectSearch(e.target.value)} /></div></div>
+            <CardContent className="space-y-4 md:space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 md:p-4 bg-muted/30 rounded-xl md:rounded-2xl border border-dashed border-accent/20">
+                <div className="space-y-1"><Label className="text-[9px] md:text-[10px] uppercase">Class</Label><Select onValueChange={setOverviewClassFilter} value={overviewClassFilter}><SelectTrigger className="h-9 md:h-11"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Classes</SelectItem>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-1"><Label className="text-[9px] md:text-[10px] uppercase">Subject Search</Label><div className="relative"><Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" /><Input className="pl-8 h-9 md:h-11" placeholder="Search..." value={overviewSubjectSearch} onChange={e => setOverviewSubjectSearch(e.target.value)} /></div></div>
               </div>
               
               <div className="rounded-xl border overflow-hidden shadow-sm">
-                <Table>
-                  <TableHeader className="bg-muted/50">
-                    <TableRow>
-                      <TableHead className="w-1/4">Class & Subject</TableHead>
-                      <TableHead className="w-1/6">Chapter</TableHead>
-                      <TableHead>Materials Count</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredCoursesForSheet?.flatMap(course => {
-                      let cSubs = subjects?.filter(s => s.courseId === course.id) || []
-                      if (overviewSubjectSearch) {
-                        cSubs = cSubs.filter(s => s.name.toLowerCase().includes(overviewSubjectSearch.toLowerCase()))
-                      }
-                      
-                      return cSubs.flatMap(sub => {
-                        const standardTotal = getChapterCount(course.id, sub.name)
-                        const dbChapters = (materials || [])
-                          .filter(m => m.courseId === course.id && m.subjectId === sub.id)
-                          .map(m => Number(m.chapter))
+                <ScrollArea className="h-[500px]">
+                  <Table>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow>
+                        <TableHead className="w-1/3 text-xs">Class & Subject</TableHead>
+                        <TableHead className="w-1/6 text-xs">Ch</TableHead>
+                        <TableHead className="text-xs">Stats</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredCoursesForSheet?.flatMap(course => {
+                        let cSubs = subjects?.filter(s => s.courseId === course.id) || []
+                        if (overviewSubjectSearch) {
+                          cSubs = cSubs.filter(s => s.name.toLowerCase().includes(overviewSubjectSearch.toLowerCase()))
+                        }
                         
-                        const allChapters = Array.from(new Set([
-                          ...Array.from({ length: standardTotal }, (_, i) => i + 1),
-                          ...dbChapters
-                        ])).sort((a, b) => a - b)
-
-                        const totalChaptersCount = allChapters.length
-                        
-                        return allChapters.map((ch, i) => {
-                          const chMat = materials?.filter(m => m.courseId === course.id && m.subjectId === sub.id && Number(m.chapter) === ch) || []
-                          const r = { 
-                            ch, 
-                            videos: chMat.filter(m => m.type === 'video'), 
-                            pdfs: chMat.filter(m => m.type === 'pdf') 
-                          }
+                        return cSubs.flatMap(sub => {
+                          const standardTotal = getChapterCount(course.id, sub.name)
+                          const dbChapters = (materials || [])
+                            .filter(m => m.courseId === course.id && m.subjectId === sub.id)
+                            .map(m => Number(m.chapter))
                           
-                          return (
-                            <TableRow key={`${sub.id}-${ch}`} className="hover:bg-accent/5">
-                              {i === 0 && (
-                                <TableCell className="font-bold border-r align-top bg-muted/5" rowSpan={totalChaptersCount}>
-                                  <div className="flex flex-col">
-                                    <span>{sub.name}</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase font-normal">{course.name}</span>
+                          const allChapters = Array.from(new Set([
+                            ...Array.from({ length: standardTotal }, (_, i) => i + 1),
+                            ...dbChapters
+                          ])).sort((a, b) => a - b)
+
+                          const totalChaptersCount = allChapters.length
+                          
+                          return allChapters.map((ch, i) => {
+                            const chMat = materials?.filter(m => m.courseId === course.id && m.subjectId === sub.id && Number(m.chapter) === ch) || []
+                            const r = { 
+                              ch, 
+                              videos: chMat.filter(m => m.type === 'video'), 
+                              pdfs: chMat.filter(m => m.type === 'pdf') 
+                            }
+                            
+                            return (
+                              <TableRow key={`${sub.id}-${ch}`} className="hover:bg-accent/5">
+                                {i === 0 && (
+                                  <TableCell className="font-bold border-r align-top bg-muted/5 text-[10px] md:text-sm" rowSpan={totalChaptersCount}>
+                                    <div className="flex flex-col truncate max-w-[100px] md:max-w-none">
+                                      <span>{sub.name}</span>
+                                      <span className="text-[8px] text-muted-foreground uppercase font-normal">{course.name}</span>
+                                    </div>
+                                  </TableCell>
+                                )}
+                                <TableCell 
+                                  className="text-center border-r font-medium cursor-pointer hover:bg-accent hover:text-white transition-all text-[10px] md:text-sm"
+                                  onClick={() => setSelectedChapterInfo({
+                                    className: course.name,
+                                    subjectName: sub.name,
+                                    chapter: ch,
+                                    materials: [...r.videos, ...r.pdfs]
+                                  })}
+                                >
+                                  {ch}
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <div className="flex items-center gap-1 md:gap-3">
+                                    <Badge variant={r.videos.length > 0 ? "default" : "outline"} className={`text-[8px] h-4 min-w-6 justify-center ${r.videos.length > 0 ? 'bg-red-500' : 'opacity-40'}`}>V:{r.videos.length}</Badge>
+                                    <Badge variant={r.pdfs.length > 0 ? "default" : "outline"} className={`text-[8px] h-4 min-w-6 justify-center ${r.pdfs.length > 0 ? 'bg-blue-500' : 'opacity-40'}`}>P:{r.pdfs.length}</Badge>
                                   </div>
                                 </TableCell>
-                              )}
-                              <TableCell 
-                                className="text-center border-r font-medium cursor-pointer hover:bg-accent hover:text-white transition-all group"
-                                onClick={() => setSelectedChapterInfo({
-                                  className: course.name,
-                                  subjectName: sub.name,
-                                  chapter: ch,
-                                  materials: [...r.videos, ...r.pdfs]
-                                })}
-                              >
-                                <div className="flex items-center justify-center gap-2">
-                                  Ch {ch}
-                                  <ExternalLink size={10} className="opacity-0 group-hover:opacity-100" />
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-4">
-                                  <div className="flex items-center gap-1.5">
-                                    <Badge variant={r.videos.length > 0 ? "default" : "outline"} className={`text-[9px] h-5 min-w-8 justify-center ${r.videos.length > 0 ? 'bg-red-500 hover:bg-red-600' : 'text-muted-foreground opacity-50'}`}>
-                                      V: {r.videos.length}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <Badge variant={r.pdfs.length > 0 ? "default" : "outline"} className={`text-[9px] h-5 min-w-8 justify-center ${r.pdfs.length > 0 ? 'bg-blue-500 hover:bg-blue-600' : 'text-muted-foreground opacity-50'}`}>
-                                      F: {r.pdfs.length}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )
+                              </TableRow>
+                            )
+                          })
                         })
-                      })
-                    })}
-                  </TableBody>
-                </Table>
+                      })}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
               </div>
             </CardContent>
           </Card>
@@ -801,56 +784,53 @@ export function StudentManagement() {
       </Tabs>
 
       <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}>
-        <DialogContent><DialogHeader><DialogTitle>Edit Student</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4"><Input value={editingStudent?.name || ''} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} /></div>
-          <DialogFooter><Button onClick={handleUpdateStudent}>Save</Button></DialogFooter>
+        <DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Student</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4"><Input value={editingStudent?.name || ''} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} className="h-12" /></div>
+          <DialogFooter><Button onClick={handleUpdateStudent} className="w-full h-12">Save</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}>
-        <DialogContent><DialogHeader><DialogTitle>Edit Material</DialogTitle></DialogHeader>
+        <DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Material</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <Label>Title</Label>
-            <Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} />
-            <Label>URL</Label>
-            <Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} />
+            <Label className="text-xs">Title</Label>
+            <Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} className="h-12" />
+            <Label className="text-xs">URL</Label>
+            <Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} className="h-12" />
           </div>
-          <DialogFooter><Button onClick={handleUpdateMaterial}>Save</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleUpdateMaterial} className="w-full h-12">Save</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!selectedChapterInfo} onOpenChange={() => setSelectedChapterInfo(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[95vw] rounded-xl">
           <DialogHeader>
-            <DialogTitle className="text-primary">{selectedChapterInfo?.className} - {selectedChapterInfo?.subjectName}</DialogTitle>
-            <DialogDescription>Chapter {selectedChapterInfo?.chapter} Resources</DialogDescription>
+            <DialogTitle className="text-primary text-base md:text-lg">{selectedChapterInfo?.className} - {selectedChapterInfo?.subjectName}</DialogTitle>
+            <DialogDescription className="text-xs">Chapter {selectedChapterInfo?.chapter} Resources</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto pr-1">
             {selectedChapterInfo?.materials.length === 0 ? (
-              <p className="text-center text-muted-foreground italic py-4">No materials uploaded for this chapter yet.</p>
+              <p className="text-center text-muted-foreground italic py-4 text-xs">No materials uploaded for this chapter yet.</p>
             ) : (
               <div className="space-y-3">
                 {selectedChapterInfo?.materials.map((m) => (
-                  <div key={m.id} className="p-4 rounded-xl border bg-muted/20 flex flex-col gap-2">
+                  <div key={m.id} className="p-3 rounded-xl border bg-muted/20 flex flex-col gap-2">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {m.type === 'video' ? <PlayCircle className="text-red-500 h-4 w-4" /> : <FileText className="text-blue-500 h-4 w-4" />}
-                        <span className="font-bold text-sm">{m.title}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {m.type === 'video' ? <PlayCircle className="text-red-500 h-3.5 w-3.5" /> : <FileText className="text-blue-500 h-3.5 w-3.5" />}
+                        <span className="font-bold text-xs truncate">{m.title}</span>
                       </div>
-                      <Badge variant="outline" className="text-[10px] uppercase">{m.type}</Badge>
+                      <Badge variant="outline" className="text-[8px] uppercase">{m.type}</Badge>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-primary truncate">
-                      <Link className="h-3 w-3 shrink-0" />
-                      <a href={m.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                        {m.url}
-                      </a>
-                    </div>
+                    <a href={m.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary truncate hover:underline flex items-center gap-1.5">
+                      <Link className="h-2.5 w-2.5 shrink-0" /> {m.url}
+                    </a>
                   </div>
                 ))}
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setSelectedChapterInfo(null)} className="rounded-xl">Close</Button>
+            <Button variant="ghost" onClick={() => setSelectedChapterInfo(null)} className="rounded-xl w-full h-11">Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -904,40 +884,39 @@ function LiveAttendanceViewer({ session, onClose }: { session: any, onClose: () 
 
   return (
     <Dialog open={!!session} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="p-8 border-b">
-          <div className="flex items-center justify-between">
+      <DialogContent className="max-w-3xl h-[85vh] flex flex-col p-0 overflow-hidden w-[95vw] rounded-2xl">
+        <DialogHeader className="p-6 md:p-8 border-b">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <DialogTitle className="text-2xl font-black">{session.title}</DialogTitle>
-              <DialogDescription className="font-bold">
-                {session.className} • {session.subjectName} • Started: {session.createdAt?.toDate()?.toLocaleString()}
+              <DialogTitle className="text-lg md:text-2xl font-black truncate">{session.title}</DialogTitle>
+              <DialogDescription className="font-bold text-[10px] md:text-sm">
+                {session.className} • {session.subjectName}
               </DialogDescription>
             </div>
-            <Button onClick={downloadReport} className="bg-accent rounded-xl h-12 gap-2" disabled={logs.length === 0}>
-              <Download size={18} /> Export Full Report
+            <Button onClick={downloadReport} className="bg-accent rounded-xl h-10 md:h-12 gap-2 text-xs w-full md:w-auto" disabled={logs.length === 0}>
+              <Download size={14} /> Export Report
             </Button>
           </div>
         </DialogHeader>
-        <ScrollArea className="flex-1 p-8">
+        <ScrollArea className="flex-1 p-4 md:p-8">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <Loader2 className="animate-spin h-10 w-10 text-primary" />
-              <p className="font-black text-muted-foreground animate-pulse">Compiling attendance logs...</p>
+              <Loader2 className="animate-spin h-8 w-8 text-primary" />
+              <p className="font-black text-xs text-muted-foreground animate-pulse">Compiling logs...</p>
             </div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-20 bg-muted/10 border-4 border-dashed rounded-[3rem] border-primary/10">
-              <Clock size={48} className="mx-auto text-muted-foreground/30 mb-4" />
-              <p className="font-black text-muted-foreground/60 italic">No attendance pulses recorded for this session yet.</p>
+            <div className="text-center py-16 bg-muted/10 border-4 border-dashed rounded-[2rem] border-primary/10">
+              <Clock size={32} className="mx-auto text-muted-foreground/30 mb-2" />
+              <p className="font-black text-xs text-muted-foreground/60 italic">No attendance pulses recorded.</p>
             </div>
           ) : (
-            <div className="rounded-2xl border overflow-hidden shadow-sm">
+            <div className="rounded-xl border overflow-hidden shadow-sm">
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead>Participant</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Last Pulse</TableHead>
-                    <TableHead className="text-right">Total Marks</TableHead>
+                    <TableHead className="text-xs">Name</TableHead>
+                    <TableHead className="hidden sm:table-cell text-xs">Role</TableHead>
+                    <TableHead className="text-right text-xs">Marks</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -952,10 +931,12 @@ function LiveAttendanceViewer({ session, onClose }: { session: any, onClose: () 
                     return acc;
                   }, {})).map((user: any, i: number) => (
                     <TableRow key={i}>
-                      <TableCell className="font-bold">{user.name}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px] uppercase font-black">{user.role}</Badge></TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{user.last?.toDate()?.toLocaleTimeString()}</TableCell>
-                      <TableCell className="text-right"><Badge className="bg-primary/10 text-primary">{user.count} pulses</Badge></TableCell>
+                      <TableCell className="font-bold text-[11px] md:text-sm">
+                        {user.name}
+                        <div className="sm:hidden text-[9px] text-muted-foreground uppercase">{user.role}</div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-[9px] uppercase font-black">{user.role}</Badge></TableCell>
+                      <TableCell className="text-right"><Badge className="bg-primary/10 text-primary text-[9px] md:text-[10px]">{user.count} pulses</Badge></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -963,8 +944,8 @@ function LiveAttendanceViewer({ session, onClose }: { session: any, onClose: () 
             </div>
           )}
         </ScrollArea>
-        <DialogFooter className="p-6 border-t bg-muted/20">
-          <Button onClick={onClose} className="rounded-xl h-12 px-8 font-black">Close Report</Button>
+        <DialogFooter className="p-4 md:p-6 border-t bg-muted/20">
+          <Button onClick={onClose} className="rounded-xl h-11 md:h-12 w-full md:w-auto px-8 font-black">Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -998,40 +979,41 @@ export function ActivityViewer({ student, mentors }: { student: any, mentors: an
 
   return (
     <Dialog>
-      <DialogTrigger asChild><Button variant="ghost" size="sm" className="text-accent"><Activity size={16} /></Button></DialogTrigger>
-      <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
-        <DialogHeader className="flex items-center justify-between border-b pb-4">
-          <div>
-            <DialogTitle>Activity & Attendance: {student.name}</DialogTitle>
-            <DialogDescription>Review student engagement and downloads logs.</DialogDescription>
+      <DialogTrigger asChild><Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-accent"><Activity size={14} /></Button></DialogTrigger>
+      <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 w-[95vw] rounded-2xl">
+        <DialogHeader className="p-6 md:p-8 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <DialogTitle className="truncate text-base md:text-xl">Activity: {student.name}</DialogTitle>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={downloadAttendanceCSV} className="gap-2">
-              <FileSpreadsheet size={16} /> Attendance
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={downloadAttendanceCSV} className="gap-1.5 h-10 w-full sm:w-auto rounded-xl border-accent/20 text-xs">
+            <FileSpreadsheet size={14} /> Attendance
+          </Button>
         </DialogHeader>
-        <ScrollArea className="flex-1 mt-4">
-          {loading ? <Loader2 className="animate-spin mx-auto mt-8" /> : (
+        <ScrollArea className="flex-1 p-6 md:p-8">
+          {loading ? <Loader2 className="animate-spin mx-auto mt-8 h-8 w-8 text-primary" /> : (
             <div className="space-y-3">
-              {activities?.length === 0 && <p className="text-center text-muted-foreground py-8 italic">No activity recorded yet.</p>}
+              {activities?.length === 0 && <p className="text-center text-muted-foreground py-8 italic text-xs">No activity recorded.</p>}
               {activities?.map((log: any, i: number) => (
-                <div key={i} className="p-4 border rounded-2xl flex items-center justify-between bg-muted/20 hover:bg-muted/30 transition-colors">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-bold text-sm uppercase text-primary">{log.type?.replace('_', ' ')}</span>
-                    <span className="text-xs text-muted-foreground">
+                <div key={i} className="p-3 md:p-4 border rounded-xl flex items-center justify-between bg-muted/10 hover:bg-muted/20 transition-colors">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="font-bold text-[10px] md:text-sm uppercase text-primary truncate max-w-[150px] md:max-w-none">{log.type?.replace(/_/g, ' ')}</span>
+                    <span className="text-[9px] md:text-xs text-muted-foreground truncate">
                       {log.metadata?.title ? `${log.metadata.title} (Ch ${log.metadata.chapter})` : ''}
                     </span>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs font-medium text-foreground">{log.timestamp?.toDate()?.toLocaleString()}</div>
-                    {log.duration > 0 && <div className="text-[10px] text-accent font-bold">Duration: {log.duration}s</div>}
+                  <div className="text-right shrink-0">
+                    <div className="text-[9px] md:text-xs font-medium text-foreground">{log.timestamp?.toDate()?.toLocaleTimeString()}</div>
+                    <div className="text-[8px] md:text-[10px] text-muted-foreground">{log.timestamp?.toDate()?.toLocaleDateString()}</div>
+                    {log.duration > 0 && <div className="text-[8px] md:text-[10px] text-accent font-bold mt-0.5">{log.duration}s</div>}
                   </div>
                 </div>
               ))}
             </div>
           )}
         </ScrollArea>
+        <DialogFooter className="p-4 md:p-6 border-t bg-muted/20">
+          <DialogTrigger asChild><Button className="w-full h-11 md:h-12 rounded-xl font-black">Close</Button></DialogTrigger>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -1199,42 +1181,37 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button className="bg-primary rounded-xl"><Layers className="mr-2 h-4 w-4" /> Bulk Upload</Button></DialogTrigger>
-      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-2"><DialogTitle>Bulk Material Upload</DialogTitle></DialogHeader>
-        <div className="flex-1 overflow-y-auto px-6 py-2">
+      <DialogTrigger asChild><Button className="bg-primary rounded-xl text-xs md:text-sm h-10 md:h-11"><Layers className="mr-2 h-3.5 w-3.5" /> Bulk Upload</Button></DialogTrigger>
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden w-[98vw] rounded-2xl">
+        <DialogHeader className="p-6 pb-2"><DialogTitle className="text-lg md:text-2xl">Bulk Material Upload</DialogTitle></DialogHeader>
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-2">
           <div className="space-y-6 pb-8">
-            <div className="grid grid-cols-2 gap-4">
-              <Select onValueChange={setSelectedClassId} value={selectedClassId}><SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
-              <Select onValueChange={setSelectedSubjectId} value={selectedSubjectId} disabled={!selectedClassId}><SelectTrigger><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.filter(s => s.courseId === selectedClassId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select onValueChange={setSelectedClassId} value={selectedClassId}><SelectTrigger className="h-11"><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
+              <Select onValueChange={setSelectedSubjectId} value={selectedSubjectId} disabled={!selectedClassId}><SelectTrigger className="h-11"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.filter(s => s.courseId === selectedClassId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
             </div>
             {selectedSubject && (
               <div className="space-y-6">
-                <div className="bg-muted/30 p-4 rounded-2xl border border-dashed flex flex-wrap gap-2">
-                  {chapterStatus.filter(c => c.completed).map(c => <Badge key={c.chapter} variant="secondary" className="bg-green-100 text-green-700">Ch {c.chapter} (Done)</Badge>)}
+                <div className="bg-muted/30 p-3 md:p-4 rounded-xl md:rounded-2xl border border-dashed flex flex-wrap gap-2">
+                  {chapterStatus.filter(c => c.completed).map(c => <Badge key={c.chapter} variant="secondary" className="bg-green-100 text-green-700 text-[10px]">Ch {c.chapter} Done</Badge>)}
                 </div>
-                <div className="flex justify-between items-center">
-                  <h4 className="text-sm font-bold uppercase text-primary">Bulk Entry (Max 20 rows)</h4>
-                  <Button variant="outline" size="sm" onClick={handleAddRow} disabled={bulkRows.length >= 20}><Plus size={14} className="mr-1" /> Add Row</Button>
+                <div className="flex justify-between items-center px-1">
+                  <h4 className="text-xs font-bold uppercase text-primary">Bulk Entry</h4>
+                  <Button variant="outline" size="sm" onClick={handleAddRow} disabled={bulkRows.length >= 20} className="h-9 rounded-lg"><Plus size={14} className="mr-1" /> Add Row</Button>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {bulkRows.map((row, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-2xl border border-accent/10">
-                      <div className="col-span-1">
-                        <Label className="text-[10px] opacity-60">Ch #</Label>
-                        <Input 
-                          type="number" 
-                          className="bg-white" 
-                          value={row.chapter} 
-                          onChange={e => handleUpdateRow(idx, 'chapter', Number(e.target.value))} 
-                        />
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-xl border border-accent/10">
+                      <div className="sm:col-span-1">
+                        <Label className="text-[9px] opacity-60">Ch #</Label>
+                        <Input type="number" className="bg-white h-10" value={row.chapter} onChange={e => handleUpdateRow(idx, 'chapter', Number(e.target.value))} />
                       </div>
-                      <div className="col-span-3">
-                        <Label className="text-[10px] opacity-60">Chapter Title</Label>
-                        <Input className="bg-white" placeholder="Auto-fetched" value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />
+                      <div className="sm:col-span-3">
+                        <Label className="text-[9px] opacity-60">Title</Label>
+                        <Input className="bg-white h-10 text-xs" placeholder="Fetched title" value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />
                       </div>
-                      <div className="col-span-4"><Label className="text-[10px] opacity-60">Video URL</Label><Input className="bg-white" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} /></div>
-                      <div className="col-span-4"><Label className="text-[10px] opacity-60">PDF URL</Label><Input className="bg-white" value={row.pdfUrl} onChange={e => handleUpdateRow(idx, 'pdfUrl', e.target.value)} /></div>
+                      <div className="sm:col-span-4"><Label className="text-[9px] opacity-60">Video URL</Label><Input className="bg-white h-10 text-[10px]" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} /></div>
+                      <div className="sm:col-span-4"><Label className="text-[9px] opacity-60">PDF URL</Label><Input className="bg-white h-10 text-[10px]" value={row.pdfUrl} onChange={e => handleUpdateRow(idx, 'pdfUrl', e.target.value)} /></div>
                     </div>
                   ))}
                 </div>
@@ -1242,9 +1219,9 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
             )}
           </div>
         </div>
-        <DialogFooter className="p-6 border-t bg-muted/20">
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleSaveBulk} disabled={loading || bulkRows.length === 0}>Upload All</Button>
+        <DialogFooter className="p-4 md:p-6 border-t bg-muted/20 flex flex-col sm:flex-row gap-2">
+          <Button variant="ghost" onClick={() => setOpen(false)} className="w-full sm:w-auto h-11">Cancel</Button>
+          <Button onClick={handleSaveBulk} disabled={loading || bulkRows.length === 0} className="w-full sm:w-auto h-11">Upload All</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

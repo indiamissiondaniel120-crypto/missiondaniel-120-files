@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AuthProvider, useAuth } from '@/components/auth-wrapper';
-import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
+import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks, MessageSquare, Send, Trash2, Clock, CheckCircle2, Globe, Video, MonitorPlay } from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks, MessageSquare, Send, Trash2, Clock, CheckCircle2, Globe, Video, MonitorPlay, Menu } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
@@ -49,23 +49,20 @@ function sortClasses(classes: any[]) {
 function DecorativeGraphics() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <div className="absolute top-20 left-10 text-primary/10 floating-graphic" style={{ animationDelay: '0s' }}>
-        <GraduationCap size={120} />
+      <div className="absolute top-10 md:top-20 left-4 md:left-10 text-primary/10 floating-graphic" style={{ animationDelay: '0s' }}>
+        <GraduationCap className="w-16 h-16 md:w-[120px] md:h-[120px]" />
       </div>
-      <div className="absolute top-40 right-20 text-accent/10 floating-graphic" style={{ animationDelay: '1s' }}>
-        <BookOpen size={100} />
+      <div className="absolute top-20 md:top-40 right-4 md:right-20 text-accent/10 floating-graphic" style={{ animationDelay: '1s' }}>
+        <BookOpen className="w-14 h-14 md:w-[100px] md:h-[100px]" />
       </div>
-      <div className="absolute bottom-20 left-1/4 text-primary/5 floating-graphic" style={{ animationDelay: '2s' }}>
-        <Lightbulb size={150} />
+      <div className="absolute bottom-10 md:bottom-20 left-1/4 text-primary/5 floating-graphic" style={{ animationDelay: '2s' }}>
+        <Lightbulb className="w-20 h-20 md:w-[150px] md:h-[150px]" />
       </div>
       <div className="absolute top-1/2 right-1/4 text-accent/5 floating-graphic" style={{ animationDelay: '3.5s' }}>
-        <Sparkles size={130} />
+        <Sparkles className="w-16 h-16 md:w-[130px] md:h-[130px]" />
       </div>
-      <div className="absolute bottom-40 right-10 text-primary/10 floating-graphic" style={{ animationDelay: '4.5s' }}>
-        <Pencil size={90} />
-      </div>
-      <div className="absolute top-10 left-1/2 text-accent/10 floating-graphic" style={{ animationDelay: '5s' }}>
-        <Sparkles size={80} />
+      <div className="absolute bottom-20 md:bottom-40 right-4 md:right-10 text-primary/10 floating-graphic" style={{ animationDelay: '4.5s' }}>
+        <Pencil className="w-12 h-12 md:w-[90px] md:h-[90px]" />
       </div>
       <div className="absolute bottom-0 right-0 w-full h-1/3 bg-primary/5 -skew-y-3 origin-bottom-right" />
     </div>
@@ -91,51 +88,51 @@ function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register
   }, []);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center space-y-12 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-6 text-center space-y-8 md:space-y-12 relative overflow-hidden">
       <DecorativeGraphics />
       
-      <div className="max-w-3xl space-y-6 z-10">
-        <div className="mx-auto w-24 h-24 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl mb-8 transform hover:scale-110 transition-transform duration-500">
-          <GraduationCap size={48} />
+      <div className="max-w-3xl space-y-4 md:space-y-6 z-10">
+        <div className="mx-auto w-16 h-16 md:w-24 md:h-24 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl mb-4 md:mb-8 transform hover:scale-110 transition-transform duration-500">
+          <GraduationCap className="w-10 h-10 md:w-12 md:h-12" />
         </div>
-        <h1 className="text-6xl md:text-8xl font-black text-primary tracking-tighter drop-shadow-sm">DANIEL 120</h1>
-        <div className="h-24 flex flex-col items-center justify-center">
-          <p className="text-xl md:text-3xl font-medium text-foreground/80 italic animate-in fade-in slide-in-from-bottom-2 duration-1000">
+        <h1 className="text-4xl md:text-8xl font-black text-primary tracking-tighter drop-shadow-sm">DANIEL 120</h1>
+        <div className="min-h-[60px] md:h-24 flex flex-col items-center justify-center">
+          <p className="text-base md:text-3xl font-medium text-foreground/80 italic px-2 animate-in fade-in slide-in-from-bottom-2 duration-1000">
             {quote ? `"${quote}"` : "..."}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl z-10 px-4">
-        <Card className="group hover:border-primary/50 transition-all cursor-pointer shadow-2xl overflow-hidden rounded-[2.5rem] bg-white/60 backdrop-blur-md" onClick={() => onSelect('login')}>
-          <div className="h-2 bg-primary group-hover:h-3 transition-all" />
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold">Daniel 120</CardTitle>
-            <CardDescription>Official Portal for Students & Mentors</CardDescription>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 w-full max-w-6xl z-10 px-2 md:px-4">
+        <Card className="group hover:border-primary/50 transition-all cursor-pointer shadow-2xl overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] bg-white/60 backdrop-blur-md" onClick={() => onSelect('login')}>
+          <div className="h-1.5 md:h-2 bg-primary group-hover:h-3 transition-all" />
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="text-xl md:text-2xl font-bold">Daniel 120</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Official Portal for Students & Mentors</CardDescription>
           </CardHeader>
-          <CardContent><Button className="w-full bg-primary py-7 rounded-2xl group-hover:scale-[1.02] transition-transform text-lg shadow-lg">Click to Login</Button></CardContent>
+          <CardContent className="p-4 md:p-6 pt-0"><Button className="w-full bg-primary py-4 md:py-7 rounded-xl md:rounded-2xl group-hover:scale-[1.02] transition-transform text-base md:text-lg shadow-lg">Click to Login</Button></CardContent>
         </Card>
 
-        <Card className="group hover:border-accent/50 transition-all cursor-pointer shadow-2xl overflow-hidden rounded-[2.5rem] bg-white/60 backdrop-blur-md" onClick={() => onSelect('public-register')}>
-          <div className="h-2 bg-accent group-hover:h-3 transition-all" />
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold">Students Corner</CardTitle>
-            <CardDescription>Uplifting education for every child.</CardDescription>
+        <Card className="group hover:border-accent/50 transition-all cursor-pointer shadow-2xl overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] bg-white/60 backdrop-blur-md" onClick={() => onSelect('public-register')}>
+          <div className="h-1.5 md:h-2 bg-accent group-hover:h-3 transition-all" />
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="text-xl md:text-2xl font-bold">Students Corner</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Uplifting education for every child.</CardDescription>
           </CardHeader>
-          <CardContent><Button className="w-full bg-accent py-7 rounded-2xl group-hover:scale-[1.02] transition-transform text-lg shadow-lg">Click to Open</Button></CardContent>
+          <CardContent className="p-4 md:p-6 pt-0"><Button className="w-full bg-accent py-4 md:py-7 rounded-xl md:rounded-2xl group-hover:scale-[1.02] transition-transform text-base md:text-lg shadow-lg">Click to Open</Button></CardContent>
         </Card>
 
-        <Card className="group hover:border-indigo-400/50 transition-all cursor-pointer shadow-2xl overflow-hidden rounded-[2.5rem] opacity-70 grayscale hover:grayscale-0 hover:opacity-100 bg-white/60 backdrop-blur-md">
-          <div className="h-2 bg-indigo-400 group-hover:h-3 transition-all" />
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold">Muskhan</CardTitle>
-            <CardDescription>Supportive community access.</CardDescription>
+        <Card className="group hover:border-indigo-400/50 transition-all cursor-pointer shadow-2xl overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] opacity-80 md:opacity-70 grayscale md:hover:grayscale-0 hover:opacity-100 bg-white/60 backdrop-blur-md">
+          <div className="h-1.5 md:h-2 bg-indigo-400 group-hover:h-3 transition-all" />
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="text-xl md:text-2xl font-bold">Muskhan</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Supportive community access.</CardDescription>
           </CardHeader>
-          <CardContent><Button variant="outline" className="w-full py-7 rounded-2xl text-lg">Click to Login</Button></CardContent>
+          <CardContent className="p-4 md:p-6 pt-0"><Button variant="outline" className="w-full py-4 md:py-7 rounded-xl md:rounded-2xl text-base md:text-lg">Click to Login</Button></CardContent>
         </Card>
       </div>
 
-      <Button variant="ghost" className="text-muted-foreground hover:text-primary mt-12 gap-2 z-10 bg-white/50 backdrop-blur-sm rounded-xl" onClick={() => onSelect('admin-login')}>
+      <Button variant="ghost" className="text-muted-foreground hover:text-primary mt-6 md:mt-12 gap-2 z-10 bg-white/50 backdrop-blur-sm rounded-xl" onClick={() => onSelect('admin-login')}>
         <ShieldCheck size={18} /> Management Login
       </Button>
     </div>
@@ -160,40 +157,40 @@ function LoginScreen({ mode, onBack }: { mode: 'standard' | 'admin', onBack: () 
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 md:p-6 relative overflow-hidden">
       <DecorativeGraphics />
-      <Card className="w-full max-w-md shadow-2xl z-10 rounded-[2.5rem] border-none bg-white/80 backdrop-blur-lg">
-        <CardHeader className="text-center space-y-4 p-8">
-          <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg ${mode === 'admin' ? 'bg-accent' : 'bg-primary'}`}>
-            {mode === 'admin' ? <ShieldCheck size={32} /> : <UserRound size={32} />}
+      <Card className="w-full max-w-md shadow-2xl z-10 rounded-[1.5rem] md:rounded-[2.5rem] border-none bg-white/80 backdrop-blur-lg">
+        <CardHeader className="text-center space-y-4 p-6 md:p-8">
+          <div className={`mx-auto w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center text-white shadow-lg ${mode === 'admin' ? 'bg-accent' : 'bg-primary'}`}>
+            {mode === 'admin' ? <ShieldCheck size={28} /> : <UserRound size={28} />}
           </div>
-          <CardTitle className="text-2xl font-bold">{mode === 'admin' ? 'Management Login' : 'Daniel 120 Login'}</CardTitle>
-          <CardDescription>Please enter your credentials to continue.</CardDescription>
+          <CardTitle className="text-xl md:text-2xl font-bold">{mode === 'admin' ? 'Management Login' : 'Daniel 120 Login'}</CardTitle>
+          <CardDescription className="text-xs md:text-sm">Please enter your credentials to continue.</CardDescription>
         </CardHeader>
-        <CardContent className="p-8 pt-0">
-          <form onSubmit={handleLogin} className="space-y-6">
+        <CardContent className="p-6 md:p-8 pt-0">
+          <form onSubmit={handleLogin} className="space-y-4 md:space-y-6">
             {mode === 'standard' && (
               <Tabs value={loginType} onValueChange={(v: any) => setLoginType(v)} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-muted p-1 h-12">
-                  <TabsTrigger value="student" className="rounded-xl font-bold">Student</TabsTrigger>
-                  <TabsTrigger value="mentor" className="rounded-xl font-bold">Mentor</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 rounded-xl md:rounded-2xl bg-muted p-1 h-10 md:h-12">
+                  <TabsTrigger value="student" className="rounded-lg md:rounded-xl font-bold text-xs md:text-sm">Student</TabsTrigger>
+                  <TabsTrigger value="mentor" className="rounded-lg md:rounded-xl font-bold text-xs md:text-sm">Mentor</TabsTrigger>
                 </TabsList>
               </Tabs>
             )}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground ml-1">ID / Username</Label>
-                <Input value={form.id} className="rounded-2xl h-14 bg-white/50 border-muted" onChange={e => setForm({...form, id: e.target.value})} placeholder="Enter your ID" />
+                <Label className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground ml-1">ID / Username</Label>
+                <Input value={form.id} className="rounded-xl md:rounded-2xl h-12 md:h-14 bg-white/50 border-muted" onChange={e => setForm({...form, id: e.target.value})} placeholder="Enter your ID" />
               </div>
               <div className="space-y-2">
-                <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
-                <Input type="password" value={form.password} className="rounded-2xl h-14 bg-white/50 border-muted" onChange={e => setForm({...form, password: e.target.value})} placeholder="••••••••" />
+                <Label className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
+                <Input type="password" value={form.password} className="rounded-xl md:rounded-2xl h-12 md:h-14 bg-white/50 border-muted" onChange={e => setForm({...form, password: e.target.value})} placeholder="••••••••" />
               </div>
             </div>
-            <Button type="submit" className={`w-full py-8 rounded-[1.5rem] text-lg font-bold shadow-xl ${mode === 'admin' ? 'bg-accent' : 'bg-primary'}`} disabled={loading}>
+            <Button type="submit" className={`w-full py-6 md:py-8 rounded-xl md:rounded-[1.5rem] text-base md:text-lg font-bold shadow-xl ${mode === 'admin' ? 'bg-accent' : 'bg-primary'}`} disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
             </Button>
-            <Button variant="ghost" className="w-full rounded-xl" onClick={onBack} type="button">
+            <Button variant="ghost" className="w-full rounded-xl text-sm" onClick={onBack} type="button">
               <ArrowLeft size={16} className="mr-2" /> Back to Home
             </Button>
           </form>
@@ -286,61 +283,61 @@ function PrivateDoubtClearing({ user }: { user: any }) {
 
   return (
     <div className="space-y-6">
-      <Card className="rounded-[2rem] border-none shadow-xl bg-white/60 backdrop-blur-sm overflow-hidden">
-        <CardHeader className="bg-primary/10 p-8">
-          <CardTitle className="text-2xl font-black text-primary flex items-center gap-2">
+      <Card className="rounded-[1.5rem] md:rounded-[2rem] border-none shadow-xl bg-white/60 backdrop-blur-sm overflow-hidden">
+        <CardHeader className="bg-primary/10 p-6 md:p-8">
+          <CardTitle className="text-xl md:text-2xl font-black text-primary flex items-center gap-2">
             <MessageSquare className="text-accent" /> Ask My Mentor
           </CardTitle>
-          <CardDescription className="font-bold">Private doubt clearance with your allocated mentor.</CardDescription>
+          <CardDescription className="font-bold text-xs md:text-sm">Private doubt clearance with your allocated mentor.</CardDescription>
         </CardHeader>
-        <CardContent className="p-8 space-y-6">
+        <CardContent className="p-6 md:p-8 space-y-4 md:space-y-6">
           <div className="space-y-2">
-            <Label className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Your Question</Label>
+            <Label className="font-black text-[9px] uppercase tracking-widest text-muted-foreground ml-1">Your Question</Label>
             <Textarea 
               placeholder="What academic help do you need today?" 
-              className="rounded-2xl min-h-[120px] bg-white border-muted font-medium p-6" 
+              className="rounded-xl md:rounded-2xl min-h-[100px] md:min-h-[120px] bg-white border-muted font-medium p-4 md:p-6 text-sm md:text-base" 
               value={question}
               onChange={e => setQuestion(e.target.value)}
             />
           </div>
-          <Button className="w-full py-8 rounded-2xl text-lg font-black bg-primary shadow-xl shadow-primary/20" onClick={handleSubmit} disabled={loading || !question.trim()}>
-            {loading ? <Loader2 className="animate-spin" /> : <><Send size={20} className="mr-2" /> Send to Mentor</>}
+          <Button className="w-full py-6 md:py-8 rounded-xl md:rounded-2xl text-base md:text-lg font-black bg-primary shadow-xl shadow-primary/20" onClick={handleSubmit} disabled={loading || !question.trim()}>
+            {loading ? <Loader2 className="animate-spin" /> : <><Send size={18} className="mr-2" /> Send to Mentor</>}
           </Button>
         </CardContent>
       </Card>
 
       <div className="space-y-4">
-        <h4 className="font-black text-primary uppercase text-xs tracking-[0.2em] px-4">Doubt History</h4>
-        <div className="grid gap-4">
+        <h4 className="font-black text-primary uppercase text-[10px] tracking-[0.2em] px-4">Doubt History</h4>
+        <div className="grid gap-3">
           {myDoubts?.map(doubt => (
             <Dialog key={doubt.id} onOpenChange={(open) => open && markAsOpened(doubt)}>
               <DialogTrigger asChild>
-                <Card className={`cursor-pointer transition-all hover:scale-[1.01] rounded-2xl border-none shadow-md ${doubt.status === 'answered' ? 'bg-green-50' : 'bg-white'}`}>
-                  <CardContent className="p-6 flex items-center justify-between">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-bold text-sm truncate max-w-xs">{doubt.question}</span>
-                      <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Syncing...'}</span>
+                <Card className={`cursor-pointer transition-all hover:scale-[1.01] rounded-xl md:rounded-2xl border-none shadow-md ${doubt.status === 'answered' ? 'bg-green-50' : 'bg-white'}`}>
+                  <CardContent className="p-4 md:p-6 flex items-center justify-between">
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <span className="font-bold text-xs md:text-sm truncate pr-2">{doubt.question}</span>
+                      <span className="text-[9px] text-muted-foreground">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Syncing...'}</span>
                     </div>
-                    <Badge className={`rounded-xl px-3 py-1 ${doubt.status === 'answered' ? 'bg-green-600' : 'bg-yellow-500'}`}>
-                      {doubt.status === 'answered' ? <><CheckCircle2 size={12} className="mr-1" /> Answered</> : <><Clock size={12} className="mr-1" /> Pending</>}
+                    <Badge className={`rounded-xl px-2 md:px-3 py-0.5 md:py-1 text-[9px] md:text-xs shrink-0 ${doubt.status === 'answered' ? 'bg-green-600' : 'bg-yellow-500'}`}>
+                      {doubt.status === 'answered' ? 'Answered' : 'Pending'}
                     </Badge>
                   </CardContent>
                 </Card>
               </DialogTrigger>
-              <DialogContent className="rounded-[2.5rem] p-10 max-w-xl">
+              <DialogContent className="rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-10 max-w-xl w-[95vw]">
                 <DialogHeader>
-                  <DialogTitle className="text-2xl font-black text-primary">Doubt Details</DialogTitle>
+                  <DialogTitle className="text-xl md:text-2xl font-black text-primary">Doubt Details</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-6 py-6">
+                <div className="space-y-4 md:space-y-6 py-4 md:py-6">
                   <div className="space-y-2">
                     <Label className="font-black text-[10px] uppercase text-muted-foreground">Your Question</Label>
-                    <p className="p-4 bg-muted/20 rounded-xl font-medium">{doubt.question}</p>
+                    <p className="p-3 md:p-4 bg-muted/20 rounded-xl font-medium text-sm md:text-base">{doubt.question}</p>
                   </div>
                   {doubt.answer && (
                     <div className="space-y-2">
                       <Label className="font-black text-[10px] uppercase text-green-600">Mentor's Response</Label>
-                      <p className="p-6 bg-green-50 rounded-2xl font-bold text-lg text-green-900 border border-green-200">{doubt.answer}</p>
-                      <p className="text-[10px] text-green-600/60 font-bold italic">* This answer will be automatically removed 24 hours after opening.</p>
+                      <p className="p-4 md:p-6 bg-green-50 rounded-xl md:rounded-2xl font-bold text-base md:text-lg text-green-900 border border-green-200">{doubt.answer}</p>
+                      <p className="text-[9px] md:text-[10px] text-green-600/60 font-bold italic">* This answer will be automatically removed 24 hours after opening.</p>
                     </div>
                   )}
                 </div>
@@ -348,7 +345,7 @@ function PrivateDoubtClearing({ user }: { user: any }) {
             </Dialog>
           ))}
           {myDoubts?.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground italic font-medium bg-white/40 rounded-3xl border-2 border-dashed">No doubts posted yet.</div>
+            <div className="text-center py-8 md:py-12 text-muted-foreground italic font-medium bg-white/40 rounded-2xl md:rounded-3xl border-2 border-dashed">No doubts posted yet.</div>
           )}
         </div>
       </div>
@@ -398,46 +395,46 @@ function MentorDoubtClearing({ mentorId }: { mentorId: string }) {
 
   return (
     <div className="space-y-6">
-      <h3 className="text-2xl font-black text-primary flex items-center gap-2 px-4">
+      <h3 className="text-xl md:text-2xl font-black text-primary flex items-center gap-2 px-2">
         <ListChecks className="text-accent" /> Assigned Student Doubts
       </h3>
       <div className="grid gap-4">
         {pendingDoubts?.map(doubt => (
-          <Card key={doubt.id} className="border-none shadow-lg rounded-2xl bg-white/70 overflow-hidden">
-            <CardContent className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <Card key={doubt.id} className="border-none shadow-lg rounded-xl md:rounded-2xl bg-white/70 overflow-hidden">
+            <CardContent className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px] font-black">{doubt.studentName}</Badge>
-                  <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}</span>
+                  <Badge variant="outline" className="text-[9px] md:text-[10px] font-black">{doubt.studentName}</Badge>
+                  <span className="text-[9px] md:text-[10px] text-muted-foreground">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}</span>
                 </div>
-                <p className="font-bold text-lg leading-tight">{doubt.question}</p>
+                <p className="font-bold text-base md:text-lg leading-tight">{doubt.question}</p>
               </div>
               <Dialog open={answeringDoubt?.id === doubt.id} onOpenChange={(open) => !open && setAnsweringDoubt(null)}>
                 <DialogTrigger asChild>
-                  <Button className="rounded-xl h-14 px-8 bg-accent font-black text-lg" onClick={() => setAnsweringDoubt(doubt)}>Respond Now</Button>
+                  <Button className="rounded-xl h-12 md:h-14 px-6 md:px-8 bg-accent font-black text-sm md:text-lg" onClick={() => setAnsweringDoubt(doubt)}>Respond Now</Button>
                 </DialogTrigger>
-                <DialogContent className="rounded-[2.5rem] p-10 max-w-xl">
+                <DialogContent className="rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-10 max-w-xl w-[95vw]">
                   <DialogHeader>
-                    <DialogTitle className="text-2xl font-black">Provide Answer</DialogTitle>
-                    <DialogDescription className="font-bold">Helping {doubt.studentName} understand.</DialogDescription>
+                    <DialogTitle className="text-xl md:text-2xl font-black">Provide Answer</DialogTitle>
+                    <DialogDescription className="font-bold text-xs md:text-sm">Helping {doubt.studentName} understand.</DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-6 py-6">
-                    <div className="p-4 bg-muted/20 rounded-xl">
-                      <span className="text-[10px] font-black uppercase text-muted-foreground block mb-2">Question</span>
-                      <p className="font-medium">{doubt.question}</p>
+                  <div className="space-y-4 md:space-y-6 py-4 md:py-6">
+                    <div className="p-3 md:p-4 bg-muted/20 rounded-xl">
+                      <span className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground block mb-1">Question</span>
+                      <p className="font-medium text-sm md:text-base">{doubt.question}</p>
                     </div>
                     <div className="space-y-2">
                       <Label className="font-black text-[10px] uppercase">Your Answer</Label>
                       <Textarea 
                         placeholder="Write your explanation here..." 
-                        className="rounded-2xl min-h-[150px] bg-white border-muted font-medium p-4" 
+                        className="rounded-xl md:rounded-2xl min-h-[120px] md:min-h-[150px] bg-white border-muted font-medium p-4 text-sm md:text-base" 
                         value={answer}
                         onChange={e => setAnswer(e.target.value)}
                       />
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button className="w-full h-16 rounded-2xl text-lg font-black bg-primary" onClick={handleSendAnswer} disabled={!answer.trim()}>Send Answer</Button>
+                    <Button className="w-full h-14 md:h-16 rounded-xl md:rounded-2xl text-base md:text-lg font-black bg-primary" onClick={handleSendAnswer} disabled={!answer.trim()}>Send Answer</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -445,9 +442,9 @@ function MentorDoubtClearing({ mentorId }: { mentorId: string }) {
           </Card>
         ))}
         {pendingDoubts?.length === 0 && (
-          <div className="text-center py-20 bg-muted/10 border-4 border-dashed rounded-[3rem] flex flex-col items-center justify-center space-y-4">
-            <CheckCircle2 className="text-green-500 h-12 w-12" />
-            <p className="font-black text-muted-foreground italic">All assigned doubts cleared!</p>
+          <div className="text-center py-12 md:py-20 bg-muted/10 border-4 border-dashed rounded-[2rem] md:rounded-[3rem] flex flex-col items-center justify-center space-y-4">
+            <CheckCircle2 className="text-green-500 h-10 w-10 md:h-12 md:w-12" />
+            <p className="font-black text-xs md:text-sm text-muted-foreground italic">All assigned doubts cleared!</p>
           </div>
         )}
       </div>
@@ -499,46 +496,46 @@ function MentorPublicPool({ mentorId, mentorName }: { mentorId: string, mentorNa
 
   return (
     <div className="space-y-6">
-      <h3 className="text-2xl font-black text-accent flex items-center gap-2 px-4">
+      <h3 className="text-xl md:text-2xl font-black text-accent flex items-center gap-2 px-2">
         <Globe className="text-accent" /> Students Corner (Public Pool)
       </h3>
       <div className="grid gap-4">
         {poolDoubts?.map(doubt => (
-          <Card key={doubt.id} className="border-none shadow-lg rounded-2xl bg-accent/5 overflow-hidden border-l-4 border-accent">
-            <CardContent className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <Card key={doubt.id} className="border-none shadow-lg rounded-xl md:rounded-2xl bg-accent/5 overflow-hidden border-l-4 border-accent">
+            <CardContent className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-[10px] font-black">{doubt.studentName} ({doubt.className})</Badge>
-                  <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}</span>
+                  <Badge variant="secondary" className="text-[9px] md:text-[10px] font-black">{doubt.studentName} ({doubt.className})</Badge>
+                  <span className="text-[9px] md:text-[10px] text-muted-foreground">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}</span>
                 </div>
-                <p className="font-bold text-lg leading-tight">{doubt.question}</p>
+                <p className="font-bold text-base md:text-lg leading-tight">{doubt.question}</p>
               </div>
               <Dialog open={answeringDoubt?.id === doubt.id} onOpenChange={(open) => !open && setAnsweringDoubt(null)}>
                 <DialogTrigger asChild>
-                  <Button className="rounded-xl h-14 px-8 bg-accent font-black text-lg" onClick={() => setAnsweringDoubt(doubt)}>Respond to Public</Button>
+                  <Button className="rounded-xl h-12 md:h-14 px-6 md:px-8 bg-accent font-black text-sm md:text-lg" onClick={() => setAnsweringDoubt(doubt)}>Respond to Public</Button>
                 </DialogTrigger>
-                <DialogContent className="rounded-[2.5rem] p-10 max-w-xl">
+                <DialogContent className="rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-10 max-w-xl w-[95vw]">
                   <DialogHeader>
-                    <DialogTitle className="text-2xl font-black text-accent">Public Response</DialogTitle>
-                    <DialogDescription className="font-bold">Answering for {doubt.studentName}.</DialogDescription>
+                    <DialogTitle className="text-xl md:text-2xl font-black text-accent">Public Response</DialogTitle>
+                    <DialogDescription className="font-bold text-xs md:text-sm">Answering for {doubt.studentName}.</DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-6 py-6">
-                    <div className="p-4 bg-muted/20 rounded-xl">
-                      <span className="text-[10px] font-black uppercase text-muted-foreground block mb-2">Public Question</span>
-                      <p className="font-medium">{doubt.question}</p>
+                  <div className="space-y-4 md:space-y-6 py-4 md:py-6">
+                    <div className="p-3 md:p-4 bg-muted/20 rounded-xl">
+                      <span className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground block mb-1">Public Question</span>
+                      <p className="font-medium text-sm md:text-base">{doubt.question}</p>
                     </div>
                     <div className="space-y-2">
                       <Label className="font-black text-[10px] uppercase">Your Answer</Label>
                       <Textarea 
                         placeholder="Write your explanation here..." 
-                        className="rounded-2xl min-h-[150px] bg-white border-muted font-medium p-4" 
+                        className="rounded-xl md:rounded-2xl min-h-[120px] md:min-h-[150px] bg-white border-muted font-medium p-4 text-sm md:text-base" 
                         value={answer}
                         onChange={e => setAnswer(e.target.value)}
                       />
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button className="w-full h-16 rounded-2xl text-lg font-black bg-accent" onClick={handleSendAnswer} disabled={!answer.trim()}>Post Answer</Button>
+                    <Button className="w-full h-14 md:h-16 rounded-xl md:rounded-2xl text-base md:text-lg font-black bg-accent" onClick={handleSendAnswer} disabled={!answer.trim()}>Post Answer</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -546,9 +543,9 @@ function MentorPublicPool({ mentorId, mentorName }: { mentorId: string, mentorNa
           </Card>
         ))}
         {poolDoubts?.length === 0 && (
-          <div className="text-center py-20 bg-accent/5 border-4 border-dashed border-accent/20 rounded-[3rem] flex flex-col items-center justify-center space-y-4">
-            <CheckCircle2 className="text-accent h-12 w-12" />
-            <p className="font-black text-accent/60 italic">Students Corner is all clear!</p>
+          <div className="text-center py-12 md:py-20 bg-accent/5 border-4 border-dashed border-accent/20 rounded-[2rem] md:rounded-[3rem] flex flex-col items-center justify-center space-y-4">
+            <CheckCircle2 className="text-accent h-10 w-10 md:h-12 md:w-12" />
+            <p className="font-black text-xs md:text-sm text-accent/60 italic">Students Corner is all clear!</p>
           </div>
         )}
       </div>
@@ -565,14 +562,14 @@ function MentorMyStudentsSummary({ mentorId, allMentors }: { mentorId: string, a
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><Users className="text-accent" /> My Assigned Students</h3>
+      <h3 className="text-xl font-bold flex items-center gap-2 text-primary px-2"><Users className="text-accent" /> My Assigned Students</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {myStudents.map(student => (
-          <Card key={student.id} className="border-primary/20 bg-primary/5">
-            <CardHeader className="pb-2">
+          <Card key={student.id} className="border-primary/20 bg-primary/5 rounded-xl">
+            <CardHeader className="p-4 md:p-6 pb-2">
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-sm flex items-center gap-2">
+                  <CardTitle className="text-sm md:text-base flex items-center gap-2">
                     <UserRound size={16} className="text-primary" />
                     {student.name}
                   </CardTitle>
@@ -652,13 +649,11 @@ function Dashboard() {
   const materialsQuery = useMemo(() => db ? collection(db, 'materials') : null, [db]);
   const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db]);
   
-  // Query to detect ongoing live classes for the relevant notification
   const liveSessionsIndicatorQuery = useMemo(() => {
     if (!db || !user) return null;
     if (user.class) {
       return query(collection(db, 'liveSessions'), where('classId', '==', user.class));
     }
-    // Mentors/Admins just see all active sessions
     return collection(db, 'liveSessions');
   }, [db, user]);
 
@@ -745,30 +740,30 @@ function Dashboard() {
   
   if (view === 'public-register' && !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-6 relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 md:p-6 relative overflow-hidden">
         <DecorativeGraphics />
-        <Card className="w-full max-w-md shadow-2xl z-10 rounded-[2.5rem] border-none bg-white/80 backdrop-blur-lg">
-          <CardHeader className="text-center space-y-4 p-8 pb-0">
-            <div className="mx-auto w-16 h-16 bg-accent/10 text-accent rounded-full flex items-center justify-center shadow-inner">
-              <Users size={32} />
+        <Card className="w-full max-w-md shadow-2xl z-10 rounded-[1.5rem] md:rounded-[2.5rem] border-none bg-white/80 backdrop-blur-lg">
+          <CardHeader className="text-center space-y-4 p-6 md:p-8 pb-0">
+            <div className="mx-auto w-12 h-12 md:w-16 md:h-16 bg-accent/10 text-accent rounded-full flex items-center justify-center shadow-inner">
+              <Users size={28} />
             </div>
-            <CardTitle className="text-2xl font-bold">Students Corner</CardTitle>
-            <CardDescription>Enter your name and class to continue your learning.</CardDescription>
+            <CardTitle className="text-xl md:text-2xl font-bold">Students Corner</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Enter your name and class to continue your learning.</CardDescription>
           </CardHeader>
-          <CardContent className="p-8 space-y-6">
+          <CardContent className="p-6 md:p-8 space-y-6">
             <div className="space-y-2">
-              <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground ml-1">Your Name</Label>
-              <Input placeholder="Enter your full name" className="rounded-2xl h-14 bg-white/50" value={publicReg.name} onChange={e => setPublicReg({...publicReg, name: e.target.value})} />
+              <Label className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Your Name</Label>
+              <Input placeholder="Enter your full name" className="rounded-xl md:rounded-2xl h-12 md:h-14 bg-white/50" value={publicReg.name} onChange={e => setPublicReg({...publicReg, name: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground ml-1">Select Class</Label>
+              <Label className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Select Class</Label>
               <Select onValueChange={v => setPublicReg({...publicReg, classId: v})} value={publicReg.classId}>
-                <SelectTrigger className="rounded-2xl h-14 bg-white/50"><SelectValue placeholder="Which class do you study in?" /></SelectTrigger>
+                <SelectTrigger className="rounded-xl md:rounded-2xl h-12 md:h-14 bg-white/50 text-xs md:text-sm"><SelectValue placeholder="Which class do you study in?" /></SelectTrigger>
                 <SelectContent>{sortedCourses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <Button className="w-full bg-accent py-8 rounded-[1.5rem] text-lg font-bold shadow-xl shadow-accent/20" onClick={handlePublicRegister} disabled={!publicReg.name || !publicReg.classId}>Open Learning Portal</Button>
-            <Button variant="ghost" className="w-full rounded-xl" onClick={() => setView('landing')}>Back to Home</Button>
+            <Button className="w-full bg-accent py-6 md:py-8 rounded-xl md:rounded-[1.5rem] text-base md:text-lg font-bold shadow-xl shadow-accent/20" onClick={handlePublicRegister} disabled={!publicReg.name || !publicReg.classId}>Open Learning Portal</Button>
+            <Button variant="ghost" className="w-full rounded-xl text-sm" onClick={() => setView('landing')}>Back to Home</Button>
           </CardContent>
         </Card>
       </div>
@@ -832,212 +827,222 @@ function Dashboard() {
           </SidebarFooter>
         </Sidebar>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 relative bg-background/50">
-          <div className="max-w-7xl mx-auto space-y-8 relative z-10">
-            {activeMenu === 'live' ? (
-              <LiveClassInterface />
-            ) : activeMenu === 'admin' && (isAdmin || isMentor) ? (
-              <StudentManagement />
-            ) : !selectedCourse ? (
-              <section className="space-y-12">
-                <div className={`rounded-[3rem] p-16 text-white shadow-2xl relative overflow-hidden transition-all duration-700 ${isPublic ? 'bg-accent' : 'bg-primary'}`}>
-                  <div className="relative z-10">
-                    <h2 className="text-5xl md:text-7xl font-black mb-6 leading-[1.1] tracking-tight">Uplifting Education,<br/>Shaping Futures</h2>
-                    <p className="text-white/90 text-2xl font-medium max-w-2xl">Welcome, {user?.name}. {isPublic ? 'A special space for your learning journey.' : 'Your dedicated study command center.'}</p>
-                  </div>
-                  <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
-                  <Sparkles className="absolute top-10 right-20 text-white/20 animate-pulse" size={120} />
-                </div>
+        <div className="flex-1 flex flex-col h-screen overflow-hidden">
+          {/* Mobile Sticky Header */}
+          <header className="md:hidden flex items-center justify-between p-4 bg-primary text-white shadow-md z-50">
+            <div className="flex items-center gap-2">
+              <GraduationCap size={24} />
+              <h1 className="text-xl font-black tracking-tighter">DANIEL 120</h1>
+            </div>
+            <SidebarTrigger />
+          </header>
 
-                {isMentor && (
-                  <div className="space-y-12">
-                    <MentorMyStudentsSummary mentorId={user.id} allMentors={allMentors || []} />
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      <MentorDoubtClearing mentorId={user.id} />
-                      <MentorPublicPool mentorId={user.id} mentorName={user.name} />
+          <main className="flex-1 overflow-y-auto p-4 md:p-8 relative bg-background/50">
+            <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 relative z-10">
+              {activeMenu === 'live' ? (
+                <LiveClassInterface />
+              ) : activeMenu === 'admin' && (isAdmin || isMentor) ? (
+                <StudentManagement />
+              ) : !selectedCourse ? (
+                <section className="space-y-8 md:space-y-12">
+                  <div className={`rounded-[2rem] md:rounded-[3rem] p-8 md:p-16 text-white shadow-2xl relative overflow-hidden transition-all duration-700 ${isPublic ? 'bg-accent' : 'bg-primary'}`}>
+                    <div className="relative z-10">
+                      <h2 className="text-3xl md:text-7xl font-black mb-4 md:mb-6 leading-[1.1] tracking-tight">Uplifting Education,<br/>Shaping Futures</h2>
+                      <p className="text-white/90 text-sm md:text-2xl font-medium max-w-2xl">Welcome, {user?.name}. {isPublic ? 'A special space for your learning journey.' : 'Your dedicated study command center.'}</p>
+                    </div>
+                    <div className="absolute top-0 right-0 w-40 md:w-80 h-40 md:h-80 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+                    <Sparkles className="absolute top-4 right-4 md:top-10 md:right-20 text-white/20 animate-pulse w-16 h-16 md:w-[120px] md:h-[120px]" />
+                  </div>
+
+                  {isMentor && (
+                    <div className="space-y-8 md:space-y-12">
+                      <MentorMyStudentsSummary mentorId={user.id} allMentors={allMentors || []} />
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+                        <MentorDoubtClearing mentorId={user.id} />
+                        <MentorPublicPool mentorId={user.id} mentorName={user.name} />
+                      </div>
+                    </div>
+                  )}
+
+                  {(isStandardStudent || isPublic) && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10">
+                      <div className="lg:col-span-2 space-y-6 md:space-y-8">
+                         <section className="space-y-6 md:space-y-8">
+                          <div className="flex items-center justify-between px-2">
+                            <h3 className="text-2xl md:text-3xl font-black tracking-tight text-primary">Academic Core</h3>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                            {visibleCourses.map((course: any) => (
+                              <Card key={course.id} className="cursor-pointer group hover:shadow-2xl transition-all duration-700 rounded-[2rem] md:rounded-[3rem] border-none shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm" onClick={() => setSelectedCourse(course)}>
+                                <div className="h-40 md:h-56 relative bg-muted overflow-hidden">
+                                  <Image src={`https://picsum.photos/seed/${course.id}/600/400`} fill alt={course.name} className="object-cover group-hover:scale-110 transition-transform duration-1000" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent opacity-60" />
+                                  <div className="absolute bottom-4 left-6 text-white font-black text-2xl md:text-3xl tracking-tighter">{course.name}</div>
+                                </div>
+                                <CardHeader className="p-6 md:p-8">
+                                  <Button className={`w-full rounded-xl md:rounded-2xl py-6 md:py-8 font-black text-base md:text-lg transition-all shadow-lg ${isPublic ? 'bg-accent shadow-accent/20' : 'bg-primary shadow-primary/20'} group-hover:scale-[1.03]`}>Access Materials</Button>
+                                </CardHeader>
+                              </Card>
+                            ))}
+                          </div>
+                        </section>
+                      </div>
+                      <div className="lg:col-span-1">
+                        {isStandardStudent ? <PrivateDoubtClearing user={user} /> : (
+                          <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden">
+                            <div className="h-2 md:h-3 bg-accent" />
+                            <CardHeader className="p-6 md:p-10">
+                              <CardTitle className="text-accent flex items-center gap-3 md:gap-4 text-xl md:text-3xl font-black tracking-tighter"><Sparkles size={24} /> Students Corner</CardTitle>
+                              <CardDescription className="text-foreground/70 font-bold text-xs md:text-base mt-1 md:mt-2">Post your doubt for our mentors to review.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-6 md:p-10 pt-0">
+                              <PublicDoubtFlowSimple selectedClassName={user?.class || ''} />
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              ) : (
+                <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <div className="flex items-center gap-4 md:gap-6">
+                    <Button variant="outline" size="icon" onClick={() => setSelectedCourse(null)} className="rounded-full h-10 w-10 md:h-14 md:w-14 border-primary/20 hover:bg-primary/10 shadow-lg shrink-0"><ChevronRight className="rotate-180" size={18} /></Button>
+                    <div>
+                      <h2 className={`text-2xl md:text-5xl font-black tracking-tighter ${isPublic ? 'text-accent' : 'text-primary'}`}>{selectedCourse.name}</h2>
+                      <p className="text-[10px] md:text-base text-muted-foreground font-bold uppercase tracking-widest opacity-60">Select a subject for your session</p>
                     </div>
                   </div>
-                )}
 
-                {(isStandardStudent || isPublic) && (
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                    <div className="lg:col-span-2 space-y-8">
-                       <section className="space-y-8">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-3xl font-black tracking-tight text-primary">Academic Core</h3>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          {visibleCourses.map((course: any) => (
-                            <Card key={course.id} className="cursor-pointer group hover:shadow-2xl transition-all duration-700 rounded-[3rem] border-none shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm" onClick={() => setSelectedCourse(course)}>
-                              <div className="h-56 relative bg-muted overflow-hidden">
-                                <Image src={`https://picsum.photos/seed/${course.id}/600/400`} fill alt={course.name} className="object-cover group-hover:scale-110 transition-transform duration-1000" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent opacity-60" />
-                                <div className="absolute bottom-6 left-8 text-white font-black text-3xl tracking-tighter">{course.name}</div>
-                              </div>
-                              <CardHeader className="p-8">
-                                <Button className={`w-full rounded-2xl py-8 font-black text-lg transition-all shadow-lg ${isPublic ? 'bg-accent shadow-accent/20' : 'bg-primary shadow-primary/20'} group-hover:scale-[1.03]`}>Access Materials</Button>
-                              </CardHeader>
-                            </Card>
-                          ))}
-                        </div>
-                      </section>
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-10">
+                    <div className="lg:col-span-1 space-y-4">
+                      <h4 className="font-black text-muted-foreground uppercase text-[10px] md:text-[11px] tracking-[0.2em] px-2 mb-4 md:mb-6">Subject Catalog</h4>
+                      <div className="flex md:flex-col overflow-x-auto md:overflow-x-visible gap-3 pb-2 md:pb-0 scrollbar-hide">
+                        {allSubjects?.filter(s => s.courseId === selectedCourse.id).map(subject => (
+                          <Button 
+                            key={subject.id} 
+                            variant={selectedSubject?.id === subject.id ? 'default' : 'ghost'} 
+                            className={`flex-shrink-0 md:flex-shrink-1 w-auto md:w-full justify-start rounded-xl md:rounded-[2rem] px-4 md:px-8 py-6 md:py-10 text-sm md:text-xl font-black transition-all duration-300 ${selectedSubject?.id === subject.id ? (isPublic ? 'bg-accent text-white shadow-xl' : 'bg-primary text-white shadow-xl') : 'hover:bg-white bg-white/40 border border-transparent hover:border-primary/20'}`}
+                            onClick={() => setSelectedSubject(subject)}
+                          >
+                            <div className={`mr-3 md:mr-6 p-2 md:p-3 rounded-xl md:rounded-2xl shadow-sm ${selectedSubject?.id === subject.id ? 'bg-white/20' : 'bg-muted'}`}>
+                              <BookOpen className="h-4 w-4 md:h-6 md:w-6" />
+                            </div>
+                            {subject.name}
+                          </Button>
+                        ))}
+                      </div>
                     </div>
+
+                    <div className="lg:col-span-2 space-y-6 md:space-y-8">
+                      {selectedSubject ? (
+                        <Tabs defaultValue="videos" className="bg-white/60 backdrop-blur-md p-4 md:p-8 rounded-[2rem] md:rounded-[3.5rem] shadow-2xl border border-white/40">
+                          <TabsList className="grid w-full grid-cols-2 mb-6 md:mb-10 bg-muted/30 p-1 md:p-2 rounded-2xl md:rounded-3xl h-12 md:h-16">
+                            <TabsTrigger value="videos" className="rounded-xl md:rounded-2xl text-xs md:text-xl font-black data-[state=active]:bg-white data-[state=active]:shadow-lg"><PlayCircle className="mr-1.5 md:mr-3 h-4 w-4 md:h-[22px] md:w-[22px]" /> Videos</TabsTrigger>
+                            <TabsTrigger value="notes" className="rounded-xl md:rounded-2xl text-xs md:text-xl font-black data-[state=active]:bg-white data-[state=active]:shadow-lg"><FileText className="mr-1.5 md:mr-3 h-4 w-4 md:h-[22px] md:w-[22px]" /> Notes</TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="videos" className="space-y-6 md:space-y-8">
+                            {currentMaterials.filter(m => m.type === 'video').length === 0 && (
+                              <div className="text-center py-12 md:py-20 text-muted-foreground font-bold italic bg-muted/20 rounded-[2rem] md:rounded-[3rem] border-4 border-dashed">No videos yet.</div>
+                            )}
+                            {currentMaterials.filter(m => m.type === 'video').map(v => (
+                              <Card key={v.id} className="overflow-hidden border-none shadow-2xl rounded-[1.5rem] md:rounded-[3rem] group relative hover:-translate-y-1 transition-all duration-500" onMouseEnter={() => setActiveMaterial(v)} onMouseLeave={() => setActiveMaterial(null)}>
+                                <div className="aspect-video relative bg-black shadow-inner">
+                                  <iframe src={getYouTubeEmbedUrl(v.url)} className="absolute inset-0 w-full h-full" allowFullScreen />
+                                </div>
+                                <CardHeader className="p-4 md:p-8 bg-white/80">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <div className="min-w-0">
+                                      <Badge variant="outline" className="mb-2 rounded-lg px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-black tracking-widest uppercase text-[8px] md:text-[10px]">Ch {v.chapter}</Badge>
+                                      <CardTitle className="text-base md:text-2xl font-black tracking-tight truncate">{v.title}</CardTitle>
+                                    </div>
+                                    {isAdmin && (
+                                      <Button variant="ghost" size="icon" onClick={() => setEditingMaterial(v)} className="h-10 w-10 text-muted-foreground hover:bg-muted rounded-xl">
+                                        <Edit2 size={16} />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </CardHeader>
+                              </Card>
+                            ))}
+                          </TabsContent>
+                          <TabsContent value="notes" className="space-y-4 md:space-y-6">
+                             {currentMaterials.filter(m => m.type === 'pdf').length === 0 && (
+                              <div className="text-center py-12 md:py-20 text-muted-foreground font-bold italic bg-muted/20 rounded-[2rem] md:rounded-[3rem] border-4 border-dashed">No notes yet.</div>
+                            )}
+                             {currentMaterials.filter(m => m.type === 'pdf').map(n => (
+                              <Card key={n.id} className="hover:bg-white/80 transition-all rounded-xl md:rounded-[2.5rem] border-muted/40 border-2 bg-muted/10 group" onMouseEnter={() => setActiveMaterial(n)} onMouseLeave={() => setActiveMaterial(null)}>
+                                <CardContent className="p-4 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                  <div className="flex items-center gap-4 md:gap-6">
+                                    <div className="p-3 bg-primary/10 text-primary rounded-xl md:rounded-3xl shadow-sm group-hover:scale-110 transition-transform"><FileText className="h-6 w-6 md:h-8 md:w-8" /></div>
+                                    <div className="min-w-0">
+                                      <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] text-primary/60 mb-0.5 md:mb-1 block">Chapter {n.chapter}</span>
+                                      <div className="font-black text-base md:text-2xl tracking-tight truncate">{n.title}</div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 w-full md:w-auto">
+                                    {isAdmin && (
+                                      <Button variant="ghost" size="icon" onClick={() => setEditingMaterial(n)} className="h-10 w-10 text-muted-foreground rounded-xl">
+                                        <Edit2 size={16} />
+                                      </Button>
+                                    )}
+                                    <Button size="lg" onClick={() => window.open(n.url, '_blank')} className="flex-1 md:flex-none rounded-xl h-12 md:h-14 md:px-10 font-black text-sm md:text-lg bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 transition-all">Open Notes</Button>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </TabsContent>
+                        </Tabs>
+                      ) : <div className="text-center py-20 md:py-40 border-4 md:border-8 border-dashed rounded-[2rem] md:rounded-[4rem] bg-white/20 border-primary/10 flex flex-col items-center justify-center space-y-4 md:space-y-6">
+                          <div className="p-6 md:p-8 bg-primary/10 text-primary rounded-full shadow-inner animate-bounce"><BookOpen size={48} className="md:w-16 md:h-16" /></div>
+                          <p className="text-lg md:text-2xl font-black text-primary/40 tracking-tight px-4">Select a subject to open the curriculum.</p>
+                        </div>}
+                    </div>
+
                     <div className="lg:col-span-1">
-                      {isStandardStudent ? <PrivateDoubtClearing user={user} /> : (
-                        <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[3rem] shadow-2xl overflow-hidden">
-                          <div className="h-3 bg-accent" />
-                          <CardHeader className="p-10">
-                            <CardTitle className="text-accent flex items-center gap-4 text-3xl font-black tracking-tighter"><Sparkles size={32} /> Students Corner</CardTitle>
-                            <CardDescription className="text-foreground/70 font-bold text-base mt-2">Post your doubt for our mentors to review.</CardDescription>
+                      {!isPublic ? (
+                        <Card className="bg-white/60 backdrop-blur-md border-primary/20 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden p-2">
+                          <AICompanion />
+                        </Card>
+                      ) : (
+                        <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden">
+                          <div className="h-2 md:h-3 bg-accent" />
+                          <CardHeader className="p-6 md:p-10">
+                            <CardTitle className="text-accent flex items-center gap-3 md:gap-4 text-xl md:text-3xl font-black tracking-tighter"><Sparkles size={24} /> Students Corner</CardTitle>
+                            <CardDescription className="text-foreground/70 font-bold text-xs md:text-base mt-1 md:mt-2">Post your doubt for our mentors to review.</CardDescription>
                           </CardHeader>
-                          <CardContent className="p-10 pt-0">
-                            <PublicDoubtFlowSimple selectedClassName={user?.class || ''} />
+                          <CardContent className="p-6 md:p-10 pt-0">
+                            <PublicDoubtFlowSimple selectedClassName={selectedCourse?.name || ''} />
                           </CardContent>
                         </Card>
                       )}
                     </div>
                   </div>
-                )}
-              </section>
-            ) : (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="flex items-center gap-6">
-                  <Button variant="outline" size="icon" onClick={() => setSelectedCourse(null)} className="rounded-full h-14 w-14 border-primary/20 hover:bg-primary/10 shadow-lg"><ChevronRight className="rotate-180" /></Button>
-                  <div>
-                    <h2 className={`text-5xl font-black tracking-tighter ${isPublic ? 'text-accent' : 'text-primary'}`}>{selectedCourse.name}</h2>
-                    <p className="text-muted-foreground text-base font-bold uppercase tracking-widest opacity-60">Select a subject for your session</p>
-                  </div>
                 </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-                  <div className="lg:col-span-1 space-y-4">
-                    <h4 className="font-black text-muted-foreground uppercase text-[11px] tracking-[0.2em] px-4 mb-6">Subject Catalog</h4>
-                    <div className="space-y-4">
-                      {allSubjects?.filter(s => s.courseId === selectedCourse.id).map(subject => (
-                        <Button 
-                          key={subject.id} 
-                          variant={selectedSubject?.id === subject.id ? 'default' : 'ghost'} 
-                          className={`w-full justify-start rounded-[2rem] px-8 py-10 text-xl font-black transition-all duration-300 ${selectedSubject?.id === subject.id ? (isPublic ? 'bg-accent text-white shadow-xl' : 'bg-primary text-white shadow-xl') : 'hover:bg-white bg-white/40 border border-transparent hover:border-primary/20'}`}
-                          onClick={() => setSelectedSubject(subject)}
-                        >
-                          <div className={`mr-6 p-3 rounded-2xl shadow-sm ${selectedSubject?.id === subject.id ? 'bg-white/20' : 'bg-muted'}`}>
-                            <BookOpen className="h-6 w-6" />
-                          </div>
-                          {subject.name}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="lg:col-span-2 space-y-8">
-                    {selectedSubject ? (
-                      <Tabs defaultValue="videos" className="bg-white/60 backdrop-blur-md p-8 rounded-[3.5rem] shadow-2xl border border-white/40">
-                        <TabsList className="grid w-full grid-cols-2 mb-10 bg-muted/30 p-2 rounded-3xl h-16">
-                          <TabsTrigger value="videos" className="rounded-2xl text-xl font-black data-[state=active]:bg-white data-[state=active]:shadow-lg"><PlayCircle size={22} className="mr-3" /> Video Classes</TabsTrigger>
-                          <TabsTrigger value="notes" className="rounded-2xl text-xl font-black data-[state=active]:bg-white data-[state=active]:shadow-lg"><FileText size={22} className="mr-3" /> PDF Notes</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="videos" className="space-y-8">
-                          {currentMaterials.filter(m => m.type === 'video').length === 0 && (
-                            <div className="text-center py-20 text-muted-foreground font-bold italic bg-muted/20 rounded-[3rem] border-4 border-dashed">No videos uploaded yet.</div>
-                          )}
-                          {currentMaterials.filter(m => m.type === 'video').map(v => (
-                            <Card key={v.id} className="overflow-hidden border-none shadow-2xl rounded-[3rem] group relative hover:-translate-y-2 transition-all duration-500" onMouseEnter={() => setActiveMaterial(v)} onMouseLeave={() => setActiveMaterial(null)}>
-                              <div className="aspect-video relative bg-black shadow-inner">
-                                <iframe src={getYouTubeEmbedUrl(v.url)} className="absolute inset-0 w-full h-full" allowFullScreen />
-                              </div>
-                              <CardHeader className="p-8 bg-white/80">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <Badge variant="outline" className="mb-3 rounded-xl px-4 py-1.5 bg-primary/10 text-primary border-primary/20 font-black tracking-widest uppercase text-[10px]">Chapter {v.chapter}</Badge>
-                                    <CardTitle className="text-2xl font-black tracking-tight">{v.title}</CardTitle>
-                                  </div>
-                                  {isAdmin && (
-                                    <Button variant="ghost" size="icon" onClick={() => setEditingMaterial(v)} className="h-12 w-12 text-muted-foreground hover:bg-muted rounded-2xl">
-                                      <Edit2 size={20} />
-                                    </Button>
-                                  )}
-                                </div>
-                              </CardHeader>
-                            </Card>
-                          ))}
-                        </TabsContent>
-                        <TabsContent value="notes" className="space-y-6">
-                           {currentMaterials.filter(m => m.type === 'pdf').length === 0 && (
-                            <div className="text-center py-20 text-muted-foreground font-bold italic bg-muted/20 rounded-[3rem] border-4 border-dashed">No notes uploaded yet.</div>
-                          )}
-                           {currentMaterials.filter(m => m.type === 'pdf').map(n => (
-                            <Card key={n.id} className="hover:bg-white/80 transition-all rounded-[2.5rem] border-muted/40 border-2 bg-muted/10 group" onMouseEnter={() => setActiveMaterial(n)} onMouseLeave={() => setActiveMaterial(null)}>
-                              <CardContent className="p-8 flex items-center justify-between">
-                                <div className="flex items-center gap-6">
-                                  <div className="p-4 bg-primary/10 text-primary rounded-3xl shadow-sm group-hover:scale-110 transition-transform"><FileText className="h-8 w-8" /></div>
-                                  <div>
-                                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/60 mb-1 block">Chapter {n.chapter}</span>
-                                    <div className="font-black text-2xl tracking-tight">{n.title}</div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                  {isAdmin && (
-                                    <Button variant="ghost" size="icon" onClick={() => setEditingMaterial(n)} className="h-12 w-12 text-muted-foreground rounded-2xl">
-                                      <Edit2 size={20} />
-                                    </Button>
-                                  )}
-                                  <Button size="lg" onClick={() => window.open(n.url, '_blank')} className="rounded-2xl h-14 px-10 font-black text-lg bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 transition-all active:scale-95">Open Notes</Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </TabsContent>
-                      </Tabs>
-                    ) : <div className="text-center py-40 border-8 border-dashed rounded-[4rem] bg-white/20 border-primary/10 flex flex-col items-center justify-center space-y-6">
-                        <div className="p-8 bg-primary/10 text-primary rounded-full shadow-inner animate-bounce"><BookOpen size={64} /></div>
-                        <p className="text-2xl font-black text-primary/40 tracking-tight">Select a subject to open the curriculum.</p>
-                      </div>}
-                  </div>
-
-                  <div className="lg:col-span-1">
-                    {!isPublic ? (
-                      <Card className="bg-white/60 backdrop-blur-md border-primary/20 rounded-[3rem] shadow-2xl overflow-hidden p-2">
-                        <AICompanion />
-                      </Card>
-                    ) : (
-                      <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[3rem] shadow-2xl overflow-hidden">
-                        <div className="h-3 bg-accent" />
-                        <CardHeader className="p-10">
-                          <CardTitle className="text-accent flex items-center gap-4 text-3xl font-black tracking-tighter"><Sparkles size={32} /> Students Corner</CardTitle>
-                          <CardDescription className="text-foreground/70 font-bold text-base mt-2">Post your doubt for our mentors to review.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-10 pt-0">
-                          <PublicDoubtFlowSimple selectedClassName={selectedCourse?.name || ''} />
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </main>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
 
       <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}>
-        <DialogContent className="rounded-[3rem] p-10 max-w-lg border-none bg-white/95 backdrop-blur-xl">
+        <DialogContent className="rounded-[2rem] p-6 md:p-10 max-w-lg border-none bg-white/95 backdrop-blur-xl w-[95vw]">
           <DialogHeader>
-            <DialogTitle className="text-3xl font-black tracking-tighter text-primary">Edit Material</DialogTitle>
-            <DialogDescription className="font-bold">Modify the title or link for this resource.</DialogDescription>
+            <DialogTitle className="text-2xl md:text-3xl font-black tracking-tighter text-primary">Edit Material</DialogTitle>
+            <DialogDescription className="font-bold text-xs md:text-sm">Modify the title or link for this resource.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-8 py-8">
-            <div className="space-y-3">
-              <Label className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Material Title</Label>
-              <Input className="rounded-2xl h-14 bg-muted/30 border-none font-bold text-lg" value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} />
+          <div className="space-y-4 md:space-y-8 py-4 md:py-8">
+            <div className="space-y-2 md:space-y-3">
+              <Label className="font-black text-[9px] md:text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Material Title</Label>
+              <Input className="rounded-xl h-12 md:h-14 bg-muted/30 border-none font-bold text-base md:text-lg" value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} />
             </div>
-            <div className="space-y-3">
-              <Label className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Resource URL</Label>
-              <Input className="rounded-2xl h-14 bg-muted/30 border-none font-medium" value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} />
+            <div className="space-y-2 md:space-y-3">
+              <Label className="font-black text-[9px] md:text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Resource URL</Label>
+              <Input className="rounded-xl h-12 md:h-14 bg-muted/30 border-none font-medium text-sm" value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} />
             </div>
           </div>
           <DialogFooter className="p-0">
-            <Button className="w-full h-16 rounded-3xl text-xl font-black bg-primary shadow-2xl shadow-primary/30" onClick={() => {
+            <Button className="w-full h-14 md:h-16 rounded-2xl md:rounded-3xl text-base md:text-xl font-black bg-primary shadow-2xl shadow-primary/30" onClick={() => {
               if (db && editingMaterial) {
                 const docRef = doc(db, 'materials', editingMaterial.id);
                 const updateData = { ...editingMaterial };
@@ -1152,49 +1157,49 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
   };
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-3">
-        <Label className="font-black text-[11px] uppercase tracking-[0.2em] text-muted-foreground ml-1">Academic Question</Label>
-        <Input placeholder="E.g. Help me understand gravity?" className="rounded-2xl h-16 bg-white border-muted font-medium text-lg px-6" value={question} onChange={e => setQuestion(e.target.value)} />
+    <div className="space-y-6 md:space-y-8">
+      <div className="space-y-2 md:space-y-3">
+        <Label className="font-black text-[10px] md:text-[11px] uppercase tracking-[0.2em] text-muted-foreground ml-1">Academic Question</Label>
+        <Input placeholder="E.g. Help me understand gravity?" className="rounded-xl md:rounded-2xl h-14 md:h-16 bg-white border-muted font-medium text-base md:text-lg px-4 md:px-6" value={question} onChange={e => setQuestion(e.target.value)} />
       </div>
-      <Button className="w-full bg-accent h-16 rounded-[1.5rem] text-xl font-black shadow-xl shadow-accent/20 hover:scale-[1.02] transition-transform" onClick={handleSubmit} disabled={loading || !question.trim()}>
+      <Button className="w-full bg-accent h-14 md:h-16 rounded-xl md:rounded-[1.5rem] text-lg md:text-xl font-black shadow-xl shadow-accent/20 hover:scale-[1.02] transition-transform" onClick={handleSubmit} disabled={loading || !question.trim()}>
         {loading ? <Loader2 className="animate-spin" /> : "Submit Doubt"}
       </Button>
 
-      <div className="space-y-4 pt-4">
-        <h4 className="font-black text-accent uppercase text-xs tracking-[0.2em]">My Corner Doubts</h4>
+      <div className="space-y-4 md:pt-4">
+        <h4 className="font-black text-accent uppercase text-[10px] md:text-xs tracking-[0.2em]">My Corner Doubts</h4>
         <div className="grid gap-3">
           {myPublicDoubts?.map(doubt => (
             <Dialog key={doubt.id} onOpenChange={(open) => open && markAsOpened(doubt)}>
               <DialogTrigger asChild>
-                <Card className={`cursor-pointer transition-all hover:shadow-lg rounded-2xl border-none shadow-sm ${doubt.status === 'answered' ? 'bg-green-50' : 'bg-white'}`}>
-                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                <Card className={`cursor-pointer transition-all hover:shadow-lg rounded-xl md:rounded-2xl border-none shadow-sm ${doubt.status === 'answered' ? 'bg-green-50' : 'bg-white'}`}>
+                  <CardContent className="p-3 md:p-4 flex items-center justify-between gap-3 md:gap-4">
                     <div className="flex flex-col gap-1 min-w-0">
-                      <span className="font-bold text-xs truncate">{doubt.question}</span>
-                      <span className="text-[9px] text-muted-foreground uppercase font-black">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Syncing...'}</span>
+                      <span className="font-bold text-[11px] md:text-xs truncate">{doubt.question}</span>
+                      <span className="text-[8px] md:text-[9px] text-muted-foreground uppercase font-black">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Syncing...'}</span>
                     </div>
-                    <Badge className={`rounded-lg px-2 py-0.5 text-[9px] ${doubt.status === 'answered' ? 'bg-green-600' : 'bg-yellow-500'}`}>
+                    <Badge className={`rounded-lg px-1.5 md:px-2 py-0.5 text-[8px] md:text-[9px] shrink-0 ${doubt.status === 'answered' ? 'bg-green-600' : 'bg-yellow-500'}`}>
                       {doubt.status === 'answered' ? 'Answered' : 'Pending'}
                     </Badge>
                   </CardContent>
                 </Card>
               </DialogTrigger>
-              <DialogContent className="rounded-[2.5rem] p-10 max-w-xl">
+              <DialogContent className="rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-10 max-w-xl w-[95vw]">
                 <DialogHeader>
-                  <DialogTitle className="text-2xl font-black text-accent">Public Corner Detail</DialogTitle>
+                  <DialogTitle className="text-xl md:text-2xl font-black text-accent">Public Corner Detail</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-6 py-6">
+                <div className="space-y-4 md:space-y-6 py-4 md:py-6">
                   <div className="space-y-2">
                     <Label className="font-black text-[10px] uppercase text-muted-foreground">Your Question</Label>
-                    <p className="p-4 bg-muted/20 rounded-xl font-medium">{doubt.question}</p>
+                    <p className="p-3 md:p-4 bg-muted/20 rounded-xl font-medium text-sm md:text-base">{doubt.question}</p>
                   </div>
                   {doubt.answer && (
                     <div className="space-y-2">
                       <Label className="font-black text-[10px] uppercase text-green-600">Mentor's Public Response</Label>
-                      <p className="p-6 bg-green-50 rounded-2xl font-bold text-lg text-green-900 border border-green-200">{doubt.answer}</p>
-                      <div className="flex justify-between items-center text-[10px] text-green-600/60 font-bold italic">
-                        <span>Answered by {doubt.mentorName || 'a Mentor'}</span>
-                        <span>* Auto-deletes 24h after opening.</span>
+                      <p className="p-4 md:p-6 bg-green-50 rounded-xl md:rounded-2xl font-bold text-base md:text-lg text-green-900 border border-green-200">{doubt.answer}</p>
+                      <div className="flex justify-between items-center text-[9px] md:text-[10px] text-green-600/60 font-bold italic">
+                        <span>By {doubt.mentorName || 'a Mentor'}</span>
+                        <span>* Auto-deletes 24h later.</span>
                       </div>
                     </div>
                   )}
@@ -1203,7 +1208,7 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
             </Dialog>
           ))}
           {myPublicDoubts?.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground italic font-medium">No public doubts posted.</div>
+            <div className="text-center py-6 text-muted-foreground italic font-medium">No public doubts posted.</div>
           )}
         </div>
       </div>
