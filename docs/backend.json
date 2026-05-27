@@ -24,9 +24,13 @@
         "studentName": { "type": "string" },
         "className": { "type": "string" },
         "question": { "type": "string" },
+        "answer": { "type": "string" },
         "status": { "type": "string", "enum": ["open", "answered"] },
         "mentorId": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "mentorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "openedAt": { "type": "string", "format": "date-time" },
+        "answeredAt": { "type": "string", "format": "date-time" }
       }
     },
     "PrivateDoubt": {
@@ -41,7 +45,8 @@
         "answer": { "type": "string" },
         "status": { "type": "string", "enum": ["open", "answered"] },
         "createdAt": { "type": "string", "format": "date-time" },
-        "openedAt": { "type": "string", "format": "date-time" }
+        "openedAt": { "type": "string", "format": "date-time" },
+        "answeredAt": { "type": "string", "format": "date-time" }
       }
     },
     "Admin": {

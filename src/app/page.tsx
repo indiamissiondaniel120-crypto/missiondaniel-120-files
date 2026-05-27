@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -19,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks, MessageSquare, Send, Trash2, Clock, CheckCircle2, Globe } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -226,7 +227,7 @@ function PrivateDoubtClearing({ user }: { user: any }) {
     const twentyFourHours = 24 * 60 * 60 * 1000;
 
     myDoubts.forEach(doubt => {
-      if (doubt.openedAt) {
+      if (doubt.openedAt && doubt.openedAt.toDate) {
         const openedTime = doubt.openedAt.toDate().getTime();
         if (now - openedTime > twentyFourHours) {
           const docRef = doc(db, 'privateDoubts', doubt.id);
@@ -318,7 +319,7 @@ function PrivateDoubtClearing({ user }: { user: any }) {
                   <CardContent className="p-6 flex items-center justify-between">
                     <div className="flex flex-col gap-1">
                       <span className="font-bold text-sm truncate max-w-xs">{doubt.question}</span>
-                      <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate()?.toLocaleString()}</span>
+                      <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Syncing...'}</span>
                     </div>
                     <Badge className={`rounded-xl px-3 py-1 ${doubt.status === 'answered' ? 'bg-green-600' : 'bg-yellow-500'}`}>
                       {doubt.status === 'answered' ? <><CheckCircle2 size={12} className="mr-1" /> Answered</> : <><Clock size={12} className="mr-1" /> Pending</>}
@@ -407,7 +408,7 @@ function MentorDoubtClearing({ mentorId }: { mentorId: string }) {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-[10px] font-black">{doubt.studentName}</Badge>
-                  <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate()?.toLocaleString()}</span>
+                  <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}</span>
                 </div>
                 <p className="font-bold text-lg leading-tight">{doubt.question}</p>
               </div>
@@ -508,7 +509,7 @@ function MentorPublicPool({ mentorId, mentorName }: { mentorId: string, mentorNa
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="text-[10px] font-black">{doubt.studentName} ({doubt.className})</Badge>
-                  <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate()?.toLocaleString()}</span>
+                  <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}</span>
                 </div>
                 <p className="font-bold text-lg leading-tight">{doubt.question}</p>
               </div>
@@ -1057,13 +1058,27 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
     });
   }, [rawDoubts]);
 
+  // Real-time notification effect
+  useEffect(() => {
+    if (!myPublicDoubts) return;
+    const answered = myPublicDoubts.filter(d => d.status === 'answered' && !d.openedAt);
+    if (answered.length > 0) {
+      toast({
+        title: "Mentor Answered!",
+        description: `Your academic doubt in ${selectedClassName} has been cleared.`,
+        className: "bg-green-600 text-white"
+      });
+    }
+  }, [myPublicDoubts?.length]);
+
+  // Auto-deletion effect
   useEffect(() => {
     if (!myPublicDoubts || !db) return;
     const now = Date.now();
     const twentyFourHours = 24 * 60 * 60 * 1000;
 
     myPublicDoubts.forEach(doubt => {
-      if (doubt.openedAt) {
+      if (doubt.openedAt && doubt.openedAt.toDate) {
         const openedTime = doubt.openedAt.toDate().getTime();
         if (now - openedTime > twentyFourHours) {
           const docRef = doc(db, 'publicDoubts', doubt.id);
@@ -1137,7 +1152,7 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
                   <CardContent className="p-4 flex items-center justify-between gap-4">
                     <div className="flex flex-col gap-1 min-w-0">
                       <span className="font-bold text-xs truncate">{doubt.question}</span>
-                      <span className="text-[9px] text-muted-foreground uppercase font-black">{doubt.className}</span>
+                      <span className="text-[9px] text-muted-foreground uppercase font-black">{doubt.createdAt?.toDate?.()?.toLocaleString() || 'Syncing...'}</span>
                     </div>
                     <Badge className={`rounded-lg px-2 py-0.5 text-[9px] ${doubt.status === 'answered' ? 'bg-green-600' : 'bg-yellow-500'}`}>
                       {doubt.status === 'answered' ? 'Answered' : 'Pending'}
@@ -1168,6 +1183,9 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
               </DialogContent>
             </Dialog>
           ))}
+          {myPublicDoubts?.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground italic font-medium">No public doubts posted.</div>
+          )}
         </div>
       </div>
     </div>
