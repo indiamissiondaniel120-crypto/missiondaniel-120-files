@@ -49,6 +49,18 @@
         "answeredAt": { "type": "string", "format": "date-time" }
       }
     },
+    "LiveSession": {
+      "title": "LiveSession",
+      "description": "An active live video class session.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "mentorId": { "type": "string" },
+        "mentorName": { "type": "string" },
+        "roomName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "Admin": {
       "title": "Admin",
       "description": "An administrative user record.",
@@ -73,6 +85,10 @@
     "/privateDoubts/{doubtId}": {
       "schema": { "$ref": "#/backend/entities/PrivateDoubt" },
       "description": "Private doubts between assigned students and mentors."
+    },
+    "/liveSessions/{sessionId}": {
+      "schema": { "$ref": "#/backend/entities/LiveSession" },
+      "description": "Active live video classes."
     },
     "/admins/{adminId}": {
       "schema": { "$ref": "#/backend/entities/Admin" },

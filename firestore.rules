@@ -40,6 +40,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // --- LIVE CLASSES ---
+    match /liveSessions/{sessionId} {
+      allow read, write: if true;
+    }
+
     // --- ADMIN ACCESS ---
     match /admins/{adminId} {
       allow read: if true;

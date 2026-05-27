@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -16,12 +17,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks, MessageSquare, Send, Trash2, Clock, CheckCircle2, Globe } from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks, MessageSquare, Send, Trash2, Clock, CheckCircle2, Globe, Video, MonitorPlay } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { LiveClassInterface } from '@/components/live-class';
 
 function getYouTubeEmbedUrl(url: string) {
   if (!url) return '';
@@ -593,9 +595,9 @@ function Dashboard() {
   const db = useFirestore();
   
   const [view, setView] = useState<'landing' | 'login' | 'admin-login' | 'public-register' | 'dashboard'>(user ? 'dashboard' : 'landing');
+  const [activeMenu, setActiveMenu] = useState<'home' | 'live' | 'admin'>('home');
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<any>(null);
   const [publicReg, setPublicReg] = useState({ name: '', classId: '' });
 
@@ -675,14 +677,10 @@ function Dashboard() {
   const handlePublicRegister = async () => {
     if (!db || !publicReg.name || !publicReg.classId) return;
     
-    // Create a stable ID from the name to "remember" the user across sessions
     const normalizedName = publicReg.name.trim().toLowerCase().replace(/\s+/g, '-');
     const publicId = `PUBLIC-${normalizedName}`;
-    
     const docRef = doc(db, 'students', publicId);
     
-    // We update the class and name to the latest provided, but the ID remains the same.
-    // This effectively "logs in" an existing user if the name matches.
     const data = {
       id: publicId,
       name: publicReg.name.trim(),
@@ -692,7 +690,6 @@ function Dashboard() {
     };
 
     setDoc(docRef, data, { merge: true }).then(() => {
-      // Use the stable publicId to log in.
       login(publicId, '', 'student');
       toast({ title: "Welcome back!", description: `Logged in as ${publicReg.name}` });
     }).catch(async (serverError) => {
@@ -707,7 +704,7 @@ function Dashboard() {
   const navigateToHome = () => {
     setSelectedCourse(null);
     setSelectedSubject(null);
-    setShowAdminPanel(false);
+    setActiveMenu('home');
   };
 
   const handleLogout = async () => {
@@ -782,13 +779,18 @@ function Dashboard() {
           <SidebarContent className="px-3">
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton isActive={!selectedCourse && !showAdminPanel} onClick={navigateToHome} className="py-8 rounded-2xl hover:bg-white/10 text-white font-bold mb-2">
+                <SidebarMenuButton isActive={activeMenu === 'home'} onClick={navigateToHome} className="py-8 rounded-2xl hover:bg-white/10 text-white font-bold mb-2">
                   <Home className="mr-2" /> Dashboard
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeMenu === 'live'} onClick={() => setActiveMenu('live')} className="py-8 rounded-2xl hover:bg-white/10 text-white font-bold mb-2 bg-accent/20 border border-accent/30">
+                  <Video className="mr-2 text-accent" /> Live Classes
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {(isAdmin || isMentor) && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton isActive={showAdminPanel} onClick={() => setShowAdminPanel(true)} className="py-8 rounded-2xl bg-white/20 text-white font-black hover:bg-white/30 border border-white/20 mb-4">
+                  <SidebarMenuButton isActive={activeMenu === 'admin'} onClick={() => setActiveMenu('admin')} className="py-8 rounded-2xl bg-white/20 text-white font-black hover:bg-white/30 border border-white/20 mb-4">
                     <ListChecks className="mr-2" /> 
                     {isAdmin ? 'Management Panel' : 'Academic Overview'}
                   </SidebarMenuButton>
@@ -797,7 +799,7 @@ function Dashboard() {
               <div className="my-6 px-4 text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">Curriculum Classes</div>
               {visibleCourses.map((course: any) => (
                 <SidebarMenuItem key={course.id}>
-                  <SidebarMenuButton isActive={selectedCourse?.id === course.id} onClick={() => setSelectedCourse(course)} className="py-7 rounded-2xl hover:bg-white/10 text-white font-medium mb-1">
+                  <SidebarMenuButton isActive={selectedCourse?.id === course.id} onClick={() => { setSelectedCourse(course); setActiveMenu('home'); }} className="py-7 rounded-2xl hover:bg-white/10 text-white font-medium mb-1">
                     <BookOpen className="mr-2 h-4 w-4" /> {course.name}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -813,7 +815,9 @@ function Dashboard() {
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative bg-background/50">
           <div className="max-w-7xl mx-auto space-y-8 relative z-10">
-            {showAdminPanel && (isAdmin || isMentor) ? (
+            {activeMenu === 'live' ? (
+              <LiveClassInterface />
+            ) : activeMenu === 'admin' && (isAdmin || isMentor) ? (
               <StudentManagement />
             ) : !selectedCourse ? (
               <section className="space-y-12">
@@ -837,7 +841,7 @@ function Dashboard() {
                   </div>
                 )}
 
-                {isStandardStudent && (
+                {(isStandardStudent || isPublic) && (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                     <div className="lg:col-span-2 space-y-8">
                        <section className="space-y-8">
@@ -853,7 +857,7 @@ function Dashboard() {
                                 <div className="absolute bottom-6 left-8 text-white font-black text-3xl tracking-tighter">{course.name}</div>
                               </div>
                               <CardHeader className="p-8">
-                                <Button className="w-full rounded-2xl py-8 font-black text-lg transition-all bg-primary shadow-lg shadow-primary/20 group-hover:scale-[1.03]">Access Materials</Button>
+                                <Button className={`w-full rounded-2xl py-8 font-black text-lg transition-all shadow-lg ${isPublic ? 'bg-accent shadow-accent/20' : 'bg-primary shadow-primary/20'} group-hover:scale-[1.03]`}>Access Materials</Button>
                               </CardHeader>
                             </Card>
                           ))}
@@ -861,31 +865,20 @@ function Dashboard() {
                       </section>
                     </div>
                     <div className="lg:col-span-1">
-                      <PrivateDoubtClearing user={user} />
+                      {isStandardStudent ? <PrivateDoubtClearing user={user} /> : (
+                        <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[3rem] shadow-2xl overflow-hidden">
+                          <div className="h-3 bg-accent" />
+                          <CardHeader className="p-10">
+                            <CardTitle className="text-accent flex items-center gap-4 text-3xl font-black tracking-tighter"><Sparkles size={32} /> Students Corner</CardTitle>
+                            <CardDescription className="text-foreground/70 font-bold text-base mt-2">Post your doubt for our mentors to review.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="p-10 pt-0">
+                            <PublicDoubtFlowSimple selectedClassName={user?.class || ''} />
+                          </CardContent>
+                        </Card>
+                      )}
                     </div>
                   </div>
-                )}
-
-                {isPublic && (
-                  <section className="space-y-8">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-3xl font-black tracking-tight text-accent">Academic Core</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                      {visibleCourses.map((course: any) => (
-                        <Card key={course.id} className="cursor-pointer group hover:shadow-2xl transition-all duration-700 rounded-[3rem] border-none shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm" onClick={() => setSelectedCourse(course)}>
-                          <div className="h-56 relative bg-muted overflow-hidden">
-                            <Image src={`https://picsum.photos/seed/${course.id}/600/400`} fill alt={course.name} className="object-cover group-hover:scale-110 transition-transform duration-1000" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent opacity-60" />
-                            <div className="absolute bottom-6 left-8 text-white font-black text-3xl tracking-tighter">{course.name}</div>
-                          </div>
-                          <CardHeader className="p-8">
-                            <Button className="w-full rounded-2xl py-8 font-black text-lg transition-all bg-accent shadow-lg shadow-accent/20 group-hover:scale-[1.03]">Access Materials</Button>
-                          </CardHeader>
-                        </Card>
-                      ))}
-                    </div>
-                  </section>
                 )}
               </section>
             ) : (
@@ -1067,20 +1060,18 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
     });
   }, [rawDoubts]);
 
-  // Real-time notification effect
   useEffect(() => {
     if (!myPublicDoubts) return;
     const answered = myPublicDoubts.filter(d => d.status === 'answered' && !d.openedAt);
     if (answered.length > 0) {
       toast({
         title: "Mentor Answered!",
-        description: `Your academic doubt in ${selectedClassName} has been cleared.`,
+        description: `Your academic doubt has been cleared.`,
         className: "bg-green-600 text-white"
       });
     }
   }, [myPublicDoubts?.length]);
 
-  // Auto-deletion effect
   useEffect(() => {
     if (!myPublicDoubts || !db) return;
     const now = Date.now();
