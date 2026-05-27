@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -17,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks, MessageSquare, Send, Trash2, Clock, CheckCircle2 } from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks, MessageSquare, Send, Trash2, Clock, CheckCircle2, Globe } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
@@ -209,17 +208,18 @@ function PrivateDoubtClearing({ user }: { user: any }) {
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Removed orderBy to avoid missing index errors which manifests as permission errors
   const doubtsQuery = useMemo(() => db ? query(collection(db, 'privateDoubts'), where('studentId', '==', user.id)) : null, [db, user.id]);
   const { data: rawDoubts } = useCollection(doubtsQuery);
   
-  // Sort on client side
   const myDoubts = useMemo(() => {
     if (!rawDoubts) return null;
-    return [...rawDoubts].sort((a, b) => b.createdAt?.toDate().getTime() - a.createdAt?.toDate().getTime());
+    return [...rawDoubts].sort((a, b) => {
+      const timeA = a.createdAt?.toDate?.()?.getTime() || 0;
+      const timeB = b.createdAt?.toDate?.()?.getTime() || 0;
+      return timeB - timeA;
+    });
   }, [rawDoubts]);
 
-  // Auto-deletion logic: Delete answered doubts 24 hours after they were opened
   useEffect(() => {
     if (!myDoubts || !db) return;
     const now = Date.now();
@@ -318,7 +318,7 @@ function PrivateDoubtClearing({ user }: { user: any }) {
                   <CardContent className="p-6 flex items-center justify-between">
                     <div className="flex flex-col gap-1">
                       <span className="font-bold text-sm truncate max-w-xs">{doubt.question}</span>
-                      <span className="text-[10px] text-muted-foreground">{new Date(doubt.createdAt?.toDate()).toLocaleString()}</span>
+                      <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate()?.toLocaleString()}</span>
                     </div>
                     <Badge className={`rounded-xl px-3 py-1 ${doubt.status === 'answered' ? 'bg-green-600' : 'bg-yellow-500'}`}>
                       {doubt.status === 'answered' ? <><CheckCircle2 size={12} className="mr-1" /> Answered</> : <><Clock size={12} className="mr-1" /> Pending</>}
@@ -361,14 +361,16 @@ function MentorDoubtClearing({ mentorId }: { mentorId: string }) {
   const [answeringDoubt, setAnsweringDoubt] = useState<any>(null);
   const [answer, setAnswer] = useState('');
 
-  // Removed orderBy to avoid missing index errors
   const doubtsQuery = useMemo(() => db ? query(collection(db, 'privateDoubts'), where('mentorId', '==', mentorId), where('status', '==', 'open')) : null, [db, mentorId]);
   const { data: rawDoubts } = useCollection(doubtsQuery);
   
-  // Sort on client side
   const pendingDoubts = useMemo(() => {
     if (!rawDoubts) return null;
-    return [...rawDoubts].sort((a, b) => b.createdAt?.toDate().getTime() - a.createdAt?.toDate().getTime());
+    return [...rawDoubts].sort((a, b) => {
+      const timeA = a.createdAt?.toDate?.()?.getTime() || 0;
+      const timeB = b.createdAt?.toDate?.()?.getTime() || 0;
+      return timeB - timeA;
+    });
   }, [rawDoubts]);
 
   const handleSendAnswer = () => {
@@ -396,7 +398,7 @@ function MentorDoubtClearing({ mentorId }: { mentorId: string }) {
   return (
     <div className="space-y-6">
       <h3 className="text-2xl font-black text-primary flex items-center gap-2 px-4">
-        <ListChecks className="text-accent" /> Student Doubt Clearance
+        <ListChecks className="text-accent" /> Assigned Student Doubts
       </h3>
       <div className="grid gap-4">
         {pendingDoubts?.map(doubt => (
@@ -405,7 +407,7 @@ function MentorDoubtClearing({ mentorId }: { mentorId: string }) {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-[10px] font-black">{doubt.studentName}</Badge>
-                  <span className="text-[10px] text-muted-foreground">{new Date(doubt.createdAt?.toDate()).toLocaleString()}</span>
+                  <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate()?.toLocaleString()}</span>
                 </div>
                 <p className="font-bold text-lg leading-tight">{doubt.question}</p>
               </div>
@@ -444,7 +446,108 @@ function MentorDoubtClearing({ mentorId }: { mentorId: string }) {
         {pendingDoubts?.length === 0 && (
           <div className="text-center py-20 bg-muted/10 border-4 border-dashed rounded-[3rem] flex flex-col items-center justify-center space-y-4">
             <CheckCircle2 className="text-green-500 h-12 w-12" />
-            <p className="font-black text-muted-foreground italic">All student doubts cleared!</p>
+            <p className="font-black text-muted-foreground italic">All assigned doubts cleared!</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MentorPublicPool({ mentorId, mentorName }: { mentorId: string, mentorName: string }) {
+  const db = useFirestore();
+  const { toast } = useToast();
+  const [answeringDoubt, setAnsweringDoubt] = useState<any>(null);
+  const [answer, setAnswer] = useState('');
+
+  const doubtsQuery = useMemo(() => db ? query(collection(db, 'publicDoubts'), where('status', '==', 'open')) : null, [db]);
+  const { data: rawDoubts } = useCollection(doubtsQuery);
+  
+  const poolDoubts = useMemo(() => {
+    if (!rawDoubts) return null;
+    return [...rawDoubts].sort((a, b) => {
+      const timeA = a.createdAt?.toDate?.()?.getTime() || 0;
+      const timeB = b.createdAt?.toDate?.()?.getTime() || 0;
+      return timeB - timeA;
+    });
+  }, [rawDoubts]);
+
+  const handleSendAnswer = () => {
+    if (!db || !answeringDoubt || !answer.trim()) return;
+    const docRef = doc(db, 'publicDoubts', answeringDoubt.id);
+    const data = {
+      answer: answer.trim(),
+      status: 'answered',
+      mentorId: mentorId,
+      mentorName: mentorName,
+      answeredAt: serverTimestamp()
+    };
+
+    updateDoc(docRef, data).then(() => {
+      setAnsweringDoubt(null);
+      setAnswer('');
+      toast({ title: "Public Doubt Answered" });
+    }).catch(async (serverError) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: data
+      }));
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-2xl font-black text-accent flex items-center gap-2 px-4">
+        <Globe className="text-accent" /> Students Corner (Public Pool)
+      </h3>
+      <div className="grid gap-4">
+        {poolDoubts?.map(doubt => (
+          <Card key={doubt.id} className="border-none shadow-lg rounded-2xl bg-accent/5 overflow-hidden border-l-4 border-accent">
+            <CardContent className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-[10px] font-black">{doubt.studentName} ({doubt.className})</Badge>
+                  <span className="text-[10px] text-muted-foreground">{doubt.createdAt?.toDate()?.toLocaleString()}</span>
+                </div>
+                <p className="font-bold text-lg leading-tight">{doubt.question}</p>
+              </div>
+              <Dialog open={answeringDoubt?.id === doubt.id} onOpenChange={(open) => !open && setAnsweringDoubt(null)}>
+                <DialogTrigger asChild>
+                  <Button className="rounded-xl h-14 px-8 bg-accent font-black text-lg" onClick={() => setAnsweringDoubt(doubt)}>Respond to Public</Button>
+                </DialogTrigger>
+                <DialogContent className="rounded-[2.5rem] p-10 max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-black text-accent">Public Response</DialogTitle>
+                    <DialogDescription className="font-bold">Answering for {doubt.studentName}.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-6 py-6">
+                    <div className="p-4 bg-muted/20 rounded-xl">
+                      <span className="text-[10px] font-black uppercase text-muted-foreground block mb-2">Public Question</span>
+                      <p className="font-medium">{doubt.question}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="font-black text-[10px] uppercase">Your Answer</Label>
+                      <Textarea 
+                        placeholder="Write your explanation here..." 
+                        className="rounded-2xl min-h-[150px] bg-white border-muted font-medium p-4" 
+                        value={answer}
+                        onChange={e => setAnswer(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button className="w-full h-16 rounded-2xl text-lg font-black bg-accent" onClick={handleSendAnswer} disabled={!answer.trim()}>Post Answer</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+        ))}
+        {poolDoubts?.length === 0 && (
+          <div className="text-center py-20 bg-accent/5 border-4 border-dashed border-accent/20 rounded-[3rem] flex flex-col items-center justify-center space-y-4">
+            <CheckCircle2 className="text-accent h-12 w-12" />
+            <p className="font-black text-accent/60 italic">Students Corner is all clear!</p>
           </div>
         )}
       </div>
@@ -717,7 +820,10 @@ function Dashboard() {
                 {isMentor && (
                   <div className="space-y-12">
                     <MentorMyStudentsSummary mentorId={user.id} allMentors={allMentors || []} />
-                    <MentorDoubtClearing mentorId={user.id} />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <MentorDoubtClearing mentorId={user.id} />
+                      <MentorPublicPool mentorId={user.id} mentorName={user.name} />
+                    </div>
                   </div>
                 )}
 
@@ -935,11 +1041,46 @@ function Dashboard() {
 function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: string }) {
   const { user } = useAuth();
   const db = useFirestore();
-  const [question, setQuestion] = useState('');
   const { toast } = useToast();
+  const [question, setQuestion] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const doubtsQuery = useMemo(() => db && user ? query(collection(db, 'publicDoubts'), where('studentId', '==', user.id)) : null, [db, user?.id]);
+  const { data: rawDoubts } = useCollection(doubtsQuery);
   
+  const myPublicDoubts = useMemo(() => {
+    if (!rawDoubts) return null;
+    return [...rawDoubts].sort((a, b) => {
+      const timeA = a.createdAt?.toDate?.()?.getTime() || 0;
+      const timeB = b.createdAt?.toDate?.()?.getTime() || 0;
+      return timeB - timeA;
+    });
+  }, [rawDoubts]);
+
+  useEffect(() => {
+    if (!myPublicDoubts || !db) return;
+    const now = Date.now();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+
+    myPublicDoubts.forEach(doubt => {
+      if (doubt.openedAt) {
+        const openedTime = doubt.openedAt.toDate().getTime();
+        if (now - openedTime > twentyFourHours) {
+          const docRef = doc(db, 'publicDoubts', doubt.id);
+          deleteDoc(docRef).catch(async (serverError) => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+               path: docRef.path,
+               operation: 'delete'
+             }));
+          });
+        }
+      }
+    });
+  }, [myPublicDoubts, db]);
+
   const handleSubmit = async () => {
     if (!db || !question.trim() || !user) return;
+    setLoading(true);
     const doubtsRef = collection(db, 'publicDoubts');
     const data = {
       studentId: user.id,
@@ -951,9 +1092,11 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
       createdAt: serverTimestamp()
     };
     addDoc(doubtsRef, data).then(() => {
-      toast({ title: "Doubt Posted", description: "Your doubt has been sent to our mentors." });
+      toast({ title: "Doubt Posted", description: "Your doubt is now in the public pool for mentors." });
       setQuestion('');
+      setLoading(false);
     }).catch(async (serverError) => {
+      setLoading(false);
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: doubtsRef.path,
         operation: 'create',
@@ -962,13 +1105,71 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
     });
   };
 
+  const markAsOpened = (doubt: any) => {
+    if (doubt.status === 'answered' && !doubt.openedAt && db) {
+      const docRef = doc(db, 'publicDoubts', doubt.id);
+      updateDoc(docRef, { openedAt: serverTimestamp() }).catch(async (serverError) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update'
+        }));
+      });
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="space-y-3">
         <Label className="font-black text-[11px] uppercase tracking-[0.2em] text-muted-foreground ml-1">Academic Question</Label>
         <Input placeholder="E.g. Help me understand gravity?" className="rounded-2xl h-16 bg-white border-muted font-medium text-lg px-6" value={question} onChange={e => setQuestion(e.target.value)} />
       </div>
-      <Button className="w-full bg-accent h-16 rounded-[1.5rem] text-xl font-black shadow-xl shadow-accent/20 hover:scale-[1.02] transition-transform" onClick={handleSubmit} disabled={!question.trim()}>Submit Doubt</Button>
+      <Button className="w-full bg-accent h-16 rounded-[1.5rem] text-xl font-black shadow-xl shadow-accent/20 hover:scale-[1.02] transition-transform" onClick={handleSubmit} disabled={loading || !question.trim()}>
+        {loading ? <Loader2 className="animate-spin" /> : "Submit Doubt"}
+      </Button>
+
+      <div className="space-y-4 pt-4">
+        <h4 className="font-black text-accent uppercase text-xs tracking-[0.2em]">My Corner Doubts</h4>
+        <div className="grid gap-3">
+          {myPublicDoubts?.map(doubt => (
+            <Dialog key={doubt.id} onOpenChange={(open) => open && markAsOpened(doubt)}>
+              <DialogTrigger asChild>
+                <Card className={`cursor-pointer transition-all hover:shadow-lg rounded-2xl border-none shadow-sm ${doubt.status === 'answered' ? 'bg-green-50' : 'bg-white'}`}>
+                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <span className="font-bold text-xs truncate">{doubt.question}</span>
+                      <span className="text-[9px] text-muted-foreground uppercase font-black">{doubt.className}</span>
+                    </div>
+                    <Badge className={`rounded-lg px-2 py-0.5 text-[9px] ${doubt.status === 'answered' ? 'bg-green-600' : 'bg-yellow-500'}`}>
+                      {doubt.status === 'answered' ? 'Answered' : 'Pending'}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </DialogTrigger>
+              <DialogContent className="rounded-[2.5rem] p-10 max-w-xl">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-black text-accent">Public Corner Detail</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6 py-6">
+                  <div className="space-y-2">
+                    <Label className="font-black text-[10px] uppercase text-muted-foreground">Your Question</Label>
+                    <p className="p-4 bg-muted/20 rounded-xl font-medium">{doubt.question}</p>
+                  </div>
+                  {doubt.answer && (
+                    <div className="space-y-2">
+                      <Label className="font-black text-[10px] uppercase text-green-600">Mentor's Public Response</Label>
+                      <p className="p-6 bg-green-50 rounded-2xl font-bold text-lg text-green-900 border border-green-200">{doubt.answer}</p>
+                      <div className="flex justify-between items-center text-[10px] text-green-600/60 font-bold italic">
+                        <span>Answered by {doubt.mentorName || 'a Mentor'}</span>
+                        <span>* Auto-deletes 24h after opening.</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
