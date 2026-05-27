@@ -674,21 +674,31 @@ function Dashboard() {
 
   const handlePublicRegister = async () => {
     if (!db || !publicReg.name || !publicReg.classId) return;
-    const publicId = `PUBLIC-${Date.now()}`;
+    
+    // Create a stable ID from the name to "remember" the user across sessions
+    const normalizedName = publicReg.name.trim().toLowerCase().replace(/\s+/g, '-');
+    const publicId = `PUBLIC-${normalizedName}`;
+    
     const docRef = doc(db, 'students', publicId);
+    
+    // We update the class and name to the latest provided, but the ID remains the same.
+    // This effectively "logs in" an existing user if the name matches.
     const data = {
       id: publicId,
-      name: publicReg.name,
+      name: publicReg.name.trim(),
       class: publicReg.classId,
       role: 'public_student',
-      createdAt: serverTimestamp()
+      updatedAt: serverTimestamp() 
     };
-    setDoc(docRef, data).then(() => {
+
+    setDoc(docRef, data, { merge: true }).then(() => {
+      // Use the stable publicId to log in.
       login(publicId, '', 'student');
+      toast({ title: "Welcome back!", description: `Logged in as ${publicReg.name}` });
     }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
-        operation: 'create',
+        operation: 'write',
         requestResourceData: data
       }));
     });
@@ -734,7 +744,7 @@ function Dashboard() {
               <Users size={32} />
             </div>
             <CardTitle className="text-2xl font-bold">Students Corner</CardTitle>
-            <CardDescription>Register your name to access free education.</CardDescription>
+            <CardDescription>Enter your name and class to continue your learning.</CardDescription>
           </CardHeader>
           <CardContent className="p-8 space-y-6">
             <div className="space-y-2">
