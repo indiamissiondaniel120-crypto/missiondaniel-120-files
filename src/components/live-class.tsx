@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Video, Users, LogOut, ShieldCheck, Loader2, MonitorPlay, Sparkles } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Video, Users, LogOut, ShieldCheck, Loader2, MonitorPlay, Sparkles, BookOpen } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -21,45 +22,69 @@ export function LiveClassInterface() {
   const { user } = useAuth()
   const db = useFirestore()
   const { toast } = useToast()
+  
   const [sessionTitle, setSessionTitle] = useState('')
+  const [selectedClassId, setSelectedClassId] = useState('')
+  const [selectedSubjectId, setSelectedSubjectId] = useState('')
   const [loading, setLoading] = useState(false)
   const [activeRoom, setActiveRoom] = useState<any>(null)
 
   const isMentor = user?.role === 'mentor'
-  const isStudent = user?.role === 'student' || user?.role === 'public_student'
+  
+  // Fetch curriculum for mentor selection
+  const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db]);
+  const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db]);
+  const { data: allCourses } = useCollection(coursesQuery);
+  const { data: allSubjects } = useCollection(subjectsQuery);
 
-  // Sessions query: Filter by mentor if student is assigned, otherwise show all active
+  // Filtered subjects for the mentor's selection form
+  const availableSubjects = useMemo(() => {
+    if (!allSubjects || !selectedClassId) return [];
+    return allSubjects.filter(s => s.courseId === selectedClassId);
+  }, [allSubjects, selectedClassId]);
+
+  // Sessions query: Students only see sessions for their class
   const sessionsQuery = useMemo(() => {
-    if (!db) return null
-    if (user?.mentorId) {
-      return query(collection(db, 'liveSessions'), where('mentorId', '==', user.mentorId))
+    if (!db || !user) return null
+    if (isMentor) {
+      // Mentors see all sessions for monitoring
+      return collection(db, 'liveSessions')
+    }
+    // Students (Standard and Public) see sessions for THEIR class
+    if (user.class) {
+      return query(collection(db, 'liveSessions'), where('classId', '==', user.class))
     }
     return collection(db, 'liveSessions')
-  }, [db, user?.mentorId])
+  }, [db, user, isMentor])
 
   const { data: sessions } = useCollection(sessionsQuery)
 
   const handleStartClass = async () => {
-    if (!db || !user || !sessionTitle.trim()) return
+    if (!db || !user || !sessionTitle.trim() || !selectedClassId || !selectedSubjectId) return
     setLoading(true)
     
-    // Stable room name for "permanent" mentor class feel
+    const selectedCourse = allCourses?.find(c => c.id === selectedClassId);
+    const selectedSubject = allSubjects?.find(s => s.id === selectedSubjectId);
+
     const roomName = `D120-Live-${user.id}`
     const sessionData = {
       title: sessionTitle.trim(),
       mentorId: user.id,
       mentorName: user.name,
+      classId: selectedClassId,
+      className: selectedCourse?.name || 'Unknown Class',
+      subjectId: selectedSubjectId,
+      subjectName: selectedSubject?.name || 'General Subject',
       roomName,
       createdAt: serverTimestamp()
     }
 
-    // Use setDoc with the mentorId as docId to prevent duplicates and keep it permanent
     const docRef = doc(db, 'liveSessions', user.id);
     
     setDoc(docRef, sessionData).then(() => {
       setActiveRoom({ ...sessionData, id: user.id })
       setLoading(false)
-      toast({ title: "Live Class Started", description: "You are now hosting your permanent video session." })
+      toast({ title: "Live Class Started", description: `Broadcasting to ${selectedCourse?.name}` })
     }).catch(async (serverError) => {
       setLoading(false)
       errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -85,18 +110,19 @@ export function LiveClassInterface() {
   }
 
   if (activeRoom) {
-    // Construct Jitsi as a Service (JaaS) URL
-    // userInfo.displayName is passed to bypass login prompt
     const jitsiUrl = `https://8x8.vc/${JAAS_APP_ID}/${activeRoom.roomName}#config.prejoinPageEnabled=false&userInfo.displayName="${user?.name || 'Guest'}"&config.startWithAudioMuted=false&config.startWithVideoMuted=false`;
 
     return (
       <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-700">
         <div className="flex items-center justify-between px-4">
           <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">{activeRoom.className}</Badge>
+              <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20">{activeRoom.subjectName}</Badge>
+            </div>
             <h2 className="text-3xl font-black text-primary tracking-tighter flex items-center gap-2">
               <MonitorPlay className="text-accent" /> {activeRoom.title}
             </h2>
-            <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Permanent Mentor Room • Powered by JaaS</p>
           </div>
           {isMentor && (
             <Button variant="destructive" onClick={handleEndClass} className="rounded-xl px-8 h-12 font-black">
@@ -134,24 +160,50 @@ export function LiveClassInterface() {
               <CardTitle className="text-3xl font-black text-primary flex items-center gap-3">
                 <Sparkles className="text-accent" /> Host Daily Class
               </CardTitle>
-              <CardDescription className="font-bold text-base">Start your permanent live video room for assigned students.</CardDescription>
+              <CardDescription className="font-bold text-base">Select your target audience and subject to begin.</CardDescription>
             </CardHeader>
-            <CardContent className="p-10 pt-0 space-y-8">
-              <div className="space-y-2">
-                <Label className="font-black text-[10px] uppercase tracking-[0.2em] text-muted-foreground ml-1">Class Topic / Title</Label>
-                <Input 
-                  placeholder="e.g. Daily Mathematics Session" 
-                  className="rounded-2xl h-16 bg-white border-muted font-bold text-lg" 
-                  value={sessionTitle}
-                  onChange={e => setSessionTitle(e.target.value)}
-                />
+            <CardContent className="p-10 pt-0 space-y-6">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-black text-[10px] uppercase tracking-[0.2em] text-muted-foreground ml-1">Class Topic / Title</Label>
+                  <Input 
+                    placeholder="e.g. Daily Mathematics Session" 
+                    className="rounded-2xl h-16 bg-white border-muted font-bold text-lg" 
+                    value={sessionTitle}
+                    onChange={e => setSessionTitle(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="font-black text-[10px] uppercase tracking-[0.2em] text-muted-foreground ml-1">Target Class</Label>
+                    <Select onValueChange={setSelectedClassId} value={selectedClassId}>
+                      <SelectTrigger className="rounded-2xl h-14 bg-white border-muted font-bold">
+                        <SelectValue placeholder="Select Class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allCourses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="font-black text-[10px] uppercase tracking-[0.2em] text-muted-foreground ml-1">Subject</Label>
+                    <Select onValueChange={setSelectedSubjectId} value={selectedSubjectId} disabled={!selectedClassId}>
+                      <SelectTrigger className="rounded-2xl h-14 bg-white border-muted font-bold">
+                        <SelectValue placeholder="Select Subject" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSubjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
               <Button 
                 className="w-full h-16 rounded-[1.5rem] bg-accent text-xl font-black shadow-xl shadow-accent/20 hover:scale-[1.02] transition-transform"
                 onClick={handleStartClass}
-                disabled={loading || !sessionTitle.trim()}
+                disabled={loading || !sessionTitle.trim() || !selectedClassId || !selectedSubjectId}
               >
-                {loading ? <Loader2 className="animate-spin" /> : "Open My Room"}
+                {loading ? <Loader2 className="animate-spin" /> : "Start Live Session"}
               </Button>
             </CardContent>
           </Card>
@@ -159,7 +211,7 @@ export function LiveClassInterface() {
 
         <div className="space-y-6">
           <h3 className="text-2xl font-black text-primary px-4 flex items-center gap-2">
-            <Users className="text-accent" /> Active Mentor Sessions
+            <Users className="text-accent" /> {isMentor ? 'Active Campus Sessions' : 'Ongoing Classes for You'}
           </h3>
           <div className="grid gap-6">
             {sessions?.map(session => (
@@ -170,9 +222,13 @@ export function LiveClassInterface() {
                       <MonitorPlay size={32} />
                     </div>
                     <div>
-                      <Badge className="bg-green-600 mb-1 rounded-lg">IN SESSION</Badge>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge className="bg-green-600 rounded-lg">LIVE</Badge>
+                        <Badge variant="outline" className="text-[10px] uppercase font-black">{session.className}</Badge>
+                        <Badge variant="outline" className="text-[10px] uppercase font-black">{session.subjectName}</Badge>
+                      </div>
                       <h4 className="text-2xl font-black tracking-tight">{session.title}</h4>
-                      <p className="text-sm font-bold text-muted-foreground">Class with Mentor {session.mentorName}</p>
+                      <p className="text-sm font-bold text-muted-foreground">Mentor: {session.mentorName}</p>
                     </div>
                   </div>
                   <Button 
@@ -187,7 +243,9 @@ export function LiveClassInterface() {
             {(!sessions || sessions.length === 0) && (
               <div className="text-center py-24 bg-white/40 border-4 border-dashed rounded-[3rem] border-primary/10">
                 <Video size={48} className="mx-auto text-muted-foreground/30 mb-4" />
-                <p className="font-black text-muted-foreground/60 italic">No mentors are currently live.</p>
+                <p className="font-black text-muted-foreground/60 italic">
+                  {isMentor ? 'No sessions currently active.' : `No live classes scheduled for your class right now.`}
+                </p>
               </div>
             )}
           </div>
