@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from '@/components/auth-wrapper'
 import { useFirestore, useCollection } from '@/firebase'
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore'
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Video, Users, LogOut, ShieldCheck, Loader2, MonitorPlay, Sparkles, BookOpen } from 'lucide-react'
+import { Video, Users, LogOut, ShieldCheck, Loader2, MonitorPlay, Sparkles, BookOpen, Clock } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -31,6 +31,55 @@ export function LiveClassInterface() {
 
   const isMentor = user?.role === 'mentor'
   
+  // Attendance Pulse Timer Logic
+  useEffect(() => {
+    if (!activeRoom || !user || !db) return;
+
+    let timeoutId: NodeJS.Timeout;
+
+    const scheduleAttendanceMark = () => {
+      // Random interval between 3 and 12 minutes (averaging roughly 7.5 mins, within the requested ~10 min range)
+      // 3 mins = 180,000ms, 12 mins = 720,000ms
+      const min = 3 * 60 * 1000;
+      const max = 12 * 60 * 1000;
+      const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+
+      timeoutId = setTimeout(() => {
+        const collName = user.role.includes('student') ? 'students' : 'mentors';
+        const activityRef = collection(db, collName, user.id, 'activity');
+        const data = {
+          type: 'live_attendance_pulse',
+          timestamp: serverTimestamp(),
+          metadata: {
+            title: activeRoom.title, // Map to 'title' so it shows in the ActivityViewer
+            sessionId: activeRoom.id || activeRoom.roomName,
+            subjectName: activeRoom.subjectName,
+            className: activeRoom.className,
+            role: user.role
+          }
+        };
+
+        addDoc(activityRef, data).catch(async (serverError) => {
+           errorEmitter.emit('permission-error', new FirestorePermissionError({
+             path: activityRef.path,
+             operation: 'create',
+             requestResourceData: data
+           }));
+        });
+
+        // Recursively schedule next mark
+        scheduleAttendanceMark();
+      }, delay);
+    };
+
+    // Start the cycle
+    scheduleAttendanceMark();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [activeRoom?.id, activeRoom?.roomName, user?.id, user?.role, db]);
+
   // Fetch curriculum for mentor selection
   const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db]);
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db]);
@@ -119,6 +168,7 @@ export function LiveClassInterface() {
             <div className="flex items-center gap-2 mb-1">
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">{activeRoom.className}</Badge>
               <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20">{activeRoom.subjectName}</Badge>
+              <Badge variant="secondary" className="bg-green-100 text-green-700 gap-1"><Clock size={12} /> Auto-Attendance Active</Badge>
             </div>
             <h2 className="text-3xl font-black text-primary tracking-tighter flex items-center gap-2">
               <MonitorPlay className="text-accent" /> {activeRoom.title}
