@@ -23,6 +23,7 @@ import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { useAuth } from '@/components/auth-wrapper'
 
 const MATHS_CHAPTER_COUNT: Record<string, number> = {
   'class-4': 14,
@@ -79,11 +80,15 @@ function sortClasses(classes: any[]) {
 }
 
 export function StudentManagement() {
+  const { user } = useAuth()
   const db = useFirestore()
   const { toast } = useToast()
   
+  const isAdmin = user?.role === 'admin';
+  const isMentor = user?.role === 'mentor';
+
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('students')
+  const [activeTab, setActiveTab] = useState(isMentor ? 'academic-sheet' : 'students')
   const [overviewClassFilter, setOverviewClassFilter] = useState<string>('all')
   const [overviewSubjectSearch, setOverviewSubjectSearch] = useState<string>('')
 
@@ -107,6 +112,12 @@ export function StudentManagement() {
     chapter: number,
     materials: any[]
   } | null>(null);
+
+  useEffect(() => {
+    if (isMentor && activeTab !== 'academic-sheet') {
+      setActiveTab('academic-sheet');
+    }
+  }, [isMentor, activeTab]);
 
   const studentsQuery = useMemo(() => db ? collection(db, 'students') : null, [db])
   const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db])
@@ -133,7 +144,7 @@ export function StudentManagement() {
 
   const handleRegisterStudent = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!db || !studentForm.id || !studentForm.name) return
+    if (!db || !studentForm.id || !studentForm.name || !isAdmin) return
     setLoading(true)
     
     const batch = writeBatch(db);
@@ -141,7 +152,6 @@ export function StudentManagement() {
     const studentData = { ...studentForm, createdAt: serverTimestamp() };
     batch.set(studentRef, studentData);
 
-    // Also initialize the chat metadata for security rules
     if (studentForm.mentorId && studentForm.mentorId !== 'none') {
       const chatRef = doc(db, 'chats', studentForm.id);
       batch.set(chatRef, { assignedMentorId: studentForm.mentorId }, { merge: true });
@@ -165,7 +175,7 @@ export function StudentManagement() {
 
   const handleRegisterMentor = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!db || !mentorForm.id || !mentorForm.name) return
+    if (!db || !mentorForm.id || !mentorForm.name || !isAdmin) return
     setLoading(true)
     const docRef = doc(db, 'mentors', mentorForm.id)
     const data = { ...mentorForm, createdAt: serverTimestamp() };
@@ -187,7 +197,7 @@ export function StudentManagement() {
 
   const handleRegisterCourse = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!db || !courseForm.id || !courseForm.name) return
+    if (!db || !courseForm.id || !courseForm.name || !isAdmin) return
     setLoading(true)
     const docRef = doc(db, 'courses', courseForm.id)
     const data = { ...courseForm };
@@ -209,7 +219,7 @@ export function StudentManagement() {
 
   const handleAddSubject = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!db || !subjectForm.name) return
+    if (!db || !subjectForm.name || !isAdmin) return
     setLoading(true)
     const collRef = collection(db, 'subjects');
     const promises = subjectForm.selectedCourseIds.map(courseId => {
@@ -230,7 +240,7 @@ export function StudentManagement() {
 
   const handleUploadMaterial = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!db || !materialForm.courseId || !materialForm.subjectId) return
+    if (!db || !materialForm.courseId || !materialForm.subjectId || !isAdmin) return
     setIsUploading(true)
     setUploadProgress(50)
     const collRef = collection(db, 'materials');
@@ -253,7 +263,7 @@ export function StudentManagement() {
   }
 
   const handleDeleteSubject = (id: string) => {
-    if (!db) return;
+    if (!db || !isAdmin) return;
     const docRef = doc(db, 'subjects', id);
     deleteDoc(docRef).catch(async () => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -264,7 +274,7 @@ export function StudentManagement() {
   }
 
   const handleDeleteMaterial = (id: string) => {
-    if (!db) return;
+    if (!db || !isAdmin) return;
     const docRef = doc(db, 'materials', id);
     deleteDoc(docRef).catch(async () => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -275,13 +285,12 @@ export function StudentManagement() {
   }
 
   const handleUpdateStudent = () => {
-    if (!db || !editingStudent) return
+    if (!db || !editingStudent || !isAdmin) return
     setLoading(true)
     const batch = writeBatch(db);
     const studentRef = doc(db, 'students', editingStudent.id);
     batch.update(studentRef, { ...editingStudent });
 
-    // Ensure chat metadata stays in sync with mentor assignment for rules
     if (editingStudent.mentorId) {
       const chatRef = doc(db, 'chats', editingStudent.id);
       batch.set(chatRef, { assignedMentorId: editingStudent.mentorId }, { merge: true });
@@ -302,7 +311,7 @@ export function StudentManagement() {
   }
 
   const handleUpdateMaterial = () => {
-    if (!db || !editingMaterial) return
+    if (!db || !editingMaterial || !isAdmin) return
     setLoading(true)
     const docRef = doc(db, 'materials', editingMaterial.id);
     updateDoc(docRef, { ...editingMaterial }).then(() => {
@@ -383,157 +392,165 @@ export function StudentManagement() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4 bg-muted/50 p-1 flex-wrap h-auto">
-          <TabsTrigger value="students" className="flex items-center gap-2 px-6"><GraduationCap size={16} /> Students</TabsTrigger>
-          <TabsTrigger value="mentors" className="flex items-center gap-2 px-6"><UserRound size={16} /> Mentors</TabsTrigger>
-          <TabsTrigger value="courses" className="flex items-center gap-2 px-6"><BookOpen size={16} /> Classes</TabsTrigger>
-          <TabsTrigger value="materials" className="flex items-center gap-2 px-6"><Library size={16} /> Materials & Subjects</TabsTrigger>
+          {isAdmin && (
+            <>
+              <TabsTrigger value="students" className="flex items-center gap-2 px-6"><GraduationCap size={16} /> Students</TabsTrigger>
+              <TabsTrigger value="mentors" className="flex items-center gap-2 px-6"><UserRound size={16} /> Mentors</TabsTrigger>
+              <TabsTrigger value="courses" className="flex items-center gap-2 px-6"><BookOpen size={16} /> Classes</TabsTrigger>
+              <TabsTrigger value="materials" className="flex items-center gap-2 px-6"><Library size={16} /> Materials & Subjects</TabsTrigger>
+            </>
+          )}
           <TabsTrigger value="academic-sheet" className="flex items-center gap-2 px-6"><ListChecks size={16} /> Overview Sheet</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="students" className="space-y-8">
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <Card className="lg:col-span-1 border-accent/20">
-              <CardHeader><CardTitle className="text-accent flex items-center gap-2"><UserPlus size={20} /> Register Student</CardTitle></CardHeader>
-              <CardContent>
-                <form onSubmit={handleRegisterStudent} className="space-y-4">
-                  <div className="space-y-2"><Label>Student ID</Label><Input value={studentForm.id} onChange={e => setStudentForm({...studentForm, id: e.target.value})} disabled={loading} /></div>
-                  <div className="space-y-2"><Label>Password</Label><Input type="password" value={studentForm.password} onChange={e => setStudentForm({...studentForm, password: e.target.value})} disabled={loading} /></div>
-                  <div className="space-y-2"><Label>Full Name</Label><Input value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} disabled={loading} /></div>
-                  <div className="space-y-2"><Label>Class</Label>
-                    <Select onValueChange={v => setStudentForm({...studentForm, class: v})} value={studentForm.class} disabled={loading}>
-                      <SelectTrigger><SelectValue placeholder="Select Class" /></SelectTrigger>
-                      <SelectContent>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2"><Label>Mentor</Label>
-                    <Select onValueChange={v => setStudentForm({...studentForm, mentorId: v})} value={studentForm.mentorId} disabled={loading}>
-                      <SelectTrigger><SelectValue placeholder="Select Mentor" /></SelectTrigger>
-                      <SelectContent><SelectItem value="none">No Mentor</SelectItem>{mentors?.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <Button type="submit" className="w-full bg-accent" disabled={loading}>Add Student</Button>
-                </form>
-              </CardContent>
-            </Card>
-            <Card className="lg:col-span-2"><CardHeader><CardTitle>Registered Students</CardTitle></CardHeader>
-              <CardContent><div className="rounded-md border overflow-hidden">
-                <Table><TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Class</TableHead><TableHead>Mentor</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                  <TableBody>{students?.map((s: any) => (
-                    <TableRow key={s.id}><TableCell><div className="font-bold">{s.name}</div><div className="text-xs text-muted-foreground">{s.id}</div></TableCell>
-                      <TableCell className="capitalize">{courses?.find(c => c.id === s.class)?.name || s.class}</TableCell>
-                      <TableCell>{s.mentorId && s.mentorId !== 'none' ? mentors?.find(m => m.id === s.mentorId)?.name : 'None'}</TableCell>
-                      <TableCell className="text-right flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={() => setEditingStudent(s)}><Edit2 size={16} /></Button><ActivityViewer student={s} mentors={mentors || []} /></TableCell>
-                    </TableRow>))}
-                  </TableBody>
-                </Table></div></CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+        {isAdmin && (
+          <>
+            <TabsContent value="students" className="space-y-8">
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-1 border-accent/20">
+                  <CardHeader><CardTitle className="text-accent flex items-center gap-2"><UserPlus size={20} /> Register Student</CardTitle></CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleRegisterStudent} className="space-y-4">
+                      <div className="space-y-2"><Label>Student ID</Label><Input value={studentForm.id} onChange={e => setStudentForm({...studentForm, id: e.target.value})} disabled={loading} /></div>
+                      <div className="space-y-2"><Label>Password</Label><Input type="password" value={studentForm.password} onChange={e => setStudentForm({...studentForm, password: e.target.value})} disabled={loading} /></div>
+                      <div className="space-y-2"><Label>Full Name</Label><Input value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} disabled={loading} /></div>
+                      <div className="space-y-2"><Label>Class</Label>
+                        <Select onValueChange={v => setStudentForm({...studentForm, class: v})} value={studentForm.class} disabled={loading}>
+                          <SelectTrigger><SelectValue placeholder="Select Class" /></SelectTrigger>
+                          <SelectContent>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2"><Label>Mentor</Label>
+                        <Select onValueChange={v => setStudentForm({...studentForm, mentorId: v})} value={studentForm.mentorId} disabled={loading}>
+                          <SelectTrigger><SelectValue placeholder="Select Mentor" /></SelectTrigger>
+                          <SelectContent><SelectItem value="none">No Mentor</SelectItem>{mentors?.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <Button type="submit" className="w-full bg-accent" disabled={loading}>Add Student</Button>
+                    </form>
+                  </CardContent>
+                </Card>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Registered Students</CardTitle></CardHeader>
+                  <CardContent><div className="rounded-md border overflow-hidden">
+                    <Table><TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Class</TableHead><TableHead>Mentor</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                      <TableBody>{students?.map((s: any) => (
+                        <TableRow key={s.id}><TableCell><div className="font-bold">{s.name}</div><div className="text-xs text-muted-foreground">{s.id}</div></TableCell>
+                          <TableCell className="capitalize">{courses?.find(c => c.id === s.class)?.name || s.class}</TableCell>
+                          <TableCell>{s.mentorId && s.mentorId !== 'none' ? mentors?.find(m => m.id === s.mentorId)?.name : 'None'}</TableCell>
+                          <TableCell className="text-right flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={() => setEditingStudent(s)}><Edit2 size={16} /></Button><ActivityViewer student={s} mentors={mentors || []} /></TableCell>
+                        </TableRow>))}
+                      </TableBody>
+                    </Table></div></CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
-        <TabsContent value="mentors" className="space-y-8">
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <Card className="lg:col-span-1 border-orange-200"><CardHeader><CardTitle className="text-orange-600 flex items-center gap-2"><UserPlus size={20} /> Register Mentor</CardTitle></CardHeader>
-              <CardContent><form onSubmit={handleRegisterMentor} className="space-y-4">
-                  <div className="space-y-2"><Label>Mentor ID</Label><Input value={mentorForm.id} onChange={e => setMentorForm({...mentorForm, id: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Password</Label><Input type="password" value={mentorForm.password} onChange={e => setMentorForm({...mentorForm, password: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Name</Label><Input value={mentorForm.name} onChange={e => setMentorForm({...mentorForm, name: e.target.value})} /></div>
-                  <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600">Add Mentor</Button>
-                </form></CardContent>
-            </Card>
-            <Card className="lg:col-span-2"><CardHeader><CardTitle>Mentors</CardTitle></CardHeader>
-              <CardContent><Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Expertise</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                  <TableBody>{mentors?.map((m: any) => (<TableRow key={m.id}><TableCell className="font-bold">{m.name}</TableCell><TableCell>{m.expertise}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setEditingMentor(m)}><Edit2 size={16} /></Button></TableCell></TableRow>))}</TableBody>
-                </Table></CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+            <TabsContent value="mentors" className="space-y-8">
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-1 border-orange-200"><CardHeader><CardTitle className="text-orange-600 flex items-center gap-2"><UserPlus size={20} /> Register Mentor</CardTitle></CardHeader>
+                  <CardContent><form onSubmit={handleRegisterMentor} className="space-y-4">
+                      <div className="space-y-2"><Label>Mentor ID</Label><Input value={mentorForm.id} onChange={e => setMentorForm({...mentorForm, id: e.target.value})} /></div>
+                      <div className="space-y-2"><Label>Password</Label><Input type="password" value={mentorForm.password} onChange={e => setMentorForm({...mentorForm, password: e.target.value})} /></div>
+                      <div className="space-y-2"><Label>Name</Label><Input value={mentorForm.name} onChange={e => setMentorForm({...mentorForm, name: e.target.value})} /></div>
+                      <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600">Add Mentor</Button>
+                    </form></CardContent>
+                </Card>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Mentors</CardTitle></CardHeader>
+                  <CardContent><Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Expertise</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                      <TableBody>{mentors?.map((m: any) => (<TableRow key={m.id}><TableCell className="font-bold">{m.name}</TableCell><TableCell>{m.expertise}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setEditingMentor(m)}><Edit2 size={16} /></Button></TableCell></TableRow>))}</TableBody>
+                    </Table></CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
-        <TabsContent value="courses" className="space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <Card className="lg:col-span-1 border-primary/20"><CardHeader><CardTitle className="text-primary flex items-center gap-2"><BookOpen size={20} /> Add Class</CardTitle></CardHeader>
-              <CardContent><form onSubmit={handleRegisterCourse} className="space-y-4">
-                  <div className="space-y-2"><Label>Class ID</Label><Input value={courseForm.id} onChange={e => setCourseForm({...courseForm, id: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Name</Label><Input value={courseForm.name} onChange={e => setCourseForm({...courseForm, name: e.target.value})} /></div>
-                  <Button type="submit" className="w-full bg-primary">Add Class</Button>
-                </form></CardContent>
-            </Card>
-            <Card className="lg:col-span-2"><CardHeader><CardTitle>Available Classes</CardTitle></CardHeader>
-              <CardContent><Table><TableHeader><TableRow><TableHead>Class</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                  <TableBody>{courses?.map((c: any) => (<TableRow key={c.id}><TableCell className="font-bold">{c.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setEditingCourse(c)}><Edit2 size={16} /></Button></TableCell></TableRow>))}</TableBody>
-                </Table></CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+            <TabsContent value="courses" className="space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-1 border-primary/20"><CardHeader><CardTitle className="text-primary flex items-center gap-2"><BookOpen size={20} /> Add Class</CardTitle></CardHeader>
+                  <CardContent><form onSubmit={handleRegisterCourse} className="space-y-4">
+                      <div className="space-y-2"><Label>Class ID</Label><Input value={courseForm.id} onChange={e => setCourseForm({...courseForm, id: e.target.value})} /></div>
+                      <div className="space-y-2"><Label>Name</Label><Input value={courseForm.name} onChange={e => setCourseForm({...courseForm, name: e.target.value})} /></div>
+                      <Button type="submit" className="w-full bg-primary">Add Class</Button>
+                    </form></CardContent>
+                </Card>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Available Classes</CardTitle></CardHeader>
+                  <CardContent><Table><TableHeader><TableRow><TableHead>Class</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                      <TableBody>{courses?.map((c: any) => (<TableRow key={c.id}><TableCell className="font-bold">{c.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setEditingCourse(c)}><Edit2 size={16} /></Button></TableCell></TableRow>))}</TableBody>
+                    </Table></CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
-        <TabsContent value="materials" className="space-y-8">
-          <div className="flex justify-end mb-4"><BulkUploadDialog courses={courses || []} subjects={subjects || []} materials={materials || []} /></div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Card className="border-accent/20">
-              <CardHeader><CardTitle className="text-accent flex items-center gap-2"><Plus size={20} /> Batch Manage Subjects</CardTitle></CardHeader>
-              <CardContent className="space-y-6">
-                <form onSubmit={handleAddSubject} className="space-y-6">
-                  <div className="space-y-2"><Label>Subject Name</Label><Input value={subjectForm.name} onChange={e => setSubjectForm({...subjectForm, name: e.target.value})} /></div>
-                  <div className="space-y-3"><Label>Classes</Label><ScrollArea className="h-[200px] border rounded-lg p-3">
-                      <div className="grid grid-cols-1 gap-3">{courses?.map(course => (
-                        <div key={course.id} className="flex items-center space-x-2"><Checkbox id={course.id} checked={subjectForm.selectedCourseIds.includes(course.id)} onCheckedChange={() => {
-                          setSubjectForm(p => ({...p, selectedCourseIds: p.selectedCourseIds.includes(course.id) ? p.selectedCourseIds.filter(id => id !== course.id) : [...p.selectedCourseIds, course.id]}))
-                        }} /><label htmlFor={course.id}>{course.name}</label></div>))}
-                      </div></ScrollArea></div>
-                  <Button type="submit" className="w-full bg-accent" disabled={loading}>Create Subject</Button>
-                </form>
-                <div className="pt-6 border-t"><ScrollArea className="h-[250px]"><Table><TableHeader><TableRow><TableHead>Subject</TableHead><TableHead>Class</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                  <TableBody>{subjects?.map((s: any) => (<TableRow key={s.id}><TableCell>{s.name}</TableCell><TableCell>{courses?.find(c => c.id === s.courseId)?.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => handleDeleteSubject(s.id)}><Trash2 size={14} /></Button></TableCell></TableRow>))}</TableBody>
-                </Table></ScrollArea></div>
-              </CardContent>
-            </Card>
-            <Card className="border-primary/20">
-              <CardHeader><CardTitle className="text-primary flex items-center gap-2"><Library size={20} /> Add Materials</CardTitle></CardHeader>
-              <CardContent className="space-y-6">
-                <form onSubmit={handleUploadMaterial} className="space-y-4">
-                  <div className="space-y-2"><Label>Title</Label><Input value={materialForm.title} onChange={e => setMaterialForm({...materialForm, title: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Type</Label><RadioGroup value={materialForm.type} onValueChange={(v: any) => setMaterialForm({...materialForm, type: v})} className="flex gap-4">
-                      <div className="flex items-center space-x-2"><RadioGroupItem value="video" id="v" /><Label htmlFor="v">Video</Label></div>
-                      <div className="flex items-center space-x-2"><RadioGroupItem value="pdf" id="p" /><Label htmlFor="p">Note</Label></div>
-                    </RadioGroup></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Select onValueChange={v => setMaterialForm({...materialForm, courseId: v, subjectId: ''})} value={materialForm.courseId}><SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
-                    <Select onValueChange={v => setMaterialForm({...materialForm, subjectId: v})} value={materialForm.subjectId} disabled={!materialForm.courseId}><SelectTrigger><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects?.filter(s => s.courseId === materialForm.courseId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
-                  </div>
-                  <div className="space-y-2"><Label>Chapter</Label><Input type="number" value={materialForm.chapter} onChange={e => setMaterialForm({...materialForm, chapter: Number(e.target.value)})} /></div>
-                  <div className="space-y-2"><Label>URL</Label><Input value={materialForm.url} onChange={e => setMaterialForm({...materialForm, url: e.target.value})} /></div>
-                  <Button className="w-full bg-primary" disabled={isUploading}>Save Material</Button>
-                </form>
-                <ScrollArea className="h-[250px]"><Table><TableHeader><TableRow><TableHead>Preview</TableHead><TableHead>Material</TableHead><TableHead>Details</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                  <TableBody>{sortedMaterials?.map((m: any) => {
-                    const youtubeId = getYouTubeID(m.url);
-                    const thumbnail = youtubeId ? `https://img.youtube.com/vi/${youtubeId}/default.jpg` : null;
-                    return (
-                      <TableRow key={m.id}>
-                        <TableCell>
-                          <div className="h-10 w-16 border rounded overflow-hidden flex items-center justify-center bg-muted/30">
-                            {m.type === 'video' ? (
-                              thumbnail ? (
-                                <img src={thumbnail} alt="preview" className="w-full h-full object-cover" />
-                              ) : <PlayCircle size={18} />
-                            ) : <FileText size={18} />}
-                          </div>
-                        </TableCell>
-                        <TableCell><span className="text-sm font-medium">{m.title}</span></TableCell>
-                        <TableCell>
-                           <div className="flex flex-col gap-0.5">
-                             <span className="text-[10px] uppercase font-bold text-primary">{courses?.find(c => c.id === m.courseId)?.name}</span>
-                             <span className="text-[9px] text-muted-foreground font-bold">Chapter {m.chapter}</span>
-                           </div>
-                        </TableCell>
-                        <TableCell className="text-right flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)}><Trash2 size={12} /></Button></TableCell>
-                      </TableRow>
-                    )
-                  })}</TableBody>
-                </Table></ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+            <TabsContent value="materials" className="space-y-8">
+              <div className="flex justify-end mb-4"><BulkUploadDialog courses={courses || []} subjects={subjects || []} materials={materials || []} /></div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card className="border-accent/20">
+                  <CardHeader><CardTitle className="text-accent flex items-center gap-2"><Plus size={20} /> Batch Manage Subjects</CardTitle></CardHeader>
+                  <CardContent className="space-y-6">
+                    <form onSubmit={handleAddSubject} className="space-y-6">
+                      <div className="space-y-2"><Label>Subject Name</Label><Input value={subjectForm.name} onChange={e => setSubjectForm({...subjectForm, name: e.target.value})} /></div>
+                      <div className="space-y-3"><Label>Classes</Label><ScrollArea className="h-[200px] border rounded-lg p-3">
+                          <div className="grid grid-cols-1 gap-3">{courses?.map(course => (
+                            <div key={course.id} className="flex items-center space-x-2"><Checkbox id={course.id} checked={subjectForm.selectedCourseIds.includes(course.id)} onCheckedChange={() => {
+                              setSubjectForm(p => ({...p, selectedCourseIds: p.selectedCourseIds.includes(course.id) ? p.selectedCourseIds.filter(id => id !== course.id) : [...p.selectedCourseIds, course.id]}))
+                            }} /><label htmlFor={course.id}>{course.name}</label></div>))}
+                          </div></ScrollArea></div>
+                      <Button type="submit" className="w-full bg-accent" disabled={loading}>Create Subject</Button>
+                    </form>
+                    <div className="pt-6 border-t"><ScrollArea className="h-[250px]"><Table><TableHeader><TableRow><TableHead>Subject</TableHead><TableHead>Class</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                      <TableBody>{subjects?.map((s: any) => (<TableRow key={s.id}><TableCell>{s.name}</TableCell><TableCell>{courses?.find(c => c.id === s.courseId)?.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => handleDeleteSubject(s.id)}><Trash2 size={14} /></Button></TableCell></TableRow>))}</TableBody>
+                    </Table></ScrollArea></div>
+                  </CardContent>
+                </Card>
+                <Card className="border-primary/20">
+                  <CardHeader><CardTitle className="text-primary flex items-center gap-2"><Library size={20} /> Add Materials</CardTitle></CardHeader>
+                  <CardContent className="space-y-6">
+                    <form onSubmit={handleUploadMaterial} className="space-y-4">
+                      <div className="space-y-2"><Label>Title</Label><Input value={materialForm.title} onChange={e => setMaterialForm({...materialForm, title: e.target.value})} /></div>
+                      <div className="space-y-2"><Label>Type</Label><RadioGroup value={materialForm.type} onValueChange={(v: any) => setMaterialForm({...materialForm, type: v})} className="flex gap-4">
+                          <div className="flex items-center space-x-2"><RadioGroupItem value="video" id="v" /><Label htmlFor="v">Video</Label></div>
+                          <div className="flex items-center space-x-2"><RadioGroupItem value="pdf" id="p" /><Label htmlFor="p">Note</Label></div>
+                        </RadioGroup></div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Select onValueChange={v => setMaterialForm({...materialForm, courseId: v, subjectId: ''})} value={materialForm.courseId}><SelectTrigger><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={v => setMaterialForm({...materialForm, subjectId: v})} value={materialForm.subjectId} disabled={!materialForm.courseId}><SelectTrigger><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects?.filter(s => s.courseId === materialForm.courseId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
+                      </div>
+                      <div className="space-y-2"><Label>Chapter</Label><Input type="number" value={materialForm.chapter} onChange={e => setMaterialForm({...materialForm, chapter: Number(e.target.value)})} /></div>
+                      <div className="space-y-2"><Label>URL</Label><Input value={materialForm.url} onChange={e => setMaterialForm({...materialForm, url: e.target.value})} /></div>
+                      <Button className="w-full bg-primary" disabled={isUploading}>Save Material</Button>
+                    </form>
+                    <ScrollArea className="h-[250px]"><Table><TableHeader><TableRow><TableHead>Preview</TableHead><TableHead>Material</TableHead><TableHead>Details</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                      <TableBody>{sortedMaterials?.map((m: any) => {
+                        const youtubeId = getYouTubeID(m.url);
+                        const thumbnail = youtubeId ? `https://img.youtube.com/vi/${youtubeId}/default.jpg` : null;
+                        return (
+                          <TableRow key={m.id}>
+                            <TableCell>
+                              <div className="h-10 w-16 border rounded overflow-hidden flex items-center justify-center bg-muted/30">
+                                {m.type === 'video' ? (
+                                  thumbnail ? (
+                                    <img src={thumbnail} alt="preview" className="w-full h-full object-cover" />
+                                  ) : <PlayCircle size={18} />
+                                ) : <FileText size={18} />}
+                              </div>
+                            </TableCell>
+                            <TableCell><span className="text-sm font-medium">{m.title}</span></TableCell>
+                            <TableCell>
+                               <div className="flex flex-col gap-0.5">
+                                 <span className="text-[10px] uppercase font-bold text-primary">{courses?.find(c => c.id === m.courseId)?.name}</span>
+                                 <span className="text-[9px] text-muted-foreground font-bold">Chapter {m.chapter}</span>
+                               </div>
+                            </TableCell>
+                            <TableCell className="text-right flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)}><Trash2 size={12} /></Button></TableCell>
+                          </TableRow>
+                        )
+                      })}</TableBody>
+                    </Table></ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </>
+        )}
 
         <TabsContent value="academic-sheet">
           <Card className="border-accent/20">
@@ -625,12 +642,6 @@ export function StudentManagement() {
                                       F: {r.pdfs.length}
                                     </Badge>
                                   </div>
-                                  {r.videos.length > 0 && (
-                                    <div className="flex gap-1 overflow-hidden">
-                                      {r.videos.slice(0, 2).map(v => <span key={v.id} className="text-[8px] text-muted-foreground truncate max-w-[80px]">· {v.title}</span>)}
-                                      {r.videos.length > 2 && <span className="text-[8px] text-muted-foreground">...</span>}
-                                    </div>
-                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -638,9 +649,6 @@ export function StudentManagement() {
                         })
                       })
                     })}
-                    {filteredCoursesForSheet?.length === 0 && (
-                      <TableRow><TableCell colSpan={3} className="text-center py-12 text-muted-foreground italic">No data found for these filters.</TableCell></TableRow>
-                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -707,14 +715,118 @@ export function StudentManagement() {
   )
 }
 
-interface BulkRow {
-  chapter: number;
-  title: string;
-  videoUrl: string;
-  videoId?: string;
-  pdfUrl: string;
-  pdfId?: string;
-  isFetchingTitle?: boolean;
+export function ActivityViewer({ student, mentors }: { student: any, mentors: any[] }) {
+  const db = useFirestore()
+  const { toast } = useToast()
+  const activityQuery = useMemo(() => db && student.id ? query(collection(db, 'students', student.id, 'activity'), orderBy('timestamp', 'desc')) : null, [db, student.id])
+  const { data: activities, loading } = useCollection(activityQuery)
+
+  const downloadAttendanceCSV = () => {
+    if (!activities) return
+    const headers = ["Date", "Event Type", "Item/Title", "Chapter", "Duration (Seconds)"]
+    const rows = activities.map((log: any) => {
+      const date = log.timestamp?.toDate()?.toLocaleString() || '';
+      const type = log.type || '';
+      const item = log.metadata?.title || (log.type === 'login' || log.type === 'logout' ? '' : '-');
+      const chapter = log.metadata?.chapter || '-';
+      const duration = log.duration || 0;
+      return [date, type, item, chapter, duration]
+    })
+    
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `attendance_report_${student.id}.csv`);
+    document.body.appendChild(link);
+    link.click();
+  }
+
+  const downloadChatCSV = async () => {
+    if (!db) return;
+    toast({ title: "Preparing chat history..." });
+    
+    try {
+      const chatsRef = collection(db, 'chats');
+      const chatsSnap = await getDocs(chatsRef);
+      let allMessages: any[] = [];
+
+      for (const chatDoc of chatsSnap.docs) {
+        if (chatDoc.id.includes(student.id)) {
+          const msgsRef = collection(db, 'chats', chatDoc.id, 'messages');
+          const msgsSnap = await getDocs(query(msgsRef, orderBy('timestamp', 'asc')));
+          allMessages = [...allMessages, ...msgsSnap.docs.map(d => ({ ...d.data(), chatId: chatDoc.id }))];
+        }
+      }
+
+      const publicDoubtsRef = collection(db, 'publicDoubts');
+      const publicSnap = await getDocs(query(publicDoubtsRef, where('studentId', '==', student.id)));
+      
+      for (const doubtDoc of publicSnap.docs) {
+        const msgsRef = collection(db, 'chats', `public_${doubtDoc.id}`, 'messages');
+        const msgsSnap = await getDocs(query(msgsRef, orderBy('timestamp', 'asc')));
+        allMessages = [...allMessages, ...msgsSnap.docs.map(d => ({ ...d.data(), chatId: `public_${doubtDoc.id}` }))];
+      }
+
+      const headers = ["Date", "Chat Room", "Sender", "Message"]
+      const rows = allMessages.map(m => [
+        m.timestamp?.toDate()?.toLocaleString() || '',
+        m.chatId,
+        m.senderName,
+        m.text.replace(/"/g, '""')
+      ]);
+
+      const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const link = document.createElement("a");
+      link.setAttribute("href", encodeURI(csvContent));
+      link.setAttribute("download", `chat_history_${student.id}.csv`);
+      document.body.appendChild(link);
+      link.click();
+    } catch (e) {
+    }
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild><Button variant="ghost" size="sm" className="text-accent"><Activity size={16} /></Button></DialogTrigger>
+      <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
+        <DialogHeader className="flex items-center justify-between border-b pb-4">
+          <div>
+            <DialogTitle>Activity & Attendance: {student.name}</DialogTitle>
+            <DialogDescription>Review student engagement and downloads logs.</DialogDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={downloadAttendanceCSV} className="gap-2">
+              <FileSpreadsheet size={16} /> Attendance
+            </Button>
+            <Button variant="outline" size="sm" onClick={downloadChatCSV} className="gap-2">
+              <MessageSquare size={16} /> Chats
+            </Button>
+          </div>
+        </DialogHeader>
+        <ScrollArea className="flex-1 mt-4">
+          {loading ? <Loader2 className="animate-spin mx-auto mt-8" /> : (
+            <div className="space-y-3">
+              {activities?.length === 0 && <p className="text-center text-muted-foreground py-8 italic">No activity recorded yet.</p>}
+              {activities?.map((log: any, i: number) => (
+                <div key={i} className="p-4 border rounded-2xl flex items-center justify-between bg-muted/20 hover:bg-muted/30 transition-colors">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-bold text-sm uppercase text-primary">{log.type?.replace('_', ' ')}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {log.metadata?.title ? `${log.metadata.title} (Ch ${log.metadata.chapter})` : ''}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-medium text-foreground">{log.timestamp?.toDate()?.toLocaleString()}</div>
+                    {log.duration > 0 && <div className="text-[10px] text-accent font-bold">Duration: {log.duration}s</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], subjects: any[], materials: any[] }) {
@@ -888,12 +1000,6 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
       });
   }
 
-  const emptySummary = useMemo(() => {
-    return bulkRows.filter(r => !r.videoUrl.trim() || !r.pdfUrl.trim())
-      .map(r => `Chapter ${r.chapter} (${!r.videoUrl.trim() ? 'Video missing' : ''}${!r.videoUrl.trim() && !r.pdfUrl.trim() ? ', ' : ''}${!r.pdfUrl.trim() ? 'PDF missing' : ''})`)
-      .join("; ")
-  }, [bulkRows])
-
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -955,8 +1061,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="text-orange-500" /> Missing Information</AlertDialogTitle>
             <AlertDialogDescription>
-              The following chapters are missing links: <br/><strong>{emptySummary}</strong><br/><br/>
-              Would you like to go back and add the data, or continue and leave them empty (nil)?
+              Some chapters are missing links. Continue anyway?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -969,117 +1074,12 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   )
 }
 
-function ActivityViewer({ student, mentors }: { student: any, mentors: any[] }) {
-  const db = useFirestore()
-  const activityQuery = useMemo(() => db && student.id ? query(collection(db, 'students', student.id, 'activity'), orderBy('timestamp', 'desc')) : null, [db, student.id])
-  const { data: activities, loading } = useCollection(activityQuery)
-
-  const downloadAttendanceCSV = () => {
-    if (!activities) return
-    const headers = ["Date", "Event Type", "Item/Title", "Chapter", "Duration (Seconds)"]
-    const rows = activities.map((log: any) => {
-      const date = log.timestamp?.toDate()?.toLocaleString() || '';
-      const type = log.type || '';
-      const item = log.metadata?.title || (log.type === 'login' || log.type === 'logout' ? '' : '-');
-      const chapter = log.metadata?.chapter || '-';
-      const duration = log.duration || 0;
-      return [date, type, item, chapter, duration]
-    })
-    
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `attendance_report_${student.id}.csv`);
-    document.body.appendChild(link);
-    link.click();
-  }
-
-  const downloadChatCSV = async () => {
-    if (!db) return;
-    toast({ title: "Preparing chat history..." });
-    
-    try {
-      // Get private chats
-      const chatsRef = collection(db, 'chats');
-      const chatsSnap = await getDocs(chatsRef);
-      let allMessages: any[] = [];
-
-      for (const chatDoc of chatsSnap.docs) {
-        if (chatDoc.id.includes(student.id)) {
-          const msgsRef = collection(db, 'chats', chatDoc.id, 'messages');
-          const msgsSnap = await getDocs(query(msgsRef, orderBy('timestamp', 'asc')));
-          allMessages = [...allMessages, ...msgsSnap.docs.map(d => ({ ...d.data(), chatId: chatDoc.id }))];
-        }
-      }
-
-      // Get public doubts
-      const publicDoubtsRef = collection(db, 'publicDoubts');
-      const publicSnap = await getDocs(query(publicDoubtsRef, where('studentId', '==', student.id)));
-      
-      for (const doubtDoc of publicSnap.docs) {
-        const msgsRef = collection(db, 'chats', `public_${doubtDoc.id}`, 'messages');
-        const msgsSnap = await getDocs(query(msgsRef, orderBy('timestamp', 'asc')));
-        allMessages = [...allMessages, ...msgsSnap.docs.map(d => ({ ...d.data(), chatId: `public_${doubtDoc.id}` }))];
-      }
-
-      const headers = ["Date", "Chat Room", "Sender", "Message"]
-      const rows = allMessages.map(m => [
-        m.timestamp?.toDate()?.toLocaleString() || '',
-        m.chatId,
-        m.senderName,
-        m.text.replace(/"/g, '""')
-      ]);
-
-      const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
-      const link = document.createElement("a");
-      link.setAttribute("href", encodeURI(csvContent));
-      link.setAttribute("download", `chat_history_${student.id}.csv`);
-      document.body.appendChild(link);
-      link.click();
-    } catch (e) {
-    }
-  }
-
-  return (
-    <Dialog>
-      <DialogTrigger asChild><Button variant="ghost" size="sm" className="text-accent"><Activity size={16} /></Button></DialogTrigger>
-      <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
-        <DialogHeader className="flex items-center justify-between border-b pb-4">
-          <div>
-            <DialogTitle>Activity & Attendance: {student.name}</DialogTitle>
-            <DialogDescription>Review student engagement and downloads logs.</DialogDescription>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={downloadAttendanceCSV} className="gap-2">
-              <FileSpreadsheet size={16} /> Attendance
-            </Button>
-            <Button variant="outline" size="sm" onClick={downloadChatCSV} className="gap-2">
-              <MessageSquare size={16} /> Chats
-            </Button>
-          </div>
-        </DialogHeader>
-        <ScrollArea className="flex-1 mt-4">
-          {loading ? <Loader2 className="animate-spin mx-auto mt-8" /> : (
-            <div className="space-y-3">
-              {activities?.length === 0 && <p className="text-center text-muted-foreground py-8 italic">No activity recorded yet.</p>}
-              {activities?.map((log: any, i: number) => (
-                <div key={i} className="p-4 border rounded-2xl flex items-center justify-between bg-muted/20 hover:bg-muted/30 transition-colors">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-bold text-sm uppercase text-primary">{log.type?.replace('_', ' ')}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {log.metadata?.title ? `${log.metadata.title} (Ch ${log.metadata.chapter})` : ''}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs font-medium text-foreground">{log.timestamp?.toDate()?.toLocaleString()}</div>
-                    {log.duration > 0 && <div className="text-[10px] text-accent font-bold">Duration: {log.duration}s</div>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
-  )
+interface BulkRow {
+  chapter: number;
+  title: string;
+  videoUrl: string;
+  videoId?: string;
+  pdfUrl: string;
+  pdfId?: string;
+  isFetchingTitle?: boolean;
 }

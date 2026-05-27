@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -8,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { AICompanion } from '@/components/ai-companion';
 import { Badge } from '@/components/ui/badge';
-import { StudentManagement } from '@/components/student-management';
+import { StudentManagement, ActivityViewer } from '@/components/student-management';
 import { InactivityMonitor } from '@/components/inactivity-monitor';
 import { ChatInterface } from '@/components/chat-interface';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
@@ -16,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, MessageSquare, Sparkles, ShieldCheck, HeartHandshake, Search, Send, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, User, ExternalLink } from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, MessageSquare, Sparkles, ShieldCheck, HeartHandshake, Search, Send, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, User, ExternalLink, Activity } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -143,7 +144,7 @@ function PublicDoubtsQueue({ mentorId, mentorName }: { mentorId: string, mentorN
   );
 }
 
-function MentorMyStudents({ mentorId, mentorName }: { mentorId: string, mentorName: string }) {
+function MentorMyStudents({ mentorId, mentorName, allMentors }: { mentorId: string, mentorName: string, allMentors: any[] }) {
   const db = useFirestore();
   const studentsQuery = useMemo(() => db ? query(collection(db, 'students'), where('mentorId', '==', mentorId)) : null, [db]);
   const { data: myStudents } = useCollection(studentsQuery);
@@ -152,16 +153,21 @@ function MentorMyStudents({ mentorId, mentorName }: { mentorId: string, mentorNa
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><Users className="text-accent" /> Daniel 120 - My Assigned Students</h3>
+      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><Users className="text-accent" /> My Assigned Students</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {myStudents.map(student => (
           <Card key={student.id} className="border-primary/20 bg-primary/5">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <UserRound size={16} className="text-primary" />
-                {student.name}
-              </CardTitle>
-              <CardDescription className="text-xs">Class: {student.class}</CardDescription>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <UserRound size={16} className="text-primary" />
+                    {student.name}
+                  </CardTitle>
+                  <CardDescription className="text-xs">Class: {student.class}</CardDescription>
+                </div>
+                <ActivityViewer student={student} mentors={allMentors} />
+              </div>
             </CardHeader>
             <CardContent>
               <Dialog>
@@ -381,10 +387,12 @@ function Dashboard() {
   const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db]);
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db]);
   const materialsQuery = useMemo(() => db ? collection(db, 'materials') : null, [db]);
+  const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db]);
 
   const { data: allCourses } = useCollection(coursesQuery);
   const { data: allSubjects } = useCollection(subjectsQuery);
   const { data: allMaterials } = useCollection(materialsQuery);
+  const { data: allMentors } = useCollection(mentorsQuery);
 
   const sortedCourses = useMemo(() => sortClasses(allCourses || []), [allCourses]);
 
@@ -509,7 +517,8 @@ function Dashboard() {
               {(isAdmin || isMentor) && (
                 <SidebarMenuItem>
                   <SidebarMenuButton isActive={showAdminPanel} onClick={() => setShowAdminPanel(true)} className="py-8 rounded-2xl bg-white/20 text-white font-black hover:bg-white/30 border border-white/20 mb-4">
-                    <Users className="mr-2" /> {isAdmin ? 'Management Panel' : 'Mentor Dashboard'}
+                    {isAdmin ? <Users className="mr-2" /> : <ListChecks className="mr-2" />} 
+                    {isAdmin ? 'Management Panel' : 'Academic Overview'}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
@@ -548,7 +557,7 @@ function Dashboard() {
 
                 {isMentor && (
                   <>
-                    <MentorMyStudents mentorId={user.id} mentorName={user.name} />
+                    <MentorMyStudents mentorId={user.id} mentorName={user.name} allMentors={allMentors || []} />
                     <PublicDoubtsQueue mentorId={user.id} mentorName={user.name} />
                   </>
                 )}
@@ -752,7 +761,6 @@ function PublicDoubtFlow({ selectedClassName }: { selectedClassName: string }) {
   const db = useFirestore();
   const [question, setQuestion] = useState('');
   
-  // Query to see if the user has an active doubt
   const doubtsQuery = useMemo(() => {
     if (!db || !user) return null;
     return query(collection(db, 'publicDoubts'), where('studentId', '==', user.id), where('status', 'in', ['open', 'answered']));
