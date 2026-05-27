@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -652,11 +651,24 @@ function Dashboard() {
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db]);
   const materialsQuery = useMemo(() => db ? collection(db, 'materials') : null, [db]);
   const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db]);
+  
+  // Query to detect ongoing live classes for the relevant notification
+  const liveSessionsIndicatorQuery = useMemo(() => {
+    if (!db || !user) return null;
+    if (user.class) {
+      return query(collection(db, 'liveSessions'), where('classId', '==', user.class));
+    }
+    // Mentors/Admins just see all active sessions
+    return collection(db, 'liveSessions');
+  }, [db, user]);
 
   const { data: allCourses } = useCollection(coursesQuery);
   const { data: allSubjects } = useCollection(subjectsQuery);
   const { data: allMaterials } = useCollection(materialsQuery);
   const { data: allMentors } = useCollection(mentorsQuery);
+  const { data: activeLiveSessions } = useCollection(liveSessionsIndicatorQuery);
+
+  const hasLiveSession = useMemo(() => (activeLiveSessions?.length || 0) > 0, [activeLiveSessions]);
 
   const sortedCourses = useMemo(() => sortClasses(allCourses || []), [allCourses]);
 
@@ -784,8 +796,15 @@ function Dashboard() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeMenu === 'live'} onClick={() => setActiveMenu('live')} className="py-8 rounded-2xl hover:bg-white/10 text-white font-bold mb-2 bg-accent/20 border border-accent/30">
-                  <Video className="mr-2 text-accent" /> Live Classes
+                <SidebarMenuButton isActive={activeMenu === 'live'} onClick={() => setActiveMenu('live')} className="py-8 rounded-2xl hover:bg-white/10 text-white font-bold mb-2 bg-accent/20 border border-accent/30 relative">
+                  <Video className="mr-2 text-accent" /> 
+                  <span>Live Classes</span>
+                  {hasLiveSession && (
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {(isAdmin || isMentor) && (
