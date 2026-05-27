@@ -27,6 +27,22 @@
         "mentorId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "An administrative user.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      }
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "A chat session document.",
+      "type": "object",
+      "properties": {
+        "assignedMentorId": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -40,6 +56,14 @@
     "/publicDoubts/{doubtId}": {
       "schema": "PublicDoubt",
       "description": "Doubts from the public Students Corner."
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Administrative user records for security rules."
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Private chat metadata."
     }
   }
 }

@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -134,9 +135,19 @@ export function StudentManagement() {
     e.preventDefault()
     if (!db || !studentForm.id || !studentForm.name) return
     setLoading(true)
-    const docRef = doc(db, 'students', studentForm.id)
-    const data = { ...studentForm, createdAt: serverTimestamp() };
-    setDoc(docRef, data)
+    
+    const batch = writeBatch(db);
+    const studentRef = doc(db, 'students', studentForm.id);
+    const studentData = { ...studentForm, createdAt: serverTimestamp() };
+    batch.set(studentRef, studentData);
+
+    // Also initialize the chat metadata for security rules
+    if (studentForm.mentorId && studentForm.mentorId !== 'none') {
+      const chatRef = doc(db, 'chats', studentForm.id);
+      batch.set(chatRef, { assignedMentorId: studentForm.mentorId }, { merge: true });
+    }
+
+    batch.commit()
       .then(() => {
         toast({ title: "Student Registered" })
         setStudentForm({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
@@ -145,9 +156,9 @@ export function StudentManagement() {
       .catch(async () => {
         setLoading(false)
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: docRef.path,
+          path: studentRef.path,
           operation: 'write',
-          requestResourceData: data
+          requestResourceData: studentData
         }));
       });
   }
@@ -266,15 +277,24 @@ export function StudentManagement() {
   const handleUpdateStudent = () => {
     if (!db || !editingStudent) return
     setLoading(true)
-    const docRef = doc(db, 'students', editingStudent.id);
-    updateDoc(docRef, { ...editingStudent }).then(() => {
+    const batch = writeBatch(db);
+    const studentRef = doc(db, 'students', editingStudent.id);
+    batch.update(studentRef, { ...editingStudent });
+
+    // Ensure chat metadata stays in sync with mentor assignment for rules
+    if (editingStudent.mentorId) {
+      const chatRef = doc(db, 'chats', editingStudent.id);
+      batch.set(chatRef, { assignedMentorId: editingStudent.mentorId }, { merge: true });
+    }
+
+    batch.commit().then(() => {
       setEditingStudent(null)
       toast({ title: "Updated" })
       setLoading(false)
     }).catch(async () => {
       setLoading(false)
       errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
+        path: studentRef.path,
         operation: 'update',
         requestResourceData: editingStudent
       }));
