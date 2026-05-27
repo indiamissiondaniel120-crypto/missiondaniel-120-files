@@ -23,14 +23,14 @@
         "studentName": { "type": "string" },
         "className": { "type": "string" },
         "question": { "type": "string" },
-        "status": { "type": "string", "enum": ["open", "assigned", "answered"] },
+        "status": { "type": "string", "enum": ["open", "answered"] },
         "mentorId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
     "Admin": {
       "title": "Admin",
-      "description": "An administrative user.",
+      "description": "An administrative user record.",
       "type": "object",
       "properties": {
         "name": { "type": "string" }
@@ -38,15 +38,27 @@
     },
     "Chat": {
       "title": "Chat",
-      "description": "A chat session document.",
+      "description": "A chat session metadata document.",
       "type": "object",
       "properties": {
         "assignedMentorId": { "type": "string" }
       }
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A message within a chat session.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      }
     }
   },
   "auth": {
-    "providers": ["password"]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "/students/{studentId}": {
@@ -63,7 +75,11 @@
     },
     "/chats/{chatId}": {
       "schema": { "$ref": "#/backend/entities/Chat" },
-      "description": "Private chat metadata."
+      "description": "Private chat metadata for rules."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/backend/entities/Message" },
+      "description": "Individual chat messages."
     }
   }
 }

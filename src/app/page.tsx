@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, MessageSquare, Sparkles, ShieldCheck, HeartHandshake, Search, Send, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, Calculator, User, ExternalLink } from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, MessageSquare, Sparkles, ShieldCheck, HeartHandshake, Search, Send, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, User, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -71,7 +71,7 @@ function DecorativeGraphics() {
   );
 }
 
-function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
+function PublicDoubtsQueue({ mentorId, mentorName }: { mentorId: string, mentorName: string }) {
   const db = useFirestore();
   const doubtsQuery = useMemo(() => db ? query(collection(db, 'publicDoubts'), where('status', 'in', ['open', 'answered'])) : null, [db]);
   const { data: doubts } = useCollection(doubtsQuery);
@@ -82,7 +82,6 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
   const handleClaim = (doubtId: string) => {
     if (!db) return;
     const docRef = doc(db, 'publicDoubts', doubtId);
-    // Rules expect 'answered' status for a mentor to claim/update
     const updateData = {
       status: 'answered',
       mentorId: mentorId,
@@ -99,11 +98,11 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><HeartHandshake className="text-accent" /> Shared Doubt Pool</h3>
+      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><HeartHandshake className="text-accent" /> Students Corner Doubts</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="border-accent/20">
-          <CardHeader><CardTitle className="text-sm">Public Doubts Assigned to Me ({myAssigned.length})</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
+        <Card className="border-accent/20 h-[500px] flex flex-col">
+          <CardHeader><CardTitle className="text-sm">Public Doubts I Responded To ({myAssigned.length})</CardTitle></CardHeader>
+          <CardContent className="space-y-4 overflow-y-auto flex-1">
             {myAssigned.length === 0 && <p className="text-xs text-muted-foreground italic">No active assignments.</p>}
             {myAssigned.map(d => (
               <div key={d.id} className="p-4 border rounded-2xl bg-accent/5 space-y-3">
@@ -113,14 +112,20 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
                     <p className="text-xs text-muted-foreground">Question: {d.question}</p>
                   </div>
                 </div>
-                <ChatInterface chatId={`public_${d.id}`} currentUser={{ id: mentorId, name: 'Mentor', role: 'mentor' }} otherUserName="Student" />
+                <div className="h-[300px]">
+                  <ChatInterface 
+                    chatId={`public_${d.id}`} 
+                    currentUser={{ id: mentorId, name: mentorName, role: 'mentor' }} 
+                    otherUserName="Public Student" 
+                  />
+                </div>
               </div>
             ))}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Open Public Pool ({unassigned.length})</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
+        <Card className="h-[500px] flex flex-col">
+          <CardHeader><CardTitle className="text-sm">Open Doubt Pool ({unassigned.length})</CardTitle></CardHeader>
+          <CardContent className="space-y-2 flex-1 overflow-y-auto">
             {unassigned.length === 0 && <p className="text-xs text-muted-foreground italic">Pool is currently empty.</p>}
             {unassigned.map(d => (
               <div key={d.id} className="p-3 border rounded-xl flex justify-between items-center hover:bg-muted/30 transition-colors">
@@ -138,7 +143,7 @@ function PublicDoubtsQueue({ mentorId }: { mentorId: string }) {
   );
 }
 
-function MentorMyStudents({ mentorId }: { mentorId: string }) {
+function MentorMyStudents({ mentorId, mentorName }: { mentorId: string, mentorName: string }) {
   const db = useFirestore();
   const studentsQuery = useMemo(() => db ? query(collection(db, 'students'), where('mentorId', '==', mentorId)) : null, [db]);
   const { data: myStudents } = useCollection(studentsQuery);
@@ -147,7 +152,7 @@ function MentorMyStudents({ mentorId }: { mentorId: string }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><Users className="text-accent" /> My Assigned Students</h3>
+      <h3 className="text-xl font-bold flex items-center gap-2 text-primary"><Users className="text-accent" /> Daniel 120 - My Assigned Students</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {myStudents.map(student => (
           <Card key={student.id} className="border-primary/20 bg-primary/5">
@@ -165,12 +170,12 @@ function MentorMyStudents({ mentorId }: { mentorId: string }) {
                 </DialogTrigger>
                 <DialogContent className="max-w-xl h-[600px] flex flex-col p-0 overflow-hidden">
                   <DialogHeader className="p-4 border-b">
-                    <DialogTitle>Chatting with {student.name}</DialogTitle>
+                    <DialogTitle>Daniel 120 Chat: {student.name}</DialogTitle>
                   </DialogHeader>
                   <div className="flex-1 overflow-hidden">
                     <ChatInterface 
                       chatId={`private_${student.id}`} 
-                      currentUser={{ id: mentorId, name: 'Mentor', role: 'mentor' }} 
+                      currentUser={{ id: mentorId, name: mentorName, role: 'mentor' }} 
                       otherUserName={student.name} 
                     />
                   </div>
@@ -543,8 +548,8 @@ function Dashboard() {
 
                 {isMentor && (
                   <>
-                    <MentorMyStudents mentorId={user.id} />
-                    <PublicDoubtsQueue mentorId={user.id} />
+                    <MentorMyStudents mentorId={user.id} mentorName={user.name} />
+                    <PublicDoubtsQueue mentorId={user.id} mentorName={user.name} />
                   </>
                 )}
 
@@ -678,7 +683,7 @@ function Dashboard() {
                            <ChatInterface 
                              chatId={`private_${user.id}`} 
                              currentUser={{ id: user.id, name: user.name, role: user.role }} 
-                             otherUserName="My Mentor" 
+                             otherUserName="My Daniel 120 Mentor" 
                            />
                         </TabsContent>
                       </Tabs>
@@ -686,11 +691,11 @@ function Dashboard() {
                       <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[3rem] shadow-2xl overflow-hidden">
                         <div className="h-3 bg-accent" />
                         <CardHeader className="p-10">
-                          <CardTitle className="text-accent flex items-center gap-4 text-3xl font-black tracking-tighter"><Sparkles size={32} /> Student Voice</CardTitle>
-                          <CardDescription className="text-foreground/70 font-bold text-base mt-2">Ask our expert mentors anything about your studies.</CardDescription>
+                          <CardTitle className="text-accent flex items-center gap-4 text-3xl font-black tracking-tighter"><Sparkles size={32} /> Students Corner</CardTitle>
+                          <CardDescription className="text-foreground/70 font-bold text-base mt-2">Post your doubt and our mentors will respond anonymously.</CardDescription>
                         </CardHeader>
                         <CardContent className="p-10 pt-0">
-                          <PublicDoubtForm className={selectedCourse?.name || ''} />
+                          <PublicDoubtFlow selectedClassName={selectedCourse?.name || ''} />
                         </CardContent>
                       </Card>
                     )}
@@ -742,11 +747,19 @@ function Dashboard() {
   );
 }
 
-function PublicDoubtForm({ className }: { className: string }) {
+function PublicDoubtFlow({ selectedClassName }: { selectedClassName: string }) {
   const { user } = useAuth();
   const db = useFirestore();
   const [question, setQuestion] = useState('');
-  const [sent, setSent] = useState(false);
+  
+  // Query to see if the user has an active doubt
+  const doubtsQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'publicDoubts'), where('studentId', '==', user.id), where('status', 'in', ['open', 'answered']));
+  }, [db, user]);
+
+  const { data: myDoubts } = useCollection(doubtsQuery);
+  const activeDoubt = myDoubts?.[0];
 
   const handleSubmit = async () => {
     if (!db || !question.trim() || !user) return;
@@ -754,25 +767,41 @@ function PublicDoubtForm({ className }: { className: string }) {
     const data = {
       studentId: user.id,
       studentName: user.name,
-      className,
+      className: selectedClassName,
       question: question.trim(),
       status: 'open',
       mentorId: null,
       createdAt: serverTimestamp()
     };
-    addDoc(doubtsRef, data).then(() => {
-      setSent(true);
-      setQuestion('');
-    }).catch(async () => {
+    addDoc(doubtsRef, data).catch(async () => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: doubtsRef.path,
         operation: 'create',
         requestResourceData: data
       }));
     });
+    setQuestion('');
   };
 
-  if (sent) return <div className="text-center p-12 bg-green-50 text-green-800 rounded-[2.5rem] border-2 border-green-200 font-black text-xl animate-in zoom-in duration-500 shadow-xl shadow-green-100/50">Thank you!<br/><span className="text-sm font-bold opacity-70">A mentor will respond to you soon.</span></div>;
+  if (activeDoubt) {
+    return (
+      <div className="space-y-4">
+        <div className="p-4 bg-accent/10 rounded-2xl">
+          <p className="text-xs font-bold text-accent uppercase mb-1">My Active Doubt</p>
+          <p className="text-sm italic">"{activeDoubt.question}"</p>
+          <Badge className="mt-2 bg-accent">{activeDoubt.status === 'open' ? 'Waiting for Mentor' : 'Mentor Responded'}</Badge>
+        </div>
+        <div className="h-[400px]">
+           <ChatInterface 
+             chatId={`public_${activeDoubt.id}`} 
+             currentUser={{ id: user!.id, name: user!.name, role: user!.role }} 
+             otherUserName="Mentor"
+             isPublic
+           />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useFirestore, useCollection } from '@/firebase'
-import { collection, addDoc, serverTimestamp, query, orderBy, limit, doc, updateDoc, where, getDocs, writeBatch, onSnapshot } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, query, orderBy, limit, doc, writeBatch } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { MessageSquare, Send, User, ShieldAlert } from 'lucide-react'
+import { MessageSquare, Send, ShieldAlert } from 'lucide-react'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
 
@@ -17,9 +17,10 @@ interface ChatInterfaceProps {
   currentUser: { id: string, name: string, role: string }
   otherUserName: string
   readonly?: boolean
+  isPublic?: boolean
 }
 
-export function ChatInterface({ chatId, currentUser, otherUserName, readonly = false }: ChatInterfaceProps) {
+export function ChatInterface({ chatId, currentUser, otherUserName, readonly = false, isPublic = false }: ChatInterfaceProps) {
   const db = useFirestore()
   const [message, setMessage] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -87,7 +88,7 @@ export function ChatInterface({ chatId, currentUser, otherUserName, readonly = f
   }
 
   return (
-    <Card className={`flex flex-col h-[500px] border-accent/20 shadow-xl rounded-2xl overflow-hidden ${readonly ? 'bg-muted/30' : ''}`}>
+    <Card className={`flex flex-col h-full min-h-[400px] border-accent/20 shadow-xl rounded-2xl overflow-hidden ${readonly ? 'bg-muted/30' : ''}`}>
       <CardHeader className="py-4 border-b bg-background flex flex-row items-center justify-between">
         <CardTitle className="text-lg flex items-center gap-3">
           <div className="bg-accent/10 p-2 rounded-lg">
@@ -106,16 +107,19 @@ export function ChatInterface({ chatId, currentUser, otherUserName, readonly = f
           </Badge>
         )}
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden p-0 bg-muted/10">
+      <CardContent className="flex-1 overflow-hidden p-0 bg-muted/5">
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
             {messages?.map((msg: any, i: number) => {
               const isMe = msg.senderId === currentUser.id
-              const isPublicChat = chatId.startsWith('public_')
-              const isOtherMentor = !isMe && msg.senderId.includes('mentor') || msg.senderId === 'mentor'
-              const displayName = (isPublicChat && currentUser.role.includes('student') && isOtherMentor) 
-                ? 'Mentor' 
-                : msg.senderName;
+              
+              // Logic for public students: they don't see the specific mentor name
+              let displayName = msg.senderName;
+              if (isPublic && !isMe && currentUser.role === 'public_student') {
+                if (msg.senderId.includes('mentor') || msg.senderName.toLowerCase().includes('mentor')) {
+                   displayName = 'Mentor';
+                }
+              }
 
               return (
                 <div key={msg.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1`}>

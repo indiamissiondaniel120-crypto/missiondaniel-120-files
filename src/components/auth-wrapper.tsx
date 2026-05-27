@@ -1,16 +1,10 @@
 'use client';
 
 import React, { useState, createContext, useContext, useMemo, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { GraduationCap, AlertCircle, ShieldCheck, Loader2, UserRound } from 'lucide-react';
 import { ADMINS } from '@/lib/mock-data';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useAuth as useFirebaseAuth } from '@/firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -33,6 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const db = useFirestore();
+  const auth = useFirebaseAuth();
 
   useEffect(() => {
     if (!user || !db || user.role === 'admin') return;
@@ -45,7 +40,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setUser((prev) => prev ? { ...prev, name: data.name, class: data.class, role: data.role || prev.role } : null);
+          setUser((prev) => prev ? { 
+            ...prev, 
+            name: data.name, 
+            class: data.class, 
+            mentorId: data.mentorId,
+            role: data.role || prev.role 
+          } : null);
         }
       },
       async (serverError) => {
@@ -60,7 +61,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id, db]);
 
   const login = async (id: string, password: string, loginType: 'student' | 'admin' | 'mentor') => {
-    if (!db) return false;
+    if (!db || !auth) return false;
+
+    // Ensure we are signed into Firebase Auth so security rules work
+    try {
+      await signInAnonymously(auth);
+    } catch (e) {
+      console.error("Auth sign-in failed", e);
+    }
 
     if (loginType === 'admin') {
       const found = ADMINS.find((u) => u.id === id && u.password === password);
@@ -75,8 +83,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           const data = snap.data();
-          if (data.password === password || loginType === 'student' && data.role === 'public_student') {
-            const userData: User = { name: data.name, id, role: data.role || loginType, class: data.class };
+          if (data.password === password || (loginType === 'student' && data.role === 'public_student')) {
+            const userData: User = { 
+              name: data.name, 
+              id, 
+              role: data.role || loginType, 
+              class: data.class,
+              mentorId: data.mentorId 
+            };
             setUser(userData);
             
             // Log attendance
@@ -86,14 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               timestamp: serverTimestamp(),
               metadata: { role: data.role || loginType }
             };
-            addDoc(activityRef, logData)
-              .catch(async () => {
-                errorEmitter.emit('permission-error', new FirestorePermissionError({
-                  path: activityRef.path,
-                  operation: 'create',
-                  requestResourceData: logData
-                }));
-              });
+            addDoc(activityRef, logData).catch(async () => {
+              errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: activityRef.path,
+                operation: 'create',
+                requestResourceData: logData
+              }));
+            });
 
             return true;
           }
@@ -106,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => setUser(null);
-  const value = useMemo(() => ({ user, login, logout }), [user, db]);
+  const value = useMemo(() => ({ user, login, logout }), [user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
