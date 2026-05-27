@@ -66,8 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } : null);
         }
       },
-      async (error) => {
-        // Silent fail for background sync or emit permission error if needed
+      async (serverError) => {
+        // Handled centrally if necessary, or silent fail for specific background syncs
       }
     );
 
@@ -108,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               metadata: { role: data.role || loginType }
             };
             
-            addDoc(activityRef, activityData).catch(async () => {
+            addDoc(activityRef, activityData).catch(async (serverError) => {
               errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: activityRef.path,
                 operation: 'create',

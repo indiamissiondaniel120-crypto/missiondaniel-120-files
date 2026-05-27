@@ -44,7 +44,7 @@ export function InactivityMonitor() {
         }
       };
       addDoc(activityRef, data)
-        .catch(async () => {
+        .catch(async (serverError) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: activityRef.path,
             operation: 'create',
@@ -100,7 +100,7 @@ export function InactivityMonitor() {
                 metadata: { returnTimestamp: new Date().toISOString() }
               };
               addDoc(activityRef, data)
-                .catch(async () => {
+                .catch(async (serverError) => {
                   errorEmitter.emit('permission-error', new FirestorePermissionError({
                     path: activityRef.path,
                     operation: 'create',

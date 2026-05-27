@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -155,7 +154,7 @@ export function StudentManagement() {
         setStudentForm({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
         setLoading(false)
       })
-      .catch(async () => {
+      .catch(async (serverError) => {
         setLoading(false)
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: docRef.path,
@@ -177,7 +176,7 @@ export function StudentManagement() {
         setMentorForm({ id: '', password: '', name: '', expertise: '', phone: '' })
         setLoading(false)
       })
-      .catch(async () => {
+      .catch(async (serverError) => {
         setLoading(false)
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: docRef.path,
@@ -199,7 +198,7 @@ export function StudentManagement() {
         setCourseForm({ id: '', name: '', description: '', image: '' })
         setLoading(false)
       })
-      .catch(async () => {
+      .catch(async (serverError) => {
         setLoading(false)
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: docRef.path,
@@ -216,7 +215,7 @@ export function StudentManagement() {
     const collRef = collection(db, 'subjects');
     const promises = subjectForm.selectedCourseIds.map(courseId => {
        const data = { name: subjectForm.name, courseId };
-       return addDoc(collRef, data).catch(async () => {
+       return addDoc(collRef, data).catch(async (serverError) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: collRef.path,
             operation: 'create',
@@ -240,7 +239,7 @@ export function StudentManagement() {
       setIsUploading(false)
       setMaterialForm({ title: '', courseId: '', subjectId: '', type: 'video', url: '', chapter: 1 })
       toast({ title: "Material Added" })
-    }).catch(async () => {
+    }).catch(async (serverError) => {
        setIsUploading(false);
        errorEmitter.emit('permission-error', new FirestorePermissionError({
          path: collRef.path,
@@ -253,7 +252,7 @@ export function StudentManagement() {
   const handleDeleteSubject = (id: string) => {
     if (!db || !isAdmin) return;
     const docRef = doc(db, 'subjects', id);
-    deleteDoc(docRef).catch(async () => {
+    deleteDoc(docRef).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
         operation: 'delete',
@@ -264,7 +263,7 @@ export function StudentManagement() {
   const handleDeleteMaterial = (id: string) => {
     if (!db || !isAdmin) return;
     const docRef = doc(db, 'materials', id);
-    deleteDoc(docRef).catch(async () => {
+    deleteDoc(docRef).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
         operation: 'delete',
@@ -280,7 +279,7 @@ export function StudentManagement() {
       setEditingStudent(null)
       toast({ title: "Updated" })
       setLoading(false)
-    }).catch(async () => {
+    }).catch(async (serverError) => {
       setLoading(false)
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: studentRef.path,
@@ -298,7 +297,7 @@ export function StudentManagement() {
       setEditingMaterial(null)
       toast({ title: "Updated" })
       setLoading(false)
-    }).catch(async () => {
+    }).catch(async (serverError) => {
       setLoading(false)
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
@@ -459,7 +458,6 @@ export function StudentManagement() {
               </Card>
             </TabsContent>
             
-            {/* Rest of existing Admin Tabs Content... (mentors, courses, materials omitted for brevity but remain intact in actual file) */}
             <TabsContent value="mentors" className="space-y-8">
                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <Card className="lg:col-span-1 border-orange-200"><CardHeader><CardTitle className="text-orange-600 flex items-center gap-2"><UserPlus size={20} /> Register Mentor</CardTitle></CardHeader>
@@ -947,7 +945,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
         setOpen(false)
         setLoading(false)
       })
-      .catch(async () => {
+      .catch(async (serverError) => {
         setLoading(false)
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: 'materials',

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -223,7 +222,12 @@ function PrivateDoubtClearing({ user }: { user: any }) {
         const openedTime = doubt.openedAt.toDate().getTime();
         if (now - openedTime > twentyFourHours) {
           const docRef = doc(db, 'privateDoubts', doubt.id);
-          deleteDoc(docRef).catch(() => {});
+          deleteDoc(docRef).catch(async (serverError) => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+               path: docRef.path,
+               operation: 'delete'
+             }));
+          });
         }
       }
     });
@@ -249,7 +253,7 @@ function PrivateDoubtClearing({ user }: { user: any }) {
       setQuestion('');
       toast({ title: "Doubt Sent", description: "Your assigned mentor has been notified." });
       setLoading(false);
-    }).catch(async (e) => {
+    }).catch(async (serverError) => {
       setLoading(false);
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: doubtsRef.path,
@@ -262,7 +266,7 @@ function PrivateDoubtClearing({ user }: { user: any }) {
   const markAsOpened = (doubt: any) => {
     if (doubt.status === 'answered' && !doubt.openedAt && db) {
       const docRef = doc(db, 'privateDoubts', doubt.id);
-      updateDoc(docRef, { openedAt: serverTimestamp() }).catch(async () => {
+      updateDoc(docRef, { openedAt: serverTimestamp() }).catch(async (serverError) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: docRef.path,
           operation: 'update'
@@ -365,7 +369,7 @@ function MentorDoubtClearing({ mentorId }: { mentorId: string }) {
       setAnsweringDoubt(null);
       setAnswer('');
       toast({ title: "Answer Sent" });
-    }).catch(async () => {
+    }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
         operation: 'update',
@@ -511,7 +515,7 @@ function Dashboard() {
               materialId: activeMaterial.id
             }
           };
-          addDoc(activityRef, data).catch(async () => {
+          addDoc(activityRef, data).catch(async (serverError) => {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
                path: activityRef.path,
                operation: 'create',
@@ -563,7 +567,7 @@ function Dashboard() {
     };
     setDoc(docRef, data).then(() => {
       login(publicId, '', 'student');
-    }).catch(async () => {
+    }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
         operation: 'create',
@@ -586,7 +590,7 @@ function Dashboard() {
         type: 'logout',
         timestamp: serverTimestamp()
       };
-      addDoc(activityRef, data).catch(async () => {
+      addDoc(activityRef, data).catch(async (serverError) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: activityRef.path,
           operation: 'create',
@@ -897,7 +901,7 @@ function Dashboard() {
                 updateDoc(docRef, updateData).then(() => {
                   setEditingMaterial(null);
                   toast({ title: "Updated successfully" });
-                }).catch(async () => {
+                }).catch(async (serverError) => {
                    errorEmitter.emit('permission-error', new FirestorePermissionError({
                      path: docRef.path,
                      operation: 'update',
@@ -934,7 +938,7 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
     addDoc(doubtsRef, data).then(() => {
       toast({ title: "Doubt Posted", description: "Your doubt has been sent to our mentors." });
       setQuestion('');
-    }).catch(async () => {
+    }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: doubtsRef.path,
         operation: 'create',
