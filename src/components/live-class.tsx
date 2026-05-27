@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from '@/components/auth-wrapper'
 import { useFirestore, useCollection } from '@/firebase'
-import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, where, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,47 +38,62 @@ export function LiveClassInterface() {
     let timeoutId: NodeJS.Timeout;
 
     const scheduleAttendanceMark = () => {
-      // Random interval between 3 and 12 minutes (averaging roughly 7.5 mins, within the requested ~10 min range)
-      // 3 mins = 180,000ms, 12 mins = 720,000ms
+      // Random interval between 3 and 12 minutes
       const min = 3 * 60 * 1000;
       const max = 12 * 60 * 1000;
       const delay = Math.floor(Math.random() * (max - min + 1)) + min;
 
       timeoutId = setTimeout(() => {
+        // 1. Log to user activity (for their personal report)
         const collName = user.role.includes('student') ? 'students' : 'mentors';
         const activityRef = collection(db, collName, user.id, 'activity');
-        const data = {
+        const activityData = {
           type: 'live_attendance_pulse',
           timestamp: serverTimestamp(),
           metadata: {
-            title: activeRoom.title, // Map to 'title' so it shows in the ActivityViewer
-            sessionId: activeRoom.id || activeRoom.roomName,
+            title: activeRoom.title,
+            sessionId: activeRoom.historyId || activeRoom.id || activeRoom.roomName,
             subjectName: activeRoom.subjectName,
             className: activeRoom.className,
             role: user.role
           }
         };
 
-        addDoc(activityRef, data).catch(async (serverError) => {
+        addDoc(activityRef, activityData).catch(async (serverError) => {
            errorEmitter.emit('permission-error', new FirestorePermissionError({
              path: activityRef.path,
              operation: 'create',
-             requestResourceData: data
+             requestResourceData: activityData
            }));
         });
 
-        // Recursively schedule next mark
+        // 2. Log to centralized attendance for Admin Panel
+        const centralLogRef = collection(db, 'liveAttendanceLogs');
+        const centralLogData = {
+          sessionId: activeRoom.historyId || activeRoom.id,
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          timestamp: serverTimestamp()
+        };
+        addDoc(centralLogRef, centralLogData).catch(async (serverError) => {
+           errorEmitter.emit('permission-error', new FirestorePermissionError({
+             path: centralLogRef.path,
+             operation: 'create',
+             requestResourceData: centralLogData
+           }));
+        });
+
         scheduleAttendanceMark();
       }, delay);
     };
 
-    // Start the cycle
     scheduleAttendanceMark();
 
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [activeRoom?.id, activeRoom?.roomName, user?.id, user?.role, db]);
+  }, [activeRoom?.id, activeRoom?.historyId, user?.id, user?.role, db]);
 
   // Fetch curriculum for mentor selection
   const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db]);
@@ -86,23 +101,15 @@ export function LiveClassInterface() {
   const { data: allCourses } = useCollection(coursesQuery);
   const { data: allSubjects } = useCollection(subjectsQuery);
 
-  // Filtered subjects for the mentor's selection form
   const availableSubjects = useMemo(() => {
     if (!allSubjects || !selectedClassId) return [];
     return allSubjects.filter(s => s.courseId === selectedClassId);
   }, [allSubjects, selectedClassId]);
 
-  // Sessions query: Students only see sessions for their class
   const sessionsQuery = useMemo(() => {
     if (!db || !user) return null
-    if (isMentor) {
-      // Mentors see all sessions for monitoring
-      return collection(db, 'liveSessions')
-    }
-    // Students (Standard and Public) see sessions for THEIR class
-    if (user.class) {
-      return query(collection(db, 'liveSessions'), where('classId', '==', user.class))
-    }
+    if (isMentor) return collection(db, 'liveSessions')
+    if (user.class) return query(collection(db, 'liveSessions'), where('classId', '==', user.class))
     return collection(db, 'liveSessions')
   }, [db, user, isMentor])
 
@@ -116,6 +123,8 @@ export function LiveClassInterface() {
     const selectedSubject = allSubjects?.find(s => s.id === selectedSubjectId);
 
     const roomName = `D120-Live-${user.id}`
+    const historyId = `HIST-${user.id}-${Date.now()}`;
+
     const sessionData = {
       title: sessionTitle.trim(),
       mentorId: user.id,
@@ -125,35 +134,53 @@ export function LiveClassInterface() {
       subjectId: selectedSubjectId,
       subjectName: selectedSubject?.name || 'General Subject',
       roomName,
+      historyId,
       createdAt: serverTimestamp()
     }
 
-    const docRef = doc(db, 'liveSessions', user.id);
-    
-    setDoc(docRef, sessionData).then(() => {
+    const historyData = {
+      ...sessionData,
+      viewedByAdmin: false,
+      status: 'active'
+    }
+
+    // Atomic write to both session (active) and history (permanent)
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'liveSessions', user.id), sessionData);
+    batch.set(doc(db, 'liveClassHistory', historyId), historyData);
+
+    batch.commit().then(() => {
       setActiveRoom({ ...sessionData, id: user.id })
       setLoading(false)
       toast({ title: "Live Class Started", description: `Broadcasting to ${selectedCourse?.name}` })
     }).catch(async (serverError) => {
       setLoading(false)
       errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'write',
-        requestResourceData: sessionData
+        path: 'batch-live-start',
+        operation: 'write'
       }))
     })
   }
 
   const handleEndClass = () => {
     if (!db || !activeRoom) return
-    const docRef = doc(db, 'liveSessions', activeRoom.id)
-    deleteDoc(docRef).then(() => {
+    
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'liveSessions', activeRoom.id));
+    if (activeRoom.historyId) {
+      batch.update(doc(db, 'liveClassHistory', activeRoom.historyId), {
+        endedAt: serverTimestamp(),
+        status: 'ended'
+      });
+    }
+
+    batch.commit().then(() => {
       setActiveRoom(null)
       toast({ title: "Class Ended", description: "The live session has been closed." })
     }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'delete'
+        path: 'batch-live-end',
+        operation: 'write'
       }))
     })
   }

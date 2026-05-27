@@ -3,7 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- CORE COLLECTIONS ---
     match /students/{studentId} {
       allow read, write: if true;
       match /activity/{activityId} {
@@ -30,22 +29,26 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // --- PRIVATE DOUBT CLEARANCE ---
     match /privateDoubts/{doubtId} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
 
-    // --- PUBLIC DOUBT POOL ---
     match /publicDoubts/{doubtId} {
       allow read, write: if true;
     }
 
-    // --- LIVE CLASSES ---
     match /liveSessions/{sessionId} {
       allow read, write: if true;
     }
 
-    // --- ADMIN ACCESS ---
+    match /liveClassHistory/{historyId} {
+      allow read, write: if true;
+    }
+
+    match /liveAttendanceLogs/{logId} {
+      allow read, write: if true;
+    }
+
     match /admins/{adminId} {
       allow read: if true;
     }

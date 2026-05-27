@@ -1,8 +1,9 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
 import { useFirestore } from '@/firebase'
-import { collection, doc, setDoc, serverTimestamp, query, orderBy, updateDoc, deleteDoc, addDoc, writeBatch, where } from 'firebase/firestore'
+import { collection, doc, setDoc, serverTimestamp, query, orderBy, updateDoc, deleteDoc, addDoc, writeBatch, where, getDocs } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link, MessageSquare } from 'lucide-react'
+import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link, MessageSquare, Video, Clock, CheckCircle2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -20,7 +21,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useAuth } from '@/components/auth-wrapper'
 
 const MATHS_CHAPTER_COUNT: Record<string, number> = {
@@ -39,7 +39,7 @@ function getChapterCount(courseId: string, subjectName: string): number {
   if (name.includes('hamara adhbhut sansar')) return 10;
   if (name.includes('jigyasa')) {
     if (courseId === 'class-8') return 13;
-    return 12; // Class 6 and 7
+    return 12; 
   }
   if (name.includes('exploration')) return 13;
   if (name.includes('vigyan')) return 13;
@@ -110,6 +110,8 @@ export function StudentManagement() {
     materials: any[]
   } | null>(null);
 
+  const [selectedLiveSession, setSelectedLiveSession] = useState<any>(null);
+
   useEffect(() => {
     if (isMentor && activeTab !== 'academic-sheet') {
       setActiveTab('academic-sheet');
@@ -120,8 +122,9 @@ export function StudentManagement() {
   const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db])
   const coursesQuery = useMemo(() => db ? collection(db, 'courses') : null, [db])
   const subjectsQuery = useMemo(() => db ? collection(db, 'subjects') : null, [db])
-  const materialsQuery = useMemo(() => db ? query(collection(db, 'materials'), orderBy('chapter', 'asc')) : null, [db])
-  const privateDoubtsQuery = useMemo(() => db ? query(collection(db, 'privateDoubts'), orderBy('createdAt', 'desc')) : null, [db])
+  const materialsQuery = useMemo(() => db ? collection(db, 'materials') : null, [db])
+  const privateDoubtsQuery = useMemo(() => db ? collection(db, 'privateDoubts') : null, [db])
+  const liveHistoryQuery = useMemo(() => db ? collection(db, 'liveClassHistory') : null, [db])
 
   const { data: students } = useCollection(studentsQuery)
   const { data: mentors } = useCollection(mentorsQuery)
@@ -129,6 +132,7 @@ export function StudentManagement() {
   const { data: subjects } = useCollection(subjectsQuery)
   const { data: materials } = useCollection(materialsQuery)
   const { data: allPrivateDoubts } = useCollection(privateDoubtsQuery)
+  const { data: rawLiveHistory } = useCollection(liveHistoryQuery)
 
   const courses = useMemo(() => sortClasses(rawCourses || []), [rawCourses]);
 
@@ -140,6 +144,15 @@ export function StudentManagement() {
       return (Number(a.chapter) || 0) - (Number(b.chapter) || 0);
     });
   }, [materials]);
+
+  const liveHistory = useMemo(() => {
+    if (!rawLiveHistory) return null;
+    return [...rawLiveHistory].sort((a, b) => {
+      const tA = a.createdAt?.toDate?.()?.getTime() || 0;
+      const tB = b.createdAt?.toDate?.()?.getTime() || 0;
+      return tB - tA;
+    });
+  }, [rawLiveHistory]);
 
   const handleRegisterStudent = (e: React.FormEvent) => {
     e.preventDefault()
@@ -378,6 +391,12 @@ export function StudentManagement() {
               <TabsTrigger value="courses" className="flex items-center gap-2 px-6"><BookOpen size={16} /> Classes</TabsTrigger>
               <TabsTrigger value="materials" className="flex items-center gap-2 px-6"><Library size={16} /> Materials & Subjects</TabsTrigger>
               <TabsTrigger value="doubts" className="flex items-center gap-2 px-6"><MessageSquare size={16} /> Private Doubts</TabsTrigger>
+              <TabsTrigger value="live-attendance" className="flex items-center gap-2 px-6 relative">
+                <Video size={16} /> Live Attendance
+                {liveHistory?.some(h => !h.viewedByAdmin) && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white" />
+                )}
+              </TabsTrigger>
             </>
           )}
           <TabsTrigger value="academic-sheet" className="flex items-center gap-2 px-6"><ListChecks size={16} /> Overview Sheet</TabsTrigger>
@@ -454,6 +473,69 @@ export function StudentManagement() {
                       ))}
                     </TableBody>
                   </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="live-attendance" className="space-y-8">
+              <Card className="border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><MonitorPlay className="text-accent" /> Live Class History</CardTitle>
+                  <CardDescription>View randomized attendance logs for all daily online classes.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-xl border overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-muted/30">
+                        <TableRow>
+                          <TableHead>Class Info</TableHead>
+                          <TableHead>Mentor</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead className="text-right">Report</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {liveHistory?.map((session: any) => (
+                          <TableRow key={session.id} className={!session.viewedByAdmin ? 'bg-primary/5 font-bold' : ''}>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-black flex items-center gap-2">
+                                  {session.title}
+                                  {!session.viewedByAdmin && <Badge className="h-4 px-1.5 text-[8px] bg-red-500">NEW</Badge>}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground uppercase">{session.className} • {session.subjectName}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">{session.mentorName}</TableCell>
+                            <TableCell>
+                              <Badge variant={session.status === 'active' ? 'default' : 'secondary'} className={session.status === 'active' ? 'bg-green-600' : ''}>
+                                {session.status === 'active' ? 'LIVE NOW' : 'ENDED'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {session.createdAt?.toDate?.()?.toLocaleString() || 'Unknown'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="rounded-xl h-10 gap-2 border-primary/20 hover:bg-primary/10"
+                                onClick={() => setSelectedLiveSession(session)}
+                              >
+                                <FileSpreadsheet size={16} /> View Attendance
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {(!liveHistory || liveHistory.length === 0) && (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">No live class records found.</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -724,8 +806,125 @@ export function StudentManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* NEW: Live Attendance Dialog */}
+      <LiveAttendanceViewer session={selectedLiveSession} onClose={() => setSelectedLiveSession(null)} />
     </div>
   )
+}
+
+function LiveAttendanceViewer({ session, onClose }: { session: any, onClose: () => void }) {
+  const db = useFirestore()
+  const [logs, setLogs] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!session || !db) return;
+    setLoading(true);
+
+    // 1. Mark as read
+    if (!session.viewedByAdmin) {
+      updateDoc(doc(db, 'liveClassHistory', session.id), { viewedByAdmin: true }).catch(console.error);
+    }
+
+    // 2. Fetch centralized logs
+    const q = query(collection(db, 'liveAttendanceLogs'), where('sessionId', '==', session.id));
+    getDocs(q).then(snap => {
+      const fetchedLogs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      setLogs(fetchedLogs.sort((a: any, b: any) => (a.timestamp?.toDate()?.getTime() || 0) - (b.timestamp?.toDate()?.getTime() || 0)));
+      setLoading(false);
+    }).catch(e => {
+      console.error(e);
+      setLoading(false);
+    });
+  }, [session, db]);
+
+  const downloadReport = () => {
+    if (!logs.length) return;
+    const headers = ["User Name", "User Role", "Pulse Timestamp"];
+    const rows = logs.map(l => [
+      l.userName,
+      l.userRole,
+      l.timestamp?.toDate()?.toLocaleString() || ''
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `live_attendance_${session.historyId || session.id}.csv`);
+    document.body.appendChild(link);
+    link.click();
+  };
+
+  if (!session) return null;
+
+  return (
+    <Dialog open={!!session} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-8 border-b">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-black">{session.title}</DialogTitle>
+              <DialogDescription className="font-bold">
+                {session.className} • {session.subjectName} • Started: {session.createdAt?.toDate()?.toLocaleString()}
+              </DialogDescription>
+            </div>
+            <Button onClick={downloadReport} className="bg-accent rounded-xl h-12 gap-2" disabled={logs.length === 0}>
+              <Download size={18} /> Export Full Report
+            </Button>
+          </div>
+        </DialogHeader>
+        <ScrollArea className="flex-1 p-8">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <Loader2 className="animate-spin h-10 w-10 text-primary" />
+              <p className="font-black text-muted-foreground animate-pulse">Compiling attendance logs...</p>
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="text-center py-20 bg-muted/10 border-4 border-dashed rounded-[3rem] border-primary/10">
+              <Clock size={48} className="mx-auto text-muted-foreground/30 mb-4" />
+              <p className="font-black text-muted-foreground/60 italic">No attendance pulses recorded for this session yet.</p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border overflow-hidden shadow-sm">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead>Participant</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Last Pulse</TableHead>
+                    <TableHead className="text-right">Total Marks</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {/* Aggregated view for readability */}
+                  {Object.values(logs.reduce((acc: any, log: any) => {
+                    if (!acc[log.userId]) {
+                      acc[log.userId] = { name: log.userName, role: log.userRole, count: 0, last: log.timestamp };
+                    }
+                    acc[log.userId].count++;
+                    if (log.timestamp?.toDate() > acc[log.userId].last?.toDate()) {
+                      acc[log.userId].last = log.timestamp;
+                    }
+                    return acc;
+                  }, {})).map((user: any, i: number) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-bold">{user.name}</TableCell>
+                      <TableCell><Badge variant="outline" className="text-[10px] uppercase font-black">{user.role}</Badge></TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{user.last?.toDate()?.toLocaleTimeString()}</TableCell>
+                      <TableCell className="text-right"><Badge className="bg-primary/10 text-primary">{user.count} pulses</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </ScrollArea>
+        <DialogFooter className="p-6 border-t bg-muted/20">
+          <Button onClick={onClose} className="rounded-xl h-12 px-8 font-black">Close Report</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function ActivityViewer({ student, mentors }: { student: any, mentors: any[] }) {

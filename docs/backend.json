@@ -58,7 +58,36 @@
         "mentorId": { "type": "string" },
         "mentorName": { "type": "string" },
         "roomName": { "type": "string" },
+        "historyId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "LiveClassHistory": {
+      "title": "LiveClassHistory",
+      "description": "Permanent record of a live class session.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "mentorId": { "type": "string" },
+        "mentorName": { "type": "string" },
+        "className": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "roomName": { "type": "string" },
+        "viewedByAdmin": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "LiveAttendanceLog": {
+      "title": "LiveAttendanceLog",
+      "description": "A pulse attendance record for a live class.",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
       }
     },
     "Admin": {
@@ -89,6 +118,14 @@
     "/liveSessions/{sessionId}": {
       "schema": { "$ref": "#/backend/entities/LiveSession" },
       "description": "Active live video classes."
+    },
+    "/liveClassHistory/{historyId}": {
+      "schema": { "$ref": "#/backend/entities/LiveClassHistory" },
+      "description": "Permanent records of completed live classes."
+    },
+    "/liveAttendanceLogs/{logId}": {
+      "schema": { "$ref": "#/backend/entities/LiveAttendanceLog" },
+      "description": "Centralized attendance pulse logs."
     },
     "/admins/{adminId}": {
       "schema": { "$ref": "#/backend/entities/Admin" },
