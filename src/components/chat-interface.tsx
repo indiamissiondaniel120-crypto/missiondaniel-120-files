@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
@@ -108,6 +107,13 @@ export function ChatInterface({ chatId, currentUser, otherUserName, readonly = f
           <div className="space-y-4">
             {messages?.map((msg: any, i: number) => {
               const isMe = msg.senderId === currentUser.id
+              // Anonymous mode for public chats: students don't see mentor names
+              const isPublicChat = chatId.startsWith('public_')
+              const isOtherMentor = !isMe && msg.senderId.includes('mentor') || msg.senderId === 'mentor'
+              const displayName = (isPublicChat && currentUser.role.includes('student') && isOtherMentor) 
+                ? 'Mentor' 
+                : msg.senderName;
+
               return (
                 <div key={msg.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1`}>
                   <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 shadow-sm ${
@@ -121,7 +127,7 @@ export function ChatInterface({ chatId, currentUser, otherUserName, readonly = f
                     </div>
                   </div>
                   <span className="text-[10px] text-muted-foreground mt-1 px-1 font-medium">
-                    {msg.senderName}
+                    {displayName}
                   </span>
                 </div>
               )
