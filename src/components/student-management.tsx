@@ -1040,7 +1040,7 @@ export function ActivityViewer({ student, mentors }: { student: any, mentors: an
 function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], subjects: any[], materials: any[] }) {
   const db = useFirestore()
   const { toast } = useToast()
-  const [open, setOpen] = false
+  const [open, setOpen] = useState(false)
   const [selectedClassId, setSelectedClassId] = useState('')
   const [selectedSubjectId, setSelectedSubjectId] = useState('')
   const [loading, setLoading] = useState(false)
