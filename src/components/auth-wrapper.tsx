@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, createContext, useContext, useMemo, useEffect } from 'react';
@@ -7,6 +6,8 @@ import { useFirestore, useAuth as useFirebaseAuth } from '@/firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface User {
   name: string;
@@ -30,6 +31,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const auth = useFirebaseAuth();
   const { toast } = useToast();
 
+  // Handle automatic anonymous sign-in to satisfy security rules
+  useEffect(() => {
+    if (auth && !auth.currentUser) {
+      signInAnonymously(auth).catch((e: any) => {
+        if (e.code === 'auth/admin-restricted-operation') {
+          toast({
+            variant: "destructive",
+            title: "Anonymous Auth Disabled",
+            description: "Please enable 'Anonymous' sign-in in your Firebase Console (Build > Authentication > Sign-in method).",
+          });
+        }
+      });
+    }
+  }, [auth, toast]);
+
   useEffect(() => {
     if (!user || !db || user.role === 'admin') return;
 
@@ -50,8 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } : null);
         }
       },
-      (error) => {
-        // Silent fail for background sync
+      async (error) => {
+        // Silent fail for background sync or emit permission error if needed
       }
     );
 
@@ -60,21 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (id: string, password: string, loginType: 'student' | 'admin' | 'mentor') => {
     if (!db || !auth) return false;
-
-    // Ensure we are signed into Firebase Auth so security rules (request.auth != null) work
-    if (!auth.currentUser) {
-      try {
-        await signInAnonymously(auth);
-      } catch (e: any) {
-        if (e.code === 'auth/admin-restricted-operation') {
-          toast({
-            variant: "destructive",
-            title: "Authentication Setup Required",
-            description: "Please enable 'Anonymous' sign-in in your Firebase Console for the chat features to work.",
-          });
-        }
-      }
-    }
 
     if (loginType === 'admin') {
       const found = ADMINS.find((u) => u.id === id && u.password === password);
@@ -89,7 +90,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           const data = snap.data();
-          // For students, check password. For public students, they might not have one but are already in the DB.
           if (data.password === password || (loginType === 'student' && data.role === 'public_student')) {
             const userData: User = { 
               name: data.name, 
@@ -102,12 +102,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             // Log attendance (Non-blocking)
             const activityRef = collection(db, coll, id, 'activity');
-            addDoc(activityRef, {
+            const activityData = {
               type: 'login',
               timestamp: serverTimestamp(),
               metadata: { role: data.role || loginType }
-            }).catch(() => {
-              // Silently fail if rules block initial write before anonymous auth finishes
+            };
+            
+            addDoc(activityRef, activityData).catch(async () => {
+              errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: activityRef.path,
+                operation: 'create',
+                requestResourceData: activityData
+              }));
             });
 
             return true;
