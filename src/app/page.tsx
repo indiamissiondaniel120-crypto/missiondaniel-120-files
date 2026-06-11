@@ -734,6 +734,21 @@ function Dashboard() {
     setView('landing');
   };
 
+  const handleDeleteMaterial = () => {
+    if (db && editingMaterial) {
+      const docRef = doc(db, 'materials', editingMaterial.id);
+      deleteDoc(docRef).then(() => {
+        setEditingMaterial(null);
+        toast({ title: "Deleted successfully" });
+      }).catch(async (serverError) => {
+         errorEmitter.emit('permission-error', new FirestorePermissionError({
+           path: docRef.path,
+           operation: 'delete'
+         }));
+      });
+    }
+  };
+
   if (view === 'landing' && !user) return <LandingPage onSelect={(v) => setView(v)} />;
   if (view === 'login' && !user) return <LoginScreen mode="standard" onBack={() => setView('landing')} />;
   if (view === 'admin-login' && !user) return <LoginScreen mode="admin" onBack={() => setView('landing')} />;
@@ -1041,7 +1056,7 @@ function Dashboard() {
               <Input className="rounded-xl h-12 md:h-14 bg-muted/30 border-none font-medium text-sm" value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} />
             </div>
           </div>
-          <DialogFooter className="p-0">
+          <DialogFooter className="p-0 flex flex-col gap-2">
             <Button className="w-full h-14 md:h-16 rounded-2xl md:rounded-3xl text-base md:text-xl font-black bg-primary shadow-2xl shadow-primary/30" onClick={() => {
               if (db && editingMaterial) {
                 const docRef = doc(db, 'materials', editingMaterial.id);
@@ -1058,6 +1073,9 @@ function Dashboard() {
                 });
               }
             }}>Save Changes</Button>
+            <Button variant="destructive" className="w-full h-12 md:h-14 rounded-2xl font-black" onClick={handleDeleteMaterial}>
+              <Trash2 size={18} className="mr-2" /> Delete Material
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

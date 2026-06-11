@@ -278,7 +278,9 @@ export function StudentManagement() {
   const handleDeleteMaterial = (id: string) => {
     if (!db || !isAdmin) return;
     const docRef = doc(db, 'materials', id);
-    deleteDoc(docRef).catch(async (serverError) => {
+    deleteDoc(docRef).then(() => {
+      toast({ title: "Deleted successfully" });
+    }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
         operation: 'delete',
@@ -798,7 +800,12 @@ export function StudentManagement() {
             <Label className="text-xs">URL</Label>
             <Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} className="h-12" />
           </div>
-          <DialogFooter><Button onClick={handleUpdateMaterial} className="w-full h-12">Save</Button></DialogFooter>
+          <DialogFooter className="flex flex-col gap-2">
+            <Button onClick={handleUpdateMaterial} className="w-full h-12">Save Changes</Button>
+            <Button variant="destructive" className="w-full h-12" onClick={() => editingMaterial && handleDeleteMaterial(editingMaterial.id).then(() => setEditingMaterial(null))}>
+              <Trash2 size={16} className="mr-2" /> Delete Material
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -820,7 +827,12 @@ export function StudentManagement() {
                         {m.type === 'video' ? <PlayCircle className="text-red-500 h-3.5 w-3.5" /> : <FileText className="text-blue-500 h-3.5 w-3.5" />}
                         <span className="font-bold text-xs truncate">{m.title}</span>
                       </div>
-                      <Badge variant="outline" className="text-[8px] uppercase">{m.type}</Badge>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setEditingMaterial(m)}>
+                          <Edit2 size={12} />
+                        </Button>
+                        <Badge variant="outline" className="text-[8px] uppercase">{m.type}</Badge>
+                      </div>
                     </div>
                     <a href={m.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary truncate hover:underline flex items-center gap-1.5">
                       <Link className="h-2.5 w-2.5 shrink-0" /> {m.url}
