@@ -1,8 +1,8 @@
 'use server';
 /**
- * @fileOverview A flow to fetch and extract video information from a YouTube playlist URL.
- *
- * - fetchYoutubePlaylist - Extracts video titles and URLs from a playlist.
+ * @fileOverview A robust programmatic fetcher to extract video information from a YouTube playlist URL.
+ * 
+ * - fetchYoutubePlaylist - Extracts video titles and URLs from a playlist without using LLM reasoning.
  */
 
 import { ai } from '@/ai/genkit';
@@ -24,48 +24,67 @@ const FetchYoutubePlaylistOutputSchema = z.object({
 export type FetchYoutubePlaylistInput = z.infer<typeof FetchYoutubePlaylistInputSchema>;
 export type FetchYoutubePlaylistOutput = z.infer<typeof FetchYoutubePlaylistOutputSchema>;
 
-export async function fetchYoutubePlaylist(input: FetchYoutubePlaylistInput): Promise<FetchYoutubePlaylistOutput> {
-  return fetchYoutubePlaylistFlow(input);
+/**
+ * Programmatically extracts playlist data from YouTube HTML.
+ * This avoids using the LLM for parsing, making it much more reliable and faster.
+ */
+async function extractVideosFromHtml(url: string): Promise<any[]> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      next: { revalidate: 0 } // Ensure fresh data
+    });
+
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const html = await response.text();
+
+    // Look for the JSON object containing the playlist data
+    const regex = /var ytInitialData = ({.*?});/s;
+    const match = html.match(regex);
+
+    if (!match || !match[1]) {
+      console.error("Could not find ytInitialData in the page source.");
+      return [];
+    }
+
+    const data = JSON.parse(match[1]);
+    
+    // Navigate the complex YouTube JSON structure to find the videos
+    // The path varies slightly depending on the page layout, so we try the most common ones
+    const sidebar = data.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.playlistVideoListRenderer?.contents;
+    
+    const contents = sidebar || [];
+    
+    const videos = contents
+      .map((item: any) => {
+        const videoRenderer = item.playlistVideoRenderer;
+        if (!videoRenderer) return null;
+
+        const videoId = videoRenderer.videoId;
+        const title = videoRenderer.title?.runs?.[0]?.text || "Untitled Video";
+        
+        return {
+          title,
+          url: `https://www.youtube.com/watch?v=${videoId}`
+        };
+      })
+      .filter((v: any) => v !== null);
+
+    return videos;
+  } catch (error) {
+    console.error("Extraction error:", error);
+    return [];
+  }
 }
 
-const fetchTool = ai.defineTool(
-  {
-    name: 'fetchUrlContent',
-    description: 'Fetches the HTML content of a given URL.',
-    inputSchema: z.object({ url: z.string() }),
-    outputSchema: z.string(),
-  },
-  async (input) => {
-    try {
-      const response = await fetch(input.url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        },
-      });
-      if (!response.ok) throw new Error('Failed to fetch URL');
-      return await response.text();
-    } catch (error) {
-      return `Error fetching URL: ${error instanceof Error ? error.message : String(error)}`;
-    }
-  }
-);
-
-const playlistPrompt = ai.definePrompt({
-  name: 'playlistPrompt',
-  input: { schema: FetchYoutubePlaylistInputSchema },
-  output: { schema: FetchYoutubePlaylistOutputSchema },
-  tools: [fetchTool],
-  prompt: `You are a YouTube metadata extractor. 
-Given the playlist URL: {{{url}}}
-
-1. Use the fetchUrlContent tool to get the content of the URL.
-2. From the fetched content (which is a YouTube playlist page), identify all the videos in the list.
-3. Extract the title of each video and its full URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID).
-4. Return the list of videos.
-
-If the tool fails or you cannot find videos, return an empty list. 
-Focus on extracting the real video titles and IDs from the HTML data (look for "videoRenderer" or "playlistVideoRenderer" patterns in the JSON-like strings in the HTML).`,
-});
+export async function fetchYoutubePlaylist(input: FetchYoutubePlaylistInput): Promise<FetchYoutubePlaylistOutput> {
+  // We keep the Genkit Flow wrapper so the frontend code remains compatible,
+  // but we perform the actual work programmatically for reliability.
+  return fetchYoutubePlaylistFlow(input);
+}
 
 const fetchYoutubePlaylistFlow = ai.defineFlow(
   {
@@ -74,8 +93,14 @@ const fetchYoutubePlaylistFlow = ai.defineFlow(
     outputSchema: FetchYoutubePlaylistOutputSchema,
   },
   async (input) => {
-    const { output } = await playlistPrompt(input);
-    if (!output) throw new Error('Failed to extract playlist data.');
-    return output;
+    // Process the URL to ensure it's a valid playlist link
+    let targetUrl = input.url;
+    if (!targetUrl.includes('list=')) {
+      throw new Error("Invalid playlist URL. Must contain 'list=' parameter.");
+    }
+
+    const videos = await extractVideosFromHtml(targetUrl);
+    
+    return { videos };
   }
 );
