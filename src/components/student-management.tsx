@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -102,6 +103,7 @@ export function StudentManagement() {
   const [editingMentor, setEditingMentor] = useState<any>(null)
   const [editingCourse, setEditingCourse] = useState<any>(null)
   const [editingMaterial, setEditingMaterial] = useState<any>(null)
+  const [editingSubject, setEditingSubject] = useState<any>(null)
 
   const [selectedChapterInfo, setSelectedChapterInfo] = useState<{
     className: string,
@@ -244,6 +246,25 @@ export function StudentManagement() {
     });
   }
 
+  const handleUpdateSubject = () => {
+    if (!db || !editingSubject || !isAdmin) return
+    setLoading(true)
+    const docRef = doc(db, 'subjects', editingSubject.id);
+    const updateData = { name: editingSubject.name };
+    updateDoc(docRef, updateData).then(() => {
+      setEditingSubject(null)
+      toast({ title: "Subject Updated" })
+      setLoading(false)
+    }).catch(async (serverError) => {
+      setLoading(false)
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: updateData
+      }));
+    });
+  }
+
   const handleUploadMaterial = (e: React.FormEvent) => {
     e.preventDefault()
     if (!db || !materialForm.courseId || !materialForm.subjectId || !isAdmin) return
@@ -267,7 +288,9 @@ export function StudentManagement() {
   const handleDeleteSubject = (id: string) => {
     if (!db || !isAdmin) return;
     const docRef = doc(db, 'subjects', id);
-    deleteDoc(docRef).catch(async (serverError) => {
+    deleteDoc(docRef).then(() => {
+      toast({ title: "Subject removed" })
+    }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
         operation: 'delete',
@@ -646,9 +669,31 @@ export function StudentManagement() {
                           </div></ScrollArea></div>
                       <Button type="submit" className="w-full bg-accent h-12" disabled={loading}>Create Subject</Button>
                     </form>
-                    <div className="pt-4 border-t"><ScrollArea className="h-[200px] md:h-[250px]"><Table><TableHeader><TableRow><TableHead>Subject</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                      <TableBody>{subjects?.map((s: any) => (<TableRow key={s.id}><TableCell className="text-xs">{s.name} ({courses?.find(c => c.id === s.courseId)?.name})</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => handleDeleteSubject(s.id)} className="h-8 w-8 p-0"><Trash2 size={12} /></Button></TableCell></TableRow>))}</TableBody>
-                    </Table></ScrollArea></div>
+                    <div className="pt-4 border-t">
+                      <ScrollArea className="h-[200px] md:h-[250px]">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Subject</TableHead>
+                              <TableHead className="text-right">Action</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {subjects?.map((s: any) => (
+                              <TableRow key={s.id}>
+                                <TableCell className="text-xs">
+                                  {s.name} ({courses?.find(c => c.id === s.courseId)?.name})
+                                </TableCell>
+                                <TableCell className="text-right flex justify-end gap-1">
+                                  <Button variant="ghost" size="sm" onClick={() => setEditingSubject(s)} className="h-8 w-8 p-0"><Edit2 size={12} /></Button>
+                                  <Button variant="ghost" size="sm" onClick={() => handleDeleteSubject(s.id)} className="h-8 w-8 p-0"><Trash2 size={12} /></Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </ScrollArea>
+                    </div>
                   </CardContent>
                 </Card>
                 <Card className="border-primary/20">
@@ -792,6 +837,21 @@ export function StudentManagement() {
           <DialogFooter><Button onClick={handleUpdateStudent} className="w-full h-12">Save</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={!!editingSubject} onOpenChange={() => setEditingSubject(null)}>
+        <DialogContent className="w-[95vw] rounded-xl">
+          <DialogHeader><DialogTitle>Edit Subject</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <Label className="text-xs">Subject Name</Label>
+            <Input value={editingSubject?.name || ''} onChange={e => setEditingSubject({...editingSubject, name: e.target.value})} className="h-12" />
+          </div>
+          <DialogFooter className="flex flex-col gap-2">
+            <Button onClick={handleUpdateSubject} className="w-full h-12">Save Changes</Button>
+            <Button variant="outline" className="w-full h-12" onClick={() => setEditingSubject(null)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}>
         <DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Material</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
