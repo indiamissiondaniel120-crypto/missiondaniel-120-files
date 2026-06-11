@@ -1105,6 +1105,10 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
             isFetchingTitle: false
           };
         });
+        
+        // Sort the rows numerically by chapter number
+        newRows.sort((a, b) => a.chapter - b.chapter);
+        
         setBulkRows(newRows);
         toast({ title: "Playlist Fetched", description: `Discovered ${newRows.length} videos.` });
       } else {
