@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -11,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link, MessageSquare, Video, Clock, CheckCircle2, MonitorPlay, Globe } from 'lucide-react'
+import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link, MessageSquare, Video, Clock, CheckCircle2, MonitorPlay, Globe, Sparkles } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -22,6 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/components/auth-wrapper'
+import { fetchYoutubePlaylist } from '@/ai/flows/youtube-playlist-fetcher'
 
 const MATHS_CHAPTER_COUNT: Record<string, number> = {
   'class-4': 14,
@@ -1026,6 +1026,8 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   const [open, setOpen] = useState(false)
   const [selectedClassId, setSelectedClassId] = useState('')
   const [selectedSubjectId, setSelectedSubjectId] = useState('')
+  const [playlistUrl, setPlaylistUrl] = useState('')
+  const [isFetchingPlaylist, setIsFetchingPlaylist] = useState(false)
   const [loading, setLoading] = useState(false)
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([])
 
@@ -1081,8 +1083,42 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     }
   }, [selectedClassId, selectedSubjectId, incompleteChapters])
 
+  const handleFetchPlaylist = async () => {
+    if (!playlistUrl.trim()) {
+      toast({ variant: 'destructive', title: "Playlist URL Required" });
+      return;
+    }
+    setIsFetchingPlaylist(true);
+    try {
+      const result = await fetchYoutubePlaylist({ url: playlistUrl.trim() });
+      if (result && result.videos && result.videos.length > 0) {
+        const newRows = result.videos.map((v, i) => {
+          // Attempt to find a chapter number in the title
+          const chapterMatch = v.title.match(/Chapter\s*(\d+)/i) || v.title.match(/Ch\s*(\d+)/i) || v.title.match(/(\d+)/);
+          const chapterNum = chapterMatch ? parseInt(chapterMatch[1]) : (i + 1);
+          
+          return {
+            chapter: chapterNum,
+            title: v.title,
+            videoUrl: v.url,
+            pdfUrl: '',
+            isFetchingTitle: false
+          };
+        });
+        setBulkRows(newRows);
+        toast({ title: "Playlist Fetched", description: `Discovered ${newRows.length} videos.` });
+      } else {
+        toast({ variant: 'destructive', title: "No Videos Found", description: "Ensure the URL is a public YouTube playlist." });
+      }
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Fetch Failed", description: e.message || "Could not process playlist." });
+    } finally {
+      setIsFetchingPlaylist(false);
+    }
+  }
+
   const handleAddRow = () => {
-    if (bulkRows.length >= 20) return
+    if (bulkRows.length >= 50) return
     const currentRowsChapters = bulkRows.map(r => r.chapter)
     const nextIncomplete = incompleteChapters.find(c => !currentRowsChapters.includes(c.chapter))
     
@@ -1113,13 +1149,13 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     updated[index] = { ...updated[index], [field]: value }
     setBulkRows(updated)
 
-    if (field === 'videoUrl' && typeof value === 'string' && value.trim()) {
+    if (field === 'videoUrl' && typeof value === 'string' && value.trim() && !updated[index].title) {
       const videoId = getYouTubeID(value);
       if (videoId) {
         updated[index].isFetchingTitle = true;
         setBulkRows([...updated]);
         const fetchedTitle = await fetchYouTubeTitle(value);
-        if (fetchedTitle && !updated[index].title) {
+        if (fetchedTitle) {
           updated[index].title = fetchedTitle;
         }
         updated[index].isFetchingTitle = false;
@@ -1183,36 +1219,76 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button className="bg-primary rounded-xl text-xs md:text-sm h-10 md:h-11"><Layers className="mr-2 h-3.5 w-3.5" /> Bulk Upload</Button></DialogTrigger>
-      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden w-[98vw] rounded-2xl">
-        <DialogHeader className="p-6 pb-2"><DialogTitle className="text-lg md:text-2xl">Bulk Material Upload</DialogTitle></DialogHeader>
+      <DialogContent className="max-w-6xl h-[92vh] flex flex-col p-0 overflow-hidden w-[98vw] rounded-2xl">
+        <DialogHeader className="p-6 pb-2"><DialogTitle className="text-lg md:text-2xl">Bulk Material Automator</DialogTitle></DialogHeader>
         <div className="flex-1 overflow-y-auto px-4 md:px-6 py-2">
           <div className="space-y-6 pb-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select onValueChange={setSelectedClassId} value={selectedClassId}><SelectTrigger className="h-11"><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
-              <Select onValueChange={setSelectedSubjectId} value={selectedSubjectId} disabled={!selectedClassId}><SelectTrigger className="h-11"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.filter(s => s.courseId === selectedClassId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase font-black text-muted-foreground">Select Scope</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Select onValueChange={setSelectedClassId} value={selectedClassId}><SelectTrigger className="h-11"><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
+                  <Select onValueChange={setSelectedSubjectId} value={selectedSubjectId} disabled={!selectedClassId}><SelectTrigger className="h-11"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.filter(s => s.courseId === selectedClassId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase font-black text-primary">YouTube Playlist Import</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Paste Playlist URL here..." 
+                    value={playlistUrl}
+                    onChange={e => setPlaylistUrl(e.target.value)}
+                    className="h-11 bg-primary/5 border-primary/20"
+                    disabled={!selectedSubjectId || isFetchingPlaylist}
+                  />
+                  <Button 
+                    onClick={handleFetchPlaylist} 
+                    disabled={!selectedSubjectId || isFetchingPlaylist || !playlistUrl.trim()}
+                    className="h-11 bg-accent gap-2 shrink-0"
+                  >
+                    {isFetchingPlaylist ? <Loader2 className="animate-spin h-4 w-4" /> : <Sparkles size={16} />} 
+                    Fetch
+                  </Button>
+                </div>
+              </div>
             </div>
+
             {selectedSubject && (
               <div className="space-y-6">
                 <div className="bg-muted/30 p-3 md:p-4 rounded-xl md:rounded-2xl border border-dashed flex flex-wrap gap-2">
-                  {chapterStatus.filter(c => c.completed).map(c => <Badge key={c.chapter} variant="secondary" className="bg-green-100 text-green-700 text-[10px]">Ch {c.chapter} Done</Badge>)}
+                  {chapterStatus.filter(c => c.completed).map(c => <Badge key={c.chapter} variant="secondary" className="bg-green-100 text-green-700 text-[10px]">Ch {c.chapter} OK</Badge>)}
                 </div>
                 <div className="flex justify-between items-center px-1">
-                  <h4 className="text-xs font-bold uppercase text-primary">Bulk Entry</h4>
-                  <Button variant="outline" size="sm" onClick={handleAddRow} disabled={bulkRows.length >= 20} className="h-9 rounded-lg"><Plus size={14} className="mr-1" /> Add Row</Button>
+                  <h4 className="text-xs font-black uppercase text-primary tracking-widest">Entry Grid ({bulkRows.length} items)</h4>
+                  <Button variant="outline" size="sm" onClick={handleAddRow} disabled={bulkRows.length >= 50} className="h-9 rounded-lg border-primary/20"><Plus size={14} className="mr-1" /> Manual Row</Button>
                 </div>
                 <div className="space-y-4">
                   {bulkRows.map((row, idx) => (
-                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-xl border border-accent/10">
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-xl border border-accent/10 relative group">
                       <div className="sm:col-span-1">
-                        <Label className="text-[9px] opacity-60">Ch #</Label>
-                        <Input type="number" className="bg-white h-10" value={row.chapter} onChange={e => handleUpdateRow(idx, 'chapter', Number(e.target.value))} />
+                        <Label className="text-[9px] opacity-60 font-black">Chapter</Label>
+                        <Input type="number" className="bg-white h-10 font-bold" value={row.chapter} onChange={e => handleUpdateRow(idx, 'chapter', Number(e.target.value))} />
+                      </div>
+                      <div className="sm:col-span-4">
+                        <Label className="text-[9px] opacity-60 font-black">Material Title</Label>
+                        <div className="relative">
+                          <Input className="bg-white h-10 text-xs font-medium pr-8" placeholder="Auto-fetched title..." value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />
+                          {row.isFetchingTitle && <Loader2 className="absolute right-2 top-3 h-4 w-4 animate-spin text-primary" />}
+                        </div>
                       </div>
                       <div className="sm:col-span-3">
-                        <Label className="text-[9px] opacity-60">Title</Label>
-                        <Input className="bg-white h-10 text-xs" placeholder="Fetched title" value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />
+                        <Label className="text-[9px] opacity-60 font-black flex items-center gap-1"><Video size={10} /> Video URL</Label>
+                        <Input className="bg-white h-10 text-[10px]" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} />
                       </div>
-                      <div className="sm:col-span-4"><Label className="text-[9px] opacity-60">Video URL</Label><Input className="bg-white h-10 text-[10px]" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} /></div>
-                      <div className="sm:col-span-4"><Label className="text-[9px] opacity-60">PDF URL</Label><Input className="bg-white h-10 text-[10px]" value={row.pdfUrl} onChange={e => handleUpdateRow(idx, 'pdfUrl', e.target.value)} /></div>
+                      <div className="sm:col-span-3">
+                        <Label className="text-[9px] opacity-60 font-black flex items-center gap-1"><FileText size={10} /> PDF Notes URL</Label>
+                        <Input className="bg-white h-10 text-[10px]" placeholder="Paste PDF link..." value={row.pdfUrl} onChange={e => handleUpdateRow(idx, 'pdfUrl', e.target.value)} />
+                      </div>
+                      <div className="sm:col-span-1 flex justify-center pb-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setBulkRows(prev => prev.filter((_, i) => i !== idx))}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1221,8 +1297,11 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
           </div>
         </div>
         <DialogFooter className="p-4 md:p-6 border-t bg-muted/20 flex flex-col sm:flex-row gap-2">
-          <Button variant="ghost" onClick={() => setOpen(false)} className="w-full sm:w-auto h-11">Cancel</Button>
-          <Button onClick={handleSaveBulk} disabled={loading || bulkRows.length === 0} className="w-full sm:w-auto h-11">Upload All</Button>
+          <Button variant="ghost" onClick={() => setOpen(false)} className="w-full sm:w-auto h-11 px-8">Cancel</Button>
+          <Button onClick={handleSaveBulk} disabled={loading || bulkRows.length === 0} className="w-full sm:w-auto h-11 px-12 bg-primary">
+            {loading ? <Loader2 className="animate-spin mr-2" /> : <Library className="mr-2" />}
+            Upload All Materials
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
