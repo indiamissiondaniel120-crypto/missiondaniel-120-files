@@ -39,7 +39,13 @@ function collectAllVideos(obj: any, foundVideos: Map<string, any> = new Map()): 
       const v = obj[rKey];
       const videoId = v.videoId;
       if (videoId && !foundVideos.has(videoId)) {
-        const title = v.title?.runs?.[0]?.text || v.title?.simpleText || `Video ${videoId}`;
+        // Robust title extraction
+        const title = 
+          v.title?.runs?.[0]?.text || 
+          v.title?.simpleText || 
+          v.title?.accessibility?.accessibilityData?.label ||
+          `Video ${videoId}`;
+        
         foundVideos.set(videoId, {
           title,
           url: `https://www.youtube.com/watch?v=${videoId}`
@@ -51,6 +57,8 @@ function collectAllVideos(obj: any, foundVideos: Map<string, any> = new Map()): 
   // Recurse into all keys
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      // Avoid circular references or extremely deep structures if necessary, 
+      // but ytInitialData is usually a safe tree.
       collectAllVideos(obj[key], foundVideos);
     }
   }
@@ -83,7 +91,8 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
       /ytInitialData\s*=\s*({.+?})\s*;/s,
       /window\["ytInitialData"\]\s*=\s*({.+?})\s*;/s,
       /ytInitialData\s*=\s*({.+?})\s*<\/script>/s,
-      /var\s+ytInitialData\s*=\s*({.+?})\s*;/s
+      /var\s+ytInitialData\s*=\s*({.+?})\s*;/s,
+      /ytInitialData\s*=\s*({.*?})\s*[\};]/s // Even more aggressive
     ];
 
     let jsonData = null;
@@ -91,7 +100,10 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
       const match = html.match(pattern);
       if (match && match[1]) {
         try {
-          jsonData = JSON.parse(match[1]);
+          // Sometimes the regex captures too much or too little due to greedy matching
+          // We'll try to find the actual end of the JSON object
+          let rawJson = match[1];
+          jsonData = JSON.parse(rawJson);
           break;
         } catch (e) {
           continue;
@@ -106,6 +118,7 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
 
     // Stage 2: Fallback to raw regex matching if JSON parsing fails or finds nothing
     if (videos.length === 0) {
+      // This is a last resort and will likely have generic titles
       const videoIdRegex = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
       const matches = html.matchAll(videoIdRegex);
       const uniqueIds = new Set<string>();
@@ -114,7 +127,6 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
       }
       
       if (uniqueIds.size > 0) {
-        // For raw IDs, we try to find titles or just return indexed names
         videos = Array.from(uniqueIds).map((id, index) => ({
           title: `Video ${index + 1} (${id})`,
           url: `https://www.youtube.com/watch?v=${id}`
