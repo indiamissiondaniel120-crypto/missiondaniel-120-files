@@ -37,9 +37,9 @@ function findPlaylistContents(obj: any): any[] | null {
     return obj.playlistVideoListRenderer.contents;
   }
 
-  // Also check for the alternative structure sometimes used in unlisted/mobile views
+  // Handle alternative renderer structures
   if (obj.playlistVideoRenderer) {
-    // If we are at an individual renderer level, this isn't the list we want
+    // If we find an individual renderer but we want the list, we return the container if possible
   }
 
   for (const key in obj) {
@@ -60,19 +60,11 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
-        'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1'
       },
       cache: 'no-store'
     });
@@ -80,7 +72,6 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     if (!response.ok) throw new Error(`YouTube returned status ${response.status}`);
     const html = await response.text();
 
-    // The data is embedded in a global JS variable. We check multiple possible patterns.
     const patterns = [
       /var ytInitialData = ({.*?});/s,
       /window\["ytInitialData"\] = ({.*?});/s,
@@ -101,11 +92,9 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     }
 
     if (!jsonData) {
-      console.error("Extraction error: Could not find or parse ytInitialData.");
-      return [];
+      throw new Error("Could not extract playlist data. The page structure might have changed or access is restricted.");
     }
     
-    // Use recursive search to find the video contents
     const contents = findPlaylistContents(jsonData) || [];
     
     const videos = contents
@@ -127,8 +116,7 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
 
     return videos;
   } catch (error: any) {
-    console.error("Network or Parsing error:", error.message);
-    throw new Error(`Connection failed: ${error.message}`);
+    throw new Error(`Extraction failed: ${error.message}`);
   }
 }
 
@@ -143,27 +131,37 @@ const fetchYoutubePlaylistFlow = ai.defineFlow(
     outputSchema: FetchYoutubePlaylistOutputSchema,
   },
   async (input) => {
-    let targetUrl = input.url;
+    const rawUrl = input.url.trim();
     
-    // Basic validation
-    if (!targetUrl.includes('list=')) {
-      throw new Error("Invalid playlist URL. Must contain 'list=' parameter.");
+    if (!rawUrl) {
+      throw new Error("Playlist URL cannot be empty.");
+    }
+
+    // Check for list= parameter anywhere in the string
+    if (!rawUrl.toLowerCase().includes('list=')) {
+      throw new Error("Invalid URL. A YouTube playlist URL must contain the 'list=' parameter.");
     }
 
     try {
+      // Fix for URLs that might not have a protocol
+      const targetUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
       const urlObj = new URL(targetUrl);
       const listId = urlObj.searchParams.get('list');
-      const cleanUrl = `https://www.youtube.com/playlist?list=${listId}`;
+      
+      if (!listId) {
+        throw new Error("Could not find a valid 'list' ID in the URL.");
+      }
 
+      const cleanUrl = `https://www.youtube.com/playlist?list=${listId}`;
       const videos = await extractVideosFromHtml(cleanUrl);
       
       if (videos.length === 0) {
-        throw new Error("No videos found. Ensure the playlist is Public or Unlisted.");
+        throw new Error("No videos found. Ensure the playlist is either Public or Unlisted (not Private).");
       }
 
       return { videos };
     } catch (e: any) {
-      throw new Error(e.message || "An unexpected error occurred during import.");
+      throw new Error(e.message || "An unexpected error occurred while processing the playlist.");
     }
   }
 );
