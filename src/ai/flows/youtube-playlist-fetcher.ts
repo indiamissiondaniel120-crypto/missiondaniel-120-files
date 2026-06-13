@@ -3,7 +3,7 @@
  * @fileOverview A robust programmatic fetcher to extract video information from a YouTube playlist URL.
  * 
  * - fetchYoutubePlaylist - Extracts video titles and URLs from a playlist without using LLM reasoning.
- * - Supports Public and Unlisted playlists by parsing ytInitialData with recursive deep-search.
+ * - Supports Public and Unlisted playlists by parsing ytInitialData with recursive deep-scan.
  */
 
 import { ai } from '@/ai/genkit';
@@ -26,30 +26,47 @@ export type FetchYoutubePlaylistInput = z.infer<typeof FetchYoutubePlaylistInput
 export type FetchYoutubePlaylistOutput = z.infer<typeof FetchYoutubePlaylistOutputSchema>;
 
 /**
- * Recursively searches an object to find a key.
- * Used to find the playlist contents regardless of where they are in the JSON tree.
+ * Recursively scans an object to find all instances of video data.
+ * This is more robust than looking for a specific path, as YouTube often
+ * changes the UI structure for Unlisted vs Public playlists.
  */
-function findPlaylistContents(obj: any): any[] | null {
-  if (!obj || typeof obj !== 'object') return null;
-  
-  // Look for the specific renderer that contains playlist videos
-  if (obj.playlistVideoListRenderer && Array.isArray(obj.playlistVideoListRenderer.contents)) {
-    return obj.playlistVideoListRenderer.contents;
-  }
+function collectAllVideos(obj: any, foundVideos: Map<string, any> = new Map()): any[] {
+  if (!obj || typeof obj !== 'object') return Array.from(foundVideos.values());
 
-  // Handle alternative renderer structures
+  // Check for the specific video renderer
   if (obj.playlistVideoRenderer) {
-    // If we find an individual renderer but we want the list, we return the container if possible
-  }
-
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      const result = findPlaylistContents(obj[key]);
-      if (result) return result;
+    const v = obj.playlistVideoRenderer;
+    const videoId = v.videoId;
+    if (videoId && !foundVideos.has(videoId)) {
+      const title = v.title?.runs?.[0]?.text || v.title?.simpleText || "Untitled Video";
+      foundVideos.set(videoId, {
+        title,
+        url: `https://www.youtube.com/watch?v=${videoId}`
+      });
     }
   }
-  
-  return null;
+
+  // Handle case where it might be in a different renderer type (rare for playlists but possible)
+  if (obj.gridVideoRenderer) {
+    const v = obj.gridVideoRenderer;
+    const videoId = v.videoId;
+    if (videoId && !foundVideos.has(videoId)) {
+      const title = v.title?.runs?.[0]?.text || v.title?.simpleText || "Untitled Video";
+      foundVideos.set(videoId, {
+        title,
+        url: `https://www.youtube.com/watch?v=${videoId}`
+      });
+    }
+  }
+
+  // Recurse into all keys
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      collectAllVideos(obj[key], foundVideos);
+    }
+  }
+
+  return Array.from(foundVideos.values());
 }
 
 /**
@@ -60,7 +77,7 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x44) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
@@ -73,9 +90,10 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     const html = await response.text();
 
     const patterns = [
-      /var ytInitialData = ({.*?});/s,
+      /var ytInitialData = ({.*?});<\/script>/s,
       /window\["ytInitialData"\] = ({.*?});/s,
-      /ytInitialData = ({.*?});/s
+      /ytInitialData = ({.*?});/s,
+      /ytInitialData\s*=\s*({.+?})\s*;/s
     ];
 
     let jsonData = null;
@@ -92,28 +110,20 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     }
 
     if (!jsonData) {
-      throw new Error("Could not extract playlist data. The page structure might have changed or access is restricted.");
+      // Fallback for some unlisted pages where data is slightly different
+      const alternativeMatch = html.match(/ytInitialData\s*=\s*({.+?})\s*<\/script>/s);
+      if (alternativeMatch && alternativeMatch[1]) {
+        try {
+          jsonData = JSON.parse(alternativeMatch[1]);
+        } catch (e) {}
+      }
+    }
+
+    if (!jsonData) {
+      throw new Error("Could not extract playlist data structure. The page might be protected or private.");
     }
     
-    const contents = findPlaylistContents(jsonData) || [];
-    
-    const videos = contents
-      .map((item: any) => {
-        const videoRenderer = item.playlistVideoRenderer;
-        if (!videoRenderer) return null;
-
-        const videoId = videoRenderer.videoId;
-        const title = videoRenderer.title?.runs?.[0]?.text || 
-                      videoRenderer.title?.simpleText || 
-                      "Untitled Video";
-        
-        return {
-          title,
-          url: `https://www.youtube.com/watch?v=${videoId}`
-        };
-      })
-      .filter((v: any) => v !== null);
-
+    const videos = collectAllVideos(jsonData);
     return videos;
   } catch (error: any) {
     throw new Error(`Extraction failed: ${error.message}`);
@@ -152,11 +162,12 @@ const fetchYoutubePlaylistFlow = ai.defineFlow(
         throw new Error("Could not find a valid 'list' ID in the URL.");
       }
 
-      const cleanUrl = `https://www.youtube.com/playlist?list=${listId}`;
+      // We use the full browse URL for unlisted playlists
+      const cleanUrl = `https://www.youtube.com/playlist?list=${listId}&disable_polymer=true`;
       const videos = await extractVideosFromHtml(cleanUrl);
       
       if (videos.length === 0) {
-        throw new Error("No videos found. Ensure the playlist is either Public or Unlisted (not Private).");
+        throw new Error("No videos found. Ensure the playlist is either Public or Unlisted (it must not be Private).");
       }
 
       return { videos };
