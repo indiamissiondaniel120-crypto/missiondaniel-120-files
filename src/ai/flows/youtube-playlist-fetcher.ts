@@ -27,35 +27,24 @@ export type FetchYoutubePlaylistOutput = z.infer<typeof FetchYoutubePlaylistOutp
 
 /**
  * Recursively scans an object to find all instances of video data.
- * This is more robust than looking for a specific path, as YouTube often
- * changes the UI structure for Unlisted vs Public playlists.
  */
 function collectAllVideos(obj: any, foundVideos: Map<string, any> = new Map()): any[] {
   if (!obj || typeof obj !== 'object') return Array.from(foundVideos.values());
 
-  // Check for the specific video renderer
-  if (obj.playlistVideoRenderer) {
-    const v = obj.playlistVideoRenderer;
-    const videoId = v.videoId;
-    if (videoId && !foundVideos.has(videoId)) {
-      const title = v.title?.runs?.[0]?.text || v.title?.simpleText || "Untitled Video";
-      foundVideos.set(videoId, {
-        title,
-        url: `https://www.youtube.com/watch?v=${videoId}`
-      });
-    }
-  }
-
-  // Handle case where it might be in a different renderer type (rare for playlists but possible)
-  if (obj.gridVideoRenderer) {
-    const v = obj.gridVideoRenderer;
-    const videoId = v.videoId;
-    if (videoId && !foundVideos.has(videoId)) {
-      const title = v.title?.runs?.[0]?.text || v.title?.simpleText || "Untitled Video";
-      foundVideos.set(videoId, {
-        title,
-        url: `https://www.youtube.com/watch?v=${videoId}`
-      });
+  // Check for various video renderers used by YouTube
+  const renderers = ['playlistVideoRenderer', 'gridVideoRenderer', 'videoRenderer', 'childVideoRenderer'];
+  
+  for (const rKey of renderers) {
+    if (obj[rKey]) {
+      const v = obj[rKey];
+      const videoId = v.videoId;
+      if (videoId && !foundVideos.has(videoId)) {
+        const title = v.title?.runs?.[0]?.text || v.title?.simpleText || `Video ${videoId}`;
+        foundVideos.set(videoId, {
+          title,
+          url: `https://www.youtube.com/watch?v=${videoId}`
+        });
+      }
     }
   }
 
@@ -77,7 +66,7 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x44) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
@@ -89,15 +78,16 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     if (!response.ok) throw new Error(`YouTube returned status ${response.status}`);
     const html = await response.text();
 
-    const patterns = [
-      /var ytInitialData = ({.*?});<\/script>/s,
-      /window\["ytInitialData"\] = ({.*?});/s,
-      /ytInitialData = ({.*?});/s,
-      /ytInitialData\s*=\s*({.+?})\s*;/s
+    // Stage 1: Attempt JSON extraction from common variable patterns
+    const jsonPatterns = [
+      /ytInitialData\s*=\s*({.+?})\s*;/s,
+      /window\["ytInitialData"\]\s*=\s*({.+?})\s*;/s,
+      /ytInitialData\s*=\s*({.+?})\s*<\/script>/s,
+      /var\s+ytInitialData\s*=\s*({.+?})\s*;/s
     ];
 
     let jsonData = null;
-    for (const pattern of patterns) {
+    for (const pattern of jsonPatterns) {
       const match = html.match(pattern);
       if (match && match[1]) {
         try {
@@ -109,21 +99,29 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
       }
     }
 
-    if (!jsonData) {
-      // Fallback for some unlisted pages where data is slightly different
-      const alternativeMatch = html.match(/ytInitialData\s*=\s*({.+?})\s*<\/script>/s);
-      if (alternativeMatch && alternativeMatch[1]) {
-        try {
-          jsonData = JSON.parse(alternativeMatch[1]);
-        } catch (e) {}
+    let videos: any[] = [];
+    if (jsonData) {
+      videos = collectAllVideos(jsonData);
+    }
+
+    // Stage 2: Fallback to raw regex matching if JSON parsing fails or finds nothing
+    if (videos.length === 0) {
+      const videoIdRegex = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
+      const matches = html.matchAll(videoIdRegex);
+      const uniqueIds = new Set<string>();
+      for (const match of matches) {
+        uniqueIds.add(match[1]);
+      }
+      
+      if (uniqueIds.size > 0) {
+        // For raw IDs, we try to find titles or just return indexed names
+        videos = Array.from(uniqueIds).map((id, index) => ({
+          title: `Video ${index + 1} (${id})`,
+          url: `https://www.youtube.com/watch?v=${id}`
+        }));
       }
     }
 
-    if (!jsonData) {
-      throw new Error("Could not extract playlist data structure. The page might be protected or private.");
-    }
-    
-    const videos = collectAllVideos(jsonData);
     return videos;
   } catch (error: any) {
     throw new Error(`Extraction failed: ${error.message}`);
@@ -147,32 +145,25 @@ const fetchYoutubePlaylistFlow = ai.defineFlow(
       throw new Error("Playlist URL cannot be empty.");
     }
 
-    // Check for list= parameter anywhere in the string
-    if (!rawUrl.toLowerCase().includes('list=')) {
+    const listParam = rawUrl.match(/[?&]list=([^&#]+)/i);
+    if (!listParam || !listParam[1]) {
       throw new Error("Invalid URL. A YouTube playlist URL must contain the 'list=' parameter.");
     }
 
-    try {
-      // Fix for URLs that might not have a protocol
-      const targetUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
-      const urlObj = new URL(targetUrl);
-      const listId = urlObj.searchParams.get('list');
-      
-      if (!listId) {
-        throw new Error("Could not find a valid 'list' ID in the URL.");
-      }
+    const listId = listParam[1];
 
-      // We use the full browse URL for unlisted playlists
-      const cleanUrl = `https://www.youtube.com/playlist?list=${listId}&disable_polymer=true`;
+    try {
+      // Use the standard browse URL
+      const cleanUrl = `https://www.youtube.com/playlist?list=${listId}`;
       const videos = await extractVideosFromHtml(cleanUrl);
       
       if (videos.length === 0) {
-        throw new Error("No videos found. Ensure the playlist is either Public or Unlisted (it must not be Private).");
+        throw new Error("No videos found. Ensure the playlist is Public or Unlisted (not Private).");
       }
 
       return { videos };
     } catch (e: any) {
-      throw new Error(e.message || "An unexpected error occurred while processing the playlist.");
+      throw new Error(e.message || "An unexpected error occurred during extraction.");
     }
   }
 );
