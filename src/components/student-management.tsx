@@ -55,27 +55,18 @@ function getYouTubeID(url: string) {
 
 /**
  * Robustly extracts a chapter number from a title string.
- * Priority: Specific "Chapter X" keywords.
- * Fallback: First number that isn't preceded by "Class" or "Grade".
  */
 function extractChapterNumber(title: string): number | null {
   if (!title) return null;
-  
-  // First, remove "Class X" or "Grade X" to avoid false positives
   const cleaned = title.replace(/(?:Class|Grade|Std|Grade|Level)\s*\d+/gi, '');
-  
-  // Pattern 1: Explicit chapter keywords
   const explicitMatch = cleaned.match(/(?:Chapter|Ch|Chap|Unit|Lesson|L)\.?\s*(\d+)/i);
   if (explicitMatch && explicitMatch[1]) {
     return parseInt(explicitMatch[1]);
   }
-  
-  // Pattern 2: Lone number at the start or surrounded by boundaries
   const loneMatch = cleaned.match(/(?:\b|^)(\d+)(?:\b|$|\.|\s)/);
   if (loneMatch && loneMatch[1]) {
     return parseInt(loneMatch[1]);
   }
-  
   return null;
 }
 

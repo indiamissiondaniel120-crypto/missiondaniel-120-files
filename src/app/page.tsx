@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { AICompanion } from '@/components/ai-companion';
 import { Badge } from '@/components/ui/badge';
-import { StudentManagement, ActivityViewer } from '@/components/student-management';
+import { StudentManagement } from '@/components/student-management';
 import { InactivityMonitor } from '@/components/inactivity-monitor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -25,13 +25,13 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { LiveClassInterface } from '@/components/live-class';
 
 function getYouTubeEmbedUrl(url: string) {
-  if (!url) return '';
+  if (!url) return undefined;
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
   if (match && match[2].length === 11) {
     return `https://www.youtube.com/embed/${match[2]}?modestbranding=1&rel=0&color=white`;
   }
-  return url;
+  return undefined;
 }
 
 function sortClasses(classes: any[]) {
@@ -575,7 +575,6 @@ function MentorMyStudentsSummary({ mentorId, allMentors }: { mentorId: string, a
                   </CardTitle>
                   <CardDescription className="text-xs">Class: {student.class}</CardDescription>
                 </div>
-                <ActivityViewer student={student} mentors={allMentors} />
               </div>
             </CardHeader>
           </Card>
@@ -960,26 +959,33 @@ function Dashboard() {
                             {currentMaterials.filter(m => m.type === 'video').length === 0 && (
                               <div className="text-center py-12 md:py-20 text-muted-foreground font-bold italic bg-muted/20 rounded-[2rem] md:rounded-[3rem] border-4 border-dashed">No videos yet.</div>
                             )}
-                            {currentMaterials.filter(m => m.type === 'video').map(v => (
-                              <Card key={v.id} className="overflow-hidden border-none shadow-2xl rounded-[1.5rem] md:rounded-[3rem] group relative hover:-translate-y-1 transition-all duration-500" onMouseEnter={() => setActiveMaterial(v)} onMouseLeave={() => setActiveMaterial(null)}>
-                                <div className="aspect-video relative bg-black shadow-inner">
-                                  <iframe src={getYouTubeEmbedUrl(v.url)} className="absolute inset-0 w-full h-full" allowFullScreen />
-                                </div>
-                                <CardHeader className="p-4 md:p-8 bg-white/80">
-                                  <div className="flex items-center justify-between gap-4">
-                                    <div className="min-w-0">
-                                      <Badge variant="outline" className="mb-2 rounded-lg px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-black tracking-widest uppercase text-[8px] md:text-[10px]">Ch {v.chapter}</Badge>
-                                      <CardTitle className="text-base md:text-2xl font-black tracking-tight truncate">{v.title}</CardTitle>
-                                    </div>
-                                    {isAdmin && (
-                                      <Button variant="ghost" size="icon" onClick={() => setEditingMaterial(v)} className="h-10 w-10 text-muted-foreground hover:bg-muted rounded-xl">
-                                        <Edit2 size={16} />
-                                      </Button>
+                            {currentMaterials.filter(m => m.type === 'video').map(v => {
+                              const embedUrl = getYouTubeEmbedUrl(v.url);
+                              return (
+                                <Card key={v.id} className="overflow-hidden border-none shadow-2xl rounded-[1.5rem] md:rounded-[3rem] group relative hover:-translate-y-1 transition-all duration-500" onMouseEnter={() => setActiveMaterial(v)} onMouseLeave={() => setActiveMaterial(null)}>
+                                  <div className="aspect-video relative bg-black shadow-inner">
+                                    {embedUrl ? (
+                                      <iframe src={embedUrl} className="absolute inset-0 w-full h-full" allowFullScreen />
+                                    ) : (
+                                      <div className="absolute inset-0 flex items-center justify-center text-white/50 text-sm font-bold italic">Invalid Video URL</div>
                                     )}
                                   </div>
-                                </CardHeader>
-                              </Card>
-                            ))}
+                                  <CardHeader className="p-4 md:p-8 bg-white/80">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <div className="min-w-0">
+                                        <Badge variant="outline" className="mb-2 rounded-lg px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-black tracking-widest uppercase text-[8px] md:text-[10px]">Ch {v.chapter}</Badge>
+                                        <CardTitle className="text-base md:text-2xl font-black tracking-tight truncate">{v.title}</CardTitle>
+                                      </div>
+                                      {isAdmin && (
+                                        <Button variant="ghost" size="icon" onClick={() => setEditingMaterial(v)} className="h-10 w-10 text-muted-foreground hover:bg-muted rounded-xl">
+                                          <Edit2 size={16} />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </CardHeader>
+                                </Card>
+                              );
+                            })}
                           </TabsContent>
                           <TabsContent value="notes" className="space-y-4 md:space-y-6">
                              {currentMaterials.filter(m => m.type === 'pdf').length === 0 && (
