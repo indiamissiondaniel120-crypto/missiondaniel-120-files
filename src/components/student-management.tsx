@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -57,7 +58,7 @@ async function fetchYouTubeTitle(url: string): Promise<string | null> {
   const videoId = getYouTubeID(url);
   if (!videoId) return null;
   try {
-    const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+    const response = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
     const data = await response.json();
     return data.title || null;
   } catch (e) {
@@ -65,10 +66,12 @@ async function fetchYouTubeTitle(url: string): Promise<string | null> {
   }
 }
 
-/**
- * Robustly extracts a chapter number from a string title.
- */
 function extractChapterNumber(title: string): number | null {
+  if (!title) return null;
+  
+  // 1. Clean common prefixes that cause false positives (e.g., "Class 7")
+  const cleanedTitle = title.replace(/(Class|Grade|Std)\s*\d+/gi, '');
+
   const patterns = [
     /Chapter\s*(\d+)/i,
     /Ch\s*(\d+)/i,
@@ -76,11 +79,11 @@ function extractChapterNumber(title: string): number | null {
     /Unit\s*(\d+)/i,
     /Lesson\s*(\d+)/i,
     /L\s*(\d+)/i,
-    /^(\d+)/ // Matches if title starts with a number like "01. Title"
+    /^\s*(\d+)/ // Matches if title starts with a number like "01. Title"
   ];
 
   for (const pattern of patterns) {
-    const match = title.match(pattern);
+    const match = cleanedTitle.match(pattern);
     if (match && match[1]) {
       const num = parseInt(match[1]);
       if (!isNaN(num)) return num;
@@ -1238,27 +1241,39 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   }
 
   const handleUpdateRow = async (index: number, field: keyof BulkRow, value: any) => {
-    const updated = [...bulkRows]
-    updated[index] = { ...updated[index], [field]: value }
-    setBulkRows(updated)
-
-    if (field === 'videoUrl' && typeof value === 'string' && value.trim()) {
-      const videoId = getYouTubeID(value);
-      if (videoId) {
-        updated[index].isFetchingTitle = true;
-        setBulkRows([...updated]);
-        const fetchedTitle = await fetchYouTubeTitle(value);
-        if (fetchedTitle) {
-          updated[index].title = fetchedTitle;
-          const detectedCh = extractChapterNumber(fetchedTitle);
-          if (detectedCh) {
-            updated[index].chapter = detectedCh;
-          }
+    setBulkRows(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      
+      // Auto-trigger title fetch if video URL is updated
+      if (field === 'videoUrl' && typeof value === 'string' && value.trim()) {
+        const videoId = getYouTubeID(value);
+        if (videoId) {
+          updated[index].isFetchingTitle = true;
+          fetchYouTubeTitle(value).then(fetchedTitle => {
+            if (fetchedTitle) {
+              setBulkRows(current => {
+                const next = [...current];
+                if (next[index]) {
+                  next[index].title = fetchedTitle;
+                  const detectedCh = extractChapterNumber(fetchedTitle);
+                  if (detectedCh) next[index].chapter = detectedCh;
+                  next[index].isFetchingTitle = false;
+                }
+                return next;
+              });
+            } else {
+              setBulkRows(current => {
+                const next = [...current];
+                if (next[index]) next[index].isFetchingTitle = false;
+                return next;
+              });
+            }
+          });
         }
-        updated[index].isFetchingTitle = false;
-        setBulkRows([...updated]);
       }
-    }
+      return updated;
+    });
   }
 
   const handleSaveBulk = () => {

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A robust programmatic fetcher to extract video information from a YouTube playlist URL.
@@ -30,14 +31,16 @@ export type FetchYoutubePlaylistOutput = z.infer<typeof FetchYoutubePlaylistOutp
  */
 function tryGetTitle(v: any): string | null {
   if (!v) return null;
-  return (
+  const title = (
     v.title?.runs?.[0]?.text || 
     v.title?.simpleText || 
     v.title?.accessibility?.accessibilityData?.label ||
     v.headline?.simpleText ||
     v.label?.simpleText ||
-    v.title?.runs?.[0]?.accessibility?.accessibilityData?.label
+    v.title?.runs?.[0]?.accessibility?.accessibilityData?.label ||
+    v.text?.runs?.[0]?.text
   );
+  return title ? String(title).trim() : null;
 }
 
 /**
@@ -46,16 +49,14 @@ function tryGetTitle(v: any): string | null {
 function collectAllVideos(obj: any, foundVideos: Map<string, any> = new Map()): any[] {
   if (!obj || typeof obj !== 'object') return Array.from(foundVideos.values());
 
-  // Check for various video renderers used by YouTube
-  const renderers = ['playlistVideoRenderer', 'gridVideoRenderer', 'videoRenderer', 'childVideoRenderer', 'richItemRenderer'];
-  
-  for (const rKey of renderers) {
-    if (obj[rKey]) {
-      const v = obj[rKey].videoRenderer || obj[rKey].playlistVideoRenderer || obj[rKey];
+  // Direct check for renderers
+  const rKeys = ['playlistVideoRenderer', 'gridVideoRenderer', 'videoRenderer', 'childVideoRenderer', 'richItemRenderer'];
+  for (const k of rKeys) {
+    if (obj[k]) {
+      const v = obj[k].videoRenderer || obj[k].playlistVideoRenderer || obj[k];
       const videoId = v.videoId;
       if (videoId && !foundVideos.has(videoId)) {
         const title = tryGetTitle(v) || `Video ${videoId}`;
-        
         foundVideos.set(videoId, {
           title,
           url: `https://www.youtube.com/watch?v=${videoId}`
@@ -64,10 +65,14 @@ function collectAllVideos(obj: any, foundVideos: Map<string, any> = new Map()): 
     }
   }
 
-  // Recurse into all keys
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      collectAllVideos(obj[key], foundVideos);
+  // Handle common arrays or nested structures
+  if (Array.isArray(obj)) {
+    for (const item of obj) collectAllVideos(item, foundVideos);
+  } else {
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        collectAllVideos(obj[key], foundVideos);
+      }
     }
   }
 
@@ -85,8 +90,6 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
       },
       cache: 'no-store'
     });
@@ -94,36 +97,28 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     if (!response.ok) throw new Error(`YouTube returned status ${response.status}`);
     const html = await response.text();
 
-    // Stage 1: Precision JSON extraction by matching braces
+    // Stage 1: Precision JSON extraction for ytInitialData
     let jsonData = null;
-    const markers = ['ytInitialData = ', 'window["ytInitialData"] = ', 'var ytInitialData = '];
-    
-    for (const marker of markers) {
-      const startIndex = html.indexOf(marker);
-      if (startIndex !== -1) {
-        const dataPart = html.substring(startIndex + marker.length);
-        let braceCount = 0;
-        let endIndex = -1;
-        
-        for (let i = 0; i < dataPart.length; i++) {
-          if (dataPart[i] === '{') braceCount++;
-          else if (dataPart[i] === '}') {
-            braceCount--;
-            if (braceCount === 0) {
-              endIndex = i + 1;
-              break;
-            }
-          }
-        }
-        
-        if (endIndex !== -1) {
-          try {
-            jsonData = JSON.parse(dataPart.substring(0, endIndex));
+    const marker = 'ytInitialData = ';
+    const startIndex = html.indexOf(marker);
+    if (startIndex !== -1) {
+      const dataPart = html.substring(startIndex + marker.length);
+      let braceCount = 0;
+      let endIndex = -1;
+      for (let i = 0; i < dataPart.length; i++) {
+        if (dataPart[i] === '{') braceCount++;
+        else if (dataPart[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            endIndex = i + 1;
             break;
-          } catch (e) {
-            continue;
           }
         }
+      }
+      if (endIndex !== -1) {
+        try {
+          jsonData = JSON.parse(dataPart.substring(0, endIndex));
+        } catch (e) {}
       }
     }
 
@@ -132,20 +127,25 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
       videos = collectAllVideos(jsonData);
     }
 
-    // Stage 2: Fallback to raw regex matching if JSON parsing fails or finds nothing
+    // Stage 2: Fallback to regex for unlisted/obscured pages
     if (videos.length === 0) {
+      // Look for "videoId":"..." pairs and nearby title text
       const videoIdRegex = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
       const matches = html.matchAll(videoIdRegex);
       const uniqueIds = new Set<string>();
       for (const match of matches) {
-        uniqueIds.add(match[1]);
-      }
-      
-      if (uniqueIds.size > 0) {
-        videos = Array.from(uniqueIds).map((id, index) => ({
-          title: `Video ${index + 1} (${id})`,
-          url: `https://www.youtube.com/watch?v=${id}`
-        }));
+        const id = match[1];
+        if (!uniqueIds.has(id)) {
+          uniqueIds.add(id);
+          // Try to find title near the ID in raw HTML
+          const area = html.substring(Math.max(0, match.index! - 500), Math.min(html.length, match.index! + 500));
+          const titleMatch = area.match(/"title":\{"runs":\[\{"text":"([^"]+)"/i);
+          const title = titleMatch ? titleMatch[1] : `Video ${id}`;
+          videos.push({
+            title,
+            url: `https://www.youtube.com/watch?v=${id}`
+          });
+        }
       }
     }
 
@@ -167,29 +167,19 @@ const fetchYoutubePlaylistFlow = ai.defineFlow(
   },
   async (input) => {
     const rawUrl = input.url.trim();
-    
-    if (!rawUrl) {
-      throw new Error("Playlist URL cannot be empty.");
-    }
+    if (!rawUrl) throw new Error("Playlist URL cannot be empty.");
 
     const listParam = rawUrl.match(/[?&]list=([^&#]+)/i);
-    if (!listParam || !listParam[1]) {
-      throw new Error("Invalid URL. A YouTube playlist URL must contain the 'list=' parameter.");
-    }
+    if (!listParam || !listParam[1]) throw new Error("Invalid URL. Must contain 'list='");
 
     const listId = listParam[1];
-
-    try {
-      const cleanUrl = `https://www.youtube.com/playlist?list=${listId}`;
-      const videos = await extractVideosFromHtml(cleanUrl);
-      
-      if (videos.length === 0) {
-        throw new Error("No videos found. Ensure the playlist is Public or Unlisted (not Private).");
-      }
-
-      return { videos };
-    } catch (e: any) {
-      throw new Error(e.message || "An unexpected error occurred during extraction.");
+    const cleanUrl = `https://www.youtube.com/playlist?list=${listId}`;
+    const videos = await extractVideosFromHtml(cleanUrl);
+    
+    if (videos.length === 0) {
+      throw new Error("No videos found. Ensure the playlist is Public or Unlisted.");
     }
+
+    return { videos };
   }
 );
