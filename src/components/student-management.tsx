@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -64,6 +63,30 @@ async function fetchYouTubeTitle(url: string): Promise<string | null> {
   } catch (e) {
     return null;
   }
+}
+
+/**
+ * Robustly extracts a chapter number from a string title.
+ */
+function extractChapterNumber(title: string): number | null {
+  const patterns = [
+    /Chapter\s*(\d+)/i,
+    /Ch\s*(\d+)/i,
+    /Chap\s*(\d+)/i,
+    /Unit\s*(\d+)/i,
+    /Lesson\s*(\d+)/i,
+    /L\s*(\d+)/i,
+    /^(\d+)/ // Matches if title starts with a number like "01. Title"
+  ];
+
+  for (const pattern of patterns) {
+    const match = title.match(pattern);
+    if (match && match[1]) {
+      const num = parseInt(match[1]);
+      if (!isNaN(num)) return num;
+    }
+  }
+  return null;
 }
 
 function sortClasses(classes: any[]) {
@@ -1165,22 +1188,16 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
       const result = await fetchYoutubePlaylist({ url: playlistUrl.trim() });
       if (result && result.videos && result.videos.length > 0) {
         const newRows = result.videos.map((v, i) => {
-          // Attempt to find a chapter number in the title
-          const chapterMatch = v.title.match(/Chapter\s*(\d+)/i) || v.title.match(/Ch\s*(\d+)/i) || v.title.match(/(\d+)/);
-          const chapterNum = chapterMatch ? parseInt(chapterMatch[1]) : (i + 1);
-          
+          const detectedChapter = extractChapterNumber(v.title) || (i + 1);
           return {
-            chapter: chapterNum,
+            chapter: detectedChapter,
             title: v.title,
             videoUrl: v.url,
             pdfUrl: '',
             isFetchingTitle: false
           };
         });
-        
-        // Sort the rows numerically by chapter number
         newRows.sort((a, b) => a.chapter - b.chapter);
-        
         setBulkRows(newRows);
         toast({ title: "Playlist Fetched", description: `Discovered ${newRows.length} videos.` });
       } else {
@@ -1233,6 +1250,10 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
         const fetchedTitle = await fetchYouTubeTitle(value);
         if (fetchedTitle) {
           updated[index].title = fetchedTitle;
+          const detectedCh = extractChapterNumber(fetchedTitle);
+          if (detectedCh) {
+            updated[index].chapter = detectedCh;
+          }
         }
         updated[index].isFetchingTitle = false;
         setBulkRows([...updated]);
@@ -1247,7 +1268,6 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     
     bulkRows.forEach(row => {
       const finalTitle = row.title.trim();
-      
       if (row.videoUrl.trim()) {
         const vRef = row.videoId ? doc(db, 'materials', row.videoId) : doc(collection(db, 'materials'))
         const data = {
@@ -1261,7 +1281,6 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
         };
         batch.set(vRef, data, { merge: true })
       }
-      
       if (row.pdfUrl.trim()) {
         const pRef = row.pdfId ? doc(db, 'materials', row.pdfId) : doc(collection(db, 'materials'))
         const data = {

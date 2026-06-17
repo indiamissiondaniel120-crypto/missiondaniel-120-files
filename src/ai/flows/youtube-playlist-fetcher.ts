@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A robust programmatic fetcher to extract video information from a YouTube playlist URL.
@@ -26,25 +27,35 @@ export type FetchYoutubePlaylistInput = z.infer<typeof FetchYoutubePlaylistInput
 export type FetchYoutubePlaylistOutput = z.infer<typeof FetchYoutubePlaylistOutputSchema>;
 
 /**
+ * Robustly tries to extract a title from a YouTube renderer object.
+ */
+function tryGetTitle(v: any): string | null {
+  if (!v) return null;
+  return (
+    v.title?.runs?.[0]?.text || 
+    v.title?.simpleText || 
+    v.title?.accessibility?.accessibilityData?.label ||
+    v.headline?.simpleText ||
+    v.label?.simpleText ||
+    v.title?.runs?.[0]?.accessibility?.accessibilityData?.label
+  );
+}
+
+/**
  * Recursively scans an object to find all instances of video data.
  */
 function collectAllVideos(obj: any, foundVideos: Map<string, any> = new Map()): any[] {
   if (!obj || typeof obj !== 'object') return Array.from(foundVideos.values());
 
   // Check for various video renderers used by YouTube
-  const renderers = ['playlistVideoRenderer', 'gridVideoRenderer', 'videoRenderer', 'childVideoRenderer'];
+  const renderers = ['playlistVideoRenderer', 'gridVideoRenderer', 'videoRenderer', 'childVideoRenderer', 'richItemRenderer'];
   
   for (const rKey of renderers) {
     if (obj[rKey]) {
-      const v = obj[rKey];
+      const v = obj[rKey].videoRenderer || obj[rKey].playlistVideoRenderer || obj[rKey];
       const videoId = v.videoId;
       if (videoId && !foundVideos.has(videoId)) {
-        // Robust title extraction
-        const title = 
-          v.title?.runs?.[0]?.text || 
-          v.title?.simpleText || 
-          v.title?.accessibility?.accessibilityData?.label ||
-          `Video ${videoId}`;
+        const title = tryGetTitle(v) || `Video ${videoId}`;
         
         foundVideos.set(videoId, {
           title,
@@ -57,8 +68,6 @@ function collectAllVideos(obj: any, foundVideos: Map<string, any> = new Map()): 
   // Recurse into all keys
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      // Avoid circular references or extremely deep structures if necessary, 
-      // but ytInitialData is usually a safe tree.
       collectAllVideos(obj[key], foundVideos);
     }
   }
@@ -74,7 +83,7 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
@@ -92,7 +101,7 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
       /window\["ytInitialData"\]\s*=\s*({.+?})\s*;/s,
       /ytInitialData\s*=\s*({.+?})\s*<\/script>/s,
       /var\s+ytInitialData\s*=\s*({.+?})\s*;/s,
-      /ytInitialData\s*=\s*({.*?})\s*[\};]/s // Even more aggressive
+      /ytInitialData\s*=\s*({.*?})\s*[\};]/s
     ];
 
     let jsonData = null;
@@ -100,10 +109,7 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
       const match = html.match(pattern);
       if (match && match[1]) {
         try {
-          // Sometimes the regex captures too much or too little due to greedy matching
-          // We'll try to find the actual end of the JSON object
-          let rawJson = match[1];
-          jsonData = JSON.parse(rawJson);
+          jsonData = JSON.parse(match[1]);
           break;
         } catch (e) {
           continue;
@@ -118,7 +124,6 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
 
     // Stage 2: Fallback to raw regex matching if JSON parsing fails or finds nothing
     if (videos.length === 0) {
-      // This is a last resort and will likely have generic titles
       const videoIdRegex = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
       const matches = html.matchAll(videoIdRegex);
       const uniqueIds = new Set<string>();
@@ -165,7 +170,6 @@ const fetchYoutubePlaylistFlow = ai.defineFlow(
     const listId = listParam[1];
 
     try {
-      // Use the standard browse URL
       const cleanUrl = `https://www.youtube.com/playlist?list=${listId}`;
       const videos = await extractVideosFromHtml(cleanUrl);
       
