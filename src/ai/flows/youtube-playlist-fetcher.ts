@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A robust programmatic fetcher to extract video information from a YouTube playlist URL.
@@ -95,24 +94,35 @@ async function extractVideosFromHtml(url: string): Promise<any[]> {
     if (!response.ok) throw new Error(`YouTube returned status ${response.status}`);
     const html = await response.text();
 
-    // Stage 1: Attempt JSON extraction from common variable patterns
-    const jsonPatterns = [
-      /ytInitialData\s*=\s*({.+?})\s*;/s,
-      /window\["ytInitialData"\]\s*=\s*({.+?})\s*;/s,
-      /ytInitialData\s*=\s*({.+?})\s*<\/script>/s,
-      /var\s+ytInitialData\s*=\s*({.+?})\s*;/s,
-      /ytInitialData\s*=\s*({.*?})\s*[\};]/s
-    ];
-
+    // Stage 1: Precision JSON extraction by matching braces
     let jsonData = null;
-    for (const pattern of jsonPatterns) {
-      const match = html.match(pattern);
-      if (match && match[1]) {
-        try {
-          jsonData = JSON.parse(match[1]);
-          break;
-        } catch (e) {
-          continue;
+    const markers = ['ytInitialData = ', 'window["ytInitialData"] = ', 'var ytInitialData = '];
+    
+    for (const marker of markers) {
+      const startIndex = html.indexOf(marker);
+      if (startIndex !== -1) {
+        const dataPart = html.substring(startIndex + marker.length);
+        let braceCount = 0;
+        let endIndex = -1;
+        
+        for (let i = 0; i < dataPart.length; i++) {
+          if (dataPart[i] === '{') braceCount++;
+          else if (dataPart[i] === '}') {
+            braceCount--;
+            if (braceCount === 0) {
+              endIndex = i + 1;
+              break;
+            }
+          }
+        }
+        
+        if (endIndex !== -1) {
+          try {
+            jsonData = JSON.parse(dataPart.substring(0, endIndex));
+            break;
+          } catch (e) {
+            continue;
+          }
         }
       }
     }

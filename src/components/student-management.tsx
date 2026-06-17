@@ -101,6 +101,73 @@ function sortClasses(classes: any[]) {
   });
 }
 
+export function ActivityViewer({ student, mentors }: { student: any, mentors: any[] }) {
+  const db = useFirestore()
+  const activityQuery = useMemo(() => db && student.id ? query(collection(db, 'students', student.id, 'activity'), orderBy('timestamp', 'desc')) : null, [db, student.id])
+  const { data: activities, loading } = useCollection(activityQuery)
+
+  const downloadAttendanceCSV = () => {
+    if (!activities) return
+    const headers = ["Date", "Event Type", "Item/Title", "Chapter", "Duration (Seconds)"]
+    const rows = activities.map((log: any) => {
+      const date = log.timestamp?.toDate()?.toLocaleString() || '';
+      const type = log.type || '';
+      const item = log.metadata?.title || (log.type === 'login' || log.type === 'logout' ? '' : '-');
+      const chapter = log.metadata?.chapter || '-';
+      const duration = log.duration || 0;
+      return [date, type, item, chapter, duration]
+    })
+    
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `attendance_report_${student.id}.csv`);
+    document.body.appendChild(link);
+    link.click();
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild><Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-accent"><Activity size={14} /></Button></DialogTrigger>
+      <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 w-[95vw] rounded-2xl">
+        <DialogHeader className="p-6 md:p-8 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <DialogTitle className="truncate text-base md:text-xl">Activity: {student.name}</DialogTitle>
+          </div>
+          <Button variant="outline" size="sm" onClick={downloadAttendanceCSV} className="gap-1.5 h-10 w-full sm:w-auto rounded-xl border-accent/20 text-xs">
+            <FileSpreadsheet size={14} /> Attendance
+          </Button>
+        </DialogHeader>
+        <ScrollArea className="flex-1 p-6 md:p-8">
+          {loading ? <Loader2 className="animate-spin mx-auto mt-8 h-8 w-8 text-primary" /> : (
+            <div className="space-y-3">
+              {activities?.length === 0 && <p className="text-center text-muted-foreground py-8 italic text-xs">No activity recorded.</p>}
+              {activities?.map((log: any, i: number) => (
+                <div key={i} className="p-3 md:p-4 border rounded-xl flex items-center justify-between bg-muted/10 hover:bg-muted/20 transition-colors">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="font-bold text-[10px] md:text-sm uppercase text-primary truncate max-w-[150px] md:max-w-none">{log.type?.replace(/_/g, ' ')}</span>
+                    <span className="text-[9px] md:text-xs text-muted-foreground truncate">
+                      {log.metadata?.title ? `${log.metadata.title} (Ch ${log.metadata.chapter})` : ''}
+                    </span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[9px] md:text-xs font-medium text-foreground">{log.timestamp?.toDate()?.toLocaleTimeString()}</div>
+                    <div className="text-[8px] md:text-[10px] text-muted-foreground">{log.timestamp?.toDate()?.toLocaleDateString()}</div>
+                    {log.duration > 0 && <div className="text-[8px] md:text-[10px] text-accent font-bold mt-0.5">{log.duration}s</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+        <DialogFooter className="p-4 md:p-6 border-t bg-muted/20">
+          <DialogTrigger asChild><Button className="w-full h-11 md:h-12 rounded-xl font-black">Close</Button></DialogTrigger>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function StudentManagement() {
   const { user } = useAuth()
   const db = useFirestore()
@@ -1048,73 +1115,6 @@ function LiveAttendanceViewer({ session, onClose }: { session: any, onClose: () 
   );
 }
 
-export function ActivityViewer({ student, mentors }: { student: any, mentors: any[] }) {
-  const db = useFirestore()
-  const activityQuery = useMemo(() => db && student.id ? query(collection(db, 'students', student.id, 'activity'), orderBy('timestamp', 'desc')) : null, [db, student.id])
-  const { data: activities, loading } = useCollection(activityQuery)
-
-  const downloadAttendanceCSV = () => {
-    if (!activities) return
-    const headers = ["Date", "Event Type", "Item/Title", "Chapter", "Duration (Seconds)"]
-    const rows = activities.map((log: any) => {
-      const date = log.timestamp?.toDate()?.toLocaleString() || '';
-      const type = log.type || '';
-      const item = log.metadata?.title || (log.type === 'login' || log.type === 'logout' ? '' : '-');
-      const chapter = log.metadata?.chapter || '-';
-      const duration = log.duration || 0;
-      return [date, type, item, chapter, duration]
-    })
-    
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `attendance_report_${student.id}.csv`);
-    document.body.appendChild(link);
-    link.click();
-  }
-
-  return (
-    <Dialog>
-      <DialogTrigger asChild><Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-accent"><Activity size={14} /></Button></DialogTrigger>
-      <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 w-[95vw] rounded-2xl">
-        <DialogHeader className="p-6 md:p-8 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="min-w-0">
-            <DialogTitle className="truncate text-base md:text-xl">Activity: {student.name}</DialogTitle>
-          </div>
-          <Button variant="outline" size="sm" onClick={downloadAttendanceCSV} className="gap-1.5 h-10 w-full sm:w-auto rounded-xl border-accent/20 text-xs">
-            <FileSpreadsheet size={14} /> Attendance
-          </Button>
-        </DialogHeader>
-        <ScrollArea className="flex-1 p-6 md:p-8">
-          {loading ? <Loader2 className="animate-spin mx-auto mt-8 h-8 w-8 text-primary" /> : (
-            <div className="space-y-3">
-              {activities?.length === 0 && <p className="text-center text-muted-foreground py-8 italic text-xs">No activity recorded.</p>}
-              {activities?.map((log: any, i: number) => (
-                <div key={i} className="p-3 md:p-4 border rounded-xl flex items-center justify-between bg-muted/10 hover:bg-muted/20 transition-colors">
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <span className="font-bold text-[10px] md:text-sm uppercase text-primary truncate max-w-[150px] md:max-w-none">{log.type?.replace(/_/g, ' ')}</span>
-                    <span className="text-[9px] md:text-xs text-muted-foreground truncate">
-                      {log.metadata?.title ? `${log.metadata.title} (Ch ${log.metadata.chapter})` : ''}
-                    </span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-[9px] md:text-xs font-medium text-foreground">{log.timestamp?.toDate()?.toLocaleTimeString()}</div>
-                    <div className="text-[8px] md:text-[10px] text-muted-foreground">{log.timestamp?.toDate()?.toLocaleDateString()}</div>
-                    {log.duration > 0 && <div className="text-[8px] md:text-[10px] text-accent font-bold mt-0.5">{log.duration}s</div>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-        <DialogFooter className="p-4 md:p-6 border-t bg-muted/20">
-          <DialogTrigger asChild><Button className="w-full h-11 md:h-12 rounded-xl font-black">Close</Button></DialogTrigger>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], subjects: any[], materials: any[] }) {
   const db = useFirestore()
   const { toast } = useToast()
@@ -1242,7 +1242,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
     updated[index] = { ...updated[index], [field]: value }
     setBulkRows(updated)
 
-    if (field === 'videoUrl' && typeof value === 'string' && value.trim() && !updated[index].title) {
+    if (field === 'videoUrl' && typeof value === 'string' && value.trim()) {
       const videoId = getYouTubeID(value);
       if (videoId) {
         updated[index].isFetchingTitle = true;
