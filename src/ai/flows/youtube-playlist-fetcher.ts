@@ -50,7 +50,8 @@ function tryGetTitle(v: any): string | null {
     v.label?.simpleText ||
     v.title?.runs?.[0]?.accessibility?.accessibilityData?.label ||
     v.text?.runs?.[0]?.text ||
-    v.title?.accessibility?.label
+    v.title?.accessibility?.label ||
+    v.videoPrimaryInfoRenderer?.title?.runs?.[0]?.text
   );
   return title ? String(title).trim() : null;
 }
@@ -154,7 +155,12 @@ async function extractFromHtml(url: string, mode: 'playlist' | 'video'): Promise
       // Single video mode
       let title = '';
       if (jsonData) {
+        // Look everywhere for the title in the JSON tree
         title = jsonData.contents?.twoColumnWatchNextResults?.results?.results?.contents?.[0]?.videoPrimaryInfoRenderer?.title?.runs?.[0]?.text || '';
+        if (!title) {
+          const found = collectAllVideos(jsonData);
+          if (found.length > 0) title = found[0].title;
+        }
       }
       if (!title) {
         const titleRegex = /<title>([^<]+) - YouTube<\/title>/i;

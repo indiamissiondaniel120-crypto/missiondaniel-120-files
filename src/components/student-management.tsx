@@ -53,25 +53,29 @@ function getYouTubeID(url: string) {
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
+/**
+ * Robustly extracts a chapter number from a title string.
+ * Priority: Specific "Chapter X" keywords.
+ * Fallback: First number that isn't preceded by "Class" or "Grade".
+ */
 function extractChapterNumber(title: string): number | null {
   if (!title) return null;
-  const cleanedTitle = title.replace(/(Class|Grade|Std|Grade|Grade)\s*\d+/gi, '');
-  const patterns = [
-    /Chapter\s*(\d+)/i,
-    /Ch\s*(\d+)/i,
-    /Chap\s*(\d+)/i,
-    /Unit\s*(\d+)/i,
-    /Lesson\s*(\d+)/i,
-    /L\s*(\d+)/i,
-    /^\s*(\d+)/ 
-  ];
-  for (const pattern of patterns) {
-    const match = cleanedTitle.match(pattern);
-    if (match && match[1]) {
-      const num = parseInt(match[1]);
-      if (!isNaN(num)) return num;
-    }
+  
+  // First, remove "Class X" or "Grade X" to avoid false positives
+  const cleaned = title.replace(/(?:Class|Grade|Std|Grade|Level)\s*\d+/gi, '');
+  
+  // Pattern 1: Explicit chapter keywords
+  const explicitMatch = cleaned.match(/(?:Chapter|Ch|Chap|Unit|Lesson|L)\.?\s*(\d+)/i);
+  if (explicitMatch && explicitMatch[1]) {
+    return parseInt(explicitMatch[1]);
   }
+  
+  // Pattern 2: Lone number at the start or surrounded by boundaries
+  const loneMatch = cleaned.match(/(?:\b|^)(\d+)(?:\b|$|\.|\s)/);
+  if (loneMatch && loneMatch[1]) {
+    return parseInt(loneMatch[1]);
+  }
+  
   return null;
 }
 
@@ -595,7 +599,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   const chapterStatus = useMemo(() => { if (!selectedCourse || !selectedSubject) return []; const standardTotal = getChapterCount(selectedCourse.id, selectedSubject.name); const dbChapters = (materials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id).map(m => Number(m.chapter)); const all = Array.from(new Set([...Array.from({ length: standardTotal }, (_, i) => i + 1), ...dbChapters])).sort((a, b) => a - b); return all.map(i => { const chMat = (materials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id && Number(m.chapter) === i); const v = chMat.find(m => m.type === 'video'); const p = chMat.find(m => m.type === 'pdf'); return { chapter: i, completed: !!v && !!p, title: v?.title || p?.title || '', videoUrl: v?.url || '', videoId: v?.id, pdfUrl: p?.url || '', pdfId: p?.id }; }); }, [selectedCourse, selectedSubject, materials]);
   useEffect(() => { if (selectedClassId && selectedSubjectId) { const inc = chapterStatus.filter(c => !c.completed); setBulkRows(inc.slice(0, 1).map(c => ({ chapter: c.chapter, title: c.title, videoUrl: c.videoUrl, videoId: c.videoId, pdfUrl: c.pdfUrl, pdfId: c.pdfId }))); } else { setBulkRows([]); } }, [selectedClassId, selectedSubjectId]);
   
-  const handleFetchPlaylist = async () => { if (!playlistUrl.trim()) return; setIsFetching(true); try { const result = await fetchYoutubePlaylist({ url: playlistUrl.trim() }); if (result?.videos?.length) { const rows = result.videos.map((v, i) => { const ch = extractChapterNumber(v.title) || (i + 1); return { chapter: ch, title: v.title, videoUrl: v.url, pdfUrl: '' }; }); setBulkRows(rows.sort((a, b) => a.chapter - b.chapter)); toast({ title: "Fetched" }); } } catch (e: any) { toast({ variant: 'destructive', title: "Failed", description: e.message }); } finally { setIsFetching(false); } }
+  const handleFetchPlaylist = async () => { if (!playlistUrl.trim()) return; setIsFetching(true); try { const result = await fetchYoutubePlaylist({ url: playlistUrl.trim() }); if (result?.videos?.length) { const rows = result.videos.map((v, i) => { const extractedCh = extractChapterNumber(v.title); const ch = extractedCh !== null ? extractedCh : (i + 1); return { chapter: ch, title: v.title, videoUrl: v.url, pdfUrl: '' }; }); setBulkRows(rows.sort((a, b) => a.chapter - b.chapter)); toast({ title: "Fetched" }); } } catch (e: any) { toast({ variant: 'destructive', title: "Failed", description: e.message }); } finally { setIsFetching(false); } }
   
   const handleUpdateRow = async (index: number, field: keyof BulkRow, value: any) => { 
     setBulkRows(prev => { 
@@ -606,8 +610,10 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
           setBulkRows(current => {
             const up = [...current]; 
             if (up[index]) { 
-              up[index].title = res.title; up[index].isFetchingTitle = false; 
-              const ch = extractChapterNumber(res.title); if (ch) up[index].chapter = ch;
+              up[index].title = res.title; 
+              up[index].isFetchingTitle = false; 
+              const ch = extractChapterNumber(res.title); 
+              if (ch !== null) up[index].chapter = ch;
             }
             return up;
           });
@@ -640,7 +646,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
           up[index].title = res.title;
           up[index].isFetchingTitle = false;
           const ch = extractChapterNumber(res.title);
-          if (ch) up[index].chapter = ch;
+          if (ch !== null) up[index].chapter = ch;
         }
         return up;
       });
