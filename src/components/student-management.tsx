@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link, MessageSquare, Video, Clock, CheckCircle2, MonitorPlay, Globe, Sparkles } from 'lucide-react'
+import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link, MessageSquare, Video, Clock, CheckCircle2, MonitorPlay, Globe, Sparkles, RefreshCw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -55,7 +55,7 @@ function getYouTubeID(url: string) {
 
 function extractChapterNumber(title: string): number | null {
   if (!title) return null;
-  const cleanedTitle = title.replace(/(Class|Grade|Std)\s*\d+/gi, '');
+  const cleanedTitle = title.replace(/(Class|Grade|Std|Grade|Grade)\s*\d+/gi, '');
   const patterns = [
     /Chapter\s*(\d+)/i,
     /Ch\s*(\d+)/i,
@@ -463,7 +463,7 @@ export function StudentManagement() {
                 </Card>
               </div>
             </TabsContent>
-            {/* Omitted Doubts/Live tabs content as it hasn't changed... */}
+            
             <TabsContent value="materials" className="space-y-6 md:space-y-8">
               <div className="flex justify-end mb-2"><BulkUploadDialog courses={courses || []} subjects={subjects || []} materials={materials || []} /></div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
@@ -594,7 +594,9 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   const selectedSubject = useMemo(() => subjects.find(s => s.id === selectedSubjectId), [subjects, selectedSubjectId]);
   const chapterStatus = useMemo(() => { if (!selectedCourse || !selectedSubject) return []; const standardTotal = getChapterCount(selectedCourse.id, selectedSubject.name); const dbChapters = (materials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id).map(m => Number(m.chapter)); const all = Array.from(new Set([...Array.from({ length: standardTotal }, (_, i) => i + 1), ...dbChapters])).sort((a, b) => a - b); return all.map(i => { const chMat = (materials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id && Number(m.chapter) === i); const v = chMat.find(m => m.type === 'video'); const p = chMat.find(m => m.type === 'pdf'); return { chapter: i, completed: !!v && !!p, title: v?.title || p?.title || '', videoUrl: v?.url || '', videoId: v?.id, pdfUrl: p?.url || '', pdfId: p?.id }; }); }, [selectedCourse, selectedSubject, materials]);
   useEffect(() => { if (selectedClassId && selectedSubjectId) { const inc = chapterStatus.filter(c => !c.completed); setBulkRows(inc.slice(0, 1).map(c => ({ chapter: c.chapter, title: c.title, videoUrl: c.videoUrl, videoId: c.videoId, pdfUrl: c.pdfUrl, pdfId: c.pdfId }))); } else { setBulkRows([]); } }, [selectedClassId, selectedSubjectId]);
+  
   const handleFetchPlaylist = async () => { if (!playlistUrl.trim()) return; setIsFetching(true); try { const result = await fetchYoutubePlaylist({ url: playlistUrl.trim() }); if (result?.videos?.length) { const rows = result.videos.map((v, i) => { const ch = extractChapterNumber(v.title) || (i + 1); return { chapter: ch, title: v.title, videoUrl: v.url, pdfUrl: '' }; }); setBulkRows(rows.sort((a, b) => a.chapter - b.chapter)); toast({ title: "Fetched" }); } } catch (e: any) { toast({ variant: 'destructive', title: "Failed", description: e.message }); } finally { setIsFetching(false); } }
+  
   const handleUpdateRow = async (index: number, field: keyof BulkRow, value: any) => { 
     setBulkRows(prev => { 
       const next = [...prev]; next[index] = { ...next[index], [field]: value };
@@ -616,8 +618,46 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
       return next; 
     }); 
   }
+
+  const handleRefreshRowTitle = async (index: number) => {
+    const row = bulkRows[index];
+    if (!row.videoUrl || !getYouTubeID(row.videoUrl)) {
+      toast({ variant: 'destructive', title: "Invalid URL", description: "Please enter a valid YouTube link first." });
+      return;
+    }
+    
+    setBulkRows(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], isFetchingTitle: true };
+      return next;
+    });
+
+    try {
+      const res = await fetchSingleVideoInfo({ url: row.videoUrl.trim() });
+      setBulkRows(current => {
+        const up = [...current];
+        if (up[index]) {
+          up[index].title = res.title;
+          up[index].isFetchingTitle = false;
+          const ch = extractChapterNumber(res.title);
+          if (ch) up[index].chapter = ch;
+        }
+        return up;
+      });
+      toast({ title: "Title Refreshed" });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Fetch Failed", description: e.message || "Could not retrieve video information." });
+      setBulkRows(current => {
+        const up = [...current];
+        if (up[index]) up[index].isFetchingTitle = false;
+        return up;
+      });
+    }
+  }
+
   const handleSaveBulk = () => { if (!db || !selectedCourse || !selectedSubject) return; setLoading(true); const batch = writeBatch(db); bulkRows.forEach(row => { const t = row.title.trim(); if (row.videoUrl.trim()) batch.set(row.videoId ? doc(db, 'materials', row.videoId) : doc(collection(db, 'materials')), { title: t || `Ch ${row.chapter} Video`, courseId: selectedCourse.id, subjectId: selectedSubject.id, type: 'video', url: row.videoUrl.trim(), chapter: Number(row.chapter), createdAt: serverTimestamp() }, { merge: true }); if (row.pdfUrl.trim()) batch.set(row.pdfId ? doc(db, 'materials', row.pdfId) : doc(collection(db, 'materials')), { title: t ? `${t} (Notes)` : `Ch ${row.chapter} Notes`, courseId: selectedCourse.id, subjectId: selectedSubject.id, type: 'pdf', url: row.pdfUrl.trim(), chapter: Number(row.chapter), createdAt: serverTimestamp() }, { merge: true }); }); batch.commit().then(() => { toast({ title: "Saved" }); setOpen(false); setLoading(false); }).catch(() => setLoading(false)); }
-  return (<Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button className="bg-primary rounded-xl text-xs h-11"><Layers size={14} className="mr-2" /> Bulk Upload</Button></DialogTrigger><DialogContent className="max-w-6xl h-[92vh] flex flex-col p-0 overflow-hidden w-[98vw] rounded-2xl"><DialogHeader className="p-6 pb-2"><DialogTitle>Bulk Material Automator</DialogTitle></DialogHeader><ScrollArea className="flex-1 px-4 md:px-6"><div className="space-y-6 pb-8"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2"><Label className="text-[10px] uppercase font-black opacity-60">Scope</Label><div className="grid grid-cols-2 gap-2"><Select onValueChange={setSelectedClassId} value={selectedClassId}><SelectTrigger className="h-11"><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select><Select onValueChange={setSelectedSubjectId} value={selectedSubjectId} disabled={!selectedClassId}><SelectTrigger className="h-11"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.filter(s => s.courseId === selectedClassId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></div></div><div className="space-y-2"><Label className="text-[10px] uppercase font-black text-primary">Playlist Import</Label><div className="flex gap-2"><Input placeholder="YouTube Playlist Link..." value={playlistUrl} onChange={e => setPlaylistUrl(e.target.value)} className="h-11 bg-primary/5" disabled={!selectedSubjectId || isFetching} /><Button onClick={handleFetchPlaylist} disabled={!selectedSubjectId || isFetching || !playlistUrl.trim()} className="h-11 bg-accent">{isFetching ? <Loader2 className="animate-spin h-4 w-4" /> : <Sparkles size={16} />}</Button></div></div></div>{selectedSubject && (<div className="space-y-6"><div className="flex justify-between items-center"><h4 className="text-xs font-black uppercase tracking-widest">Entry Grid ({bulkRows.length})</h4><Button variant="outline" size="sm" onClick={() => setBulkRows([...bulkRows, { chapter: Math.max(0, ...bulkRows.map(r => r.chapter)) + 1, title: '', videoUrl: '', pdfUrl: '' }])} className="h-9 rounded-lg"><Plus size={14} /></Button></div><div className="space-y-4">{bulkRows.map((row, idx) => (<div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-xl border border-accent/10 relative group"><div className="sm:col-span-1"><Label className="text-[9px] font-black opacity-60">Ch</Label><Input type="number" className="h-10 font-bold" value={row.chapter} onChange={e => handleUpdateRow(idx, 'chapter', Number(e.target.value))} /></div><div className="sm:col-span-4"><Label className="text-[9px] font-black opacity-60">Material Title</Label><div className="relative"><Input className="h-10 text-xs font-medium pr-8" placeholder="Title..." value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />{row.isFetchingTitle && <Loader2 className="absolute right-2 top-3 h-4 w-4 animate-spin text-primary" />}</div></div><div className="sm:col-span-3"><Label className="text-[9px] font-black opacity-60">Video URL</Label><Input className="h-10 text-[10px]" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} /></div><div className="sm:col-span-3"><Label className="text-[9px] font-black opacity-60">Notes URL</Label><Input className="h-10 text-[10px]" value={row.pdfUrl} onChange={e => handleUpdateRow(idx, 'pdfUrl', e.target.value)} /></div><div className="sm:col-span-1 flex justify-center pb-2"><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => setBulkRows(bulkRows.filter((_, i) => i !== idx))}><Trash2 size={14} /></Button></div></div>))}</div></div>)}</div></ScrollArea><DialogFooter className="p-4 md:p-6 border-t bg-muted/20 flex gap-2"><Button variant="ghost" onClick={() => setOpen(false)} className="h-11 px-8">Cancel</Button><Button onClick={handleSaveBulk} disabled={loading || bulkRows.length === 0} className="h-11 px-12 bg-primary">{loading ? <Loader2 className="animate-spin mr-2" /> : <Library className="mr-2" />} Save All</Button></DialogFooter></DialogContent></Dialog>);
+  
+  return (<Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button className="bg-primary rounded-xl text-xs h-11"><Layers size={14} className="mr-2" /> Bulk Upload</Button></DialogTrigger><DialogContent className="max-w-6xl h-[92vh] flex flex-col p-0 overflow-hidden w-[98vw] rounded-2xl"><DialogHeader className="p-6 pb-2"><DialogTitle>Bulk Material Automator</DialogTitle></DialogHeader><ScrollArea className="flex-1 px-4 md:px-6"><div className="space-y-6 pb-8"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2"><Label className="text-[10px] uppercase font-black opacity-60">Scope</Label><div className="grid grid-cols-2 gap-2"><Select onValueChange={setSelectedClassId} value={selectedClassId}><SelectTrigger className="h-11"><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select><Select onValueChange={setSelectedSubjectId} value={selectedSubjectId} disabled={!selectedClassId}><SelectTrigger className="h-11"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.filter(s => s.courseId === selectedClassId).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></div></div><div className="space-y-2"><Label className="text-[10px] uppercase font-black text-primary">Playlist Import</Label><div className="flex gap-2"><Input placeholder="YouTube Playlist Link..." value={playlistUrl} onChange={e => setPlaylistUrl(e.target.value)} className="h-11 bg-primary/5" disabled={!selectedSubjectId || isFetching} /><Button onClick={handleFetchPlaylist} disabled={!selectedSubjectId || isFetching || !playlistUrl.trim()} className="h-11 bg-accent">{isFetching ? <Loader2 className="animate-spin h-4 w-4" /> : <Sparkles size={16} />}</Button></div></div></div>{selectedSubject && (<div className="space-y-6"><div className="flex justify-between items-center"><h4 className="text-xs font-black uppercase tracking-widest">Entry Grid ({bulkRows.length})</h4><Button variant="outline" size="sm" onClick={() => setBulkRows([...bulkRows, { chapter: Math.max(0, ...bulkRows.map(r => r.chapter)) + 1, title: '', videoUrl: '', pdfUrl: '' }])} className="h-9 rounded-lg"><Plus size={14} /></Button></div><div className="space-y-4">{bulkRows.map((row, idx) => (<div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end p-4 bg-accent/5 rounded-xl border border-accent/10 relative group"><div className="sm:col-span-1"><Label className="text-[9px] font-black opacity-60">Ch</Label><Input type="number" className="h-10 font-bold" value={row.chapter} onChange={e => handleUpdateRow(idx, 'chapter', Number(e.target.value))} /></div><div className="sm:col-span-4"><Label className="text-[9px] font-black opacity-60">Material Title</Label><div className="relative"><Input className="h-10 text-xs font-medium pr-8" placeholder="Title..." value={row.title} onChange={e => handleUpdateRow(idx, 'title', e.target.value)} />{row.isFetchingTitle && <Loader2 className="absolute right-2 top-3 h-4 w-4 animate-spin text-primary" />}</div></div><div className="sm:col-span-3"><Label className="text-[9px] font-black opacity-60">Video URL</Label><div className="flex gap-1 items-center"><Input className="h-10 text-[10px]" value={row.videoUrl} onChange={e => handleUpdateRow(idx, 'videoUrl', e.target.value)} /><Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 hover:bg-accent/20" onClick={() => handleRefreshRowTitle(idx)} disabled={row.isFetchingTitle || !row.videoUrl}>{row.isFetchingTitle ? <Loader2 className="animate-spin h-3 w-3" /> : <RefreshCw className="h-3 w-3" />}</Button></div></div><div className="sm:col-span-3"><Label className="text-[9px] font-black opacity-60">Notes URL</Label><Input className="h-10 text-[10px]" value={row.pdfUrl} onChange={e => handleUpdateRow(idx, 'pdfUrl', e.target.value)} /></div><div className="sm:col-span-1 flex justify-center pb-2"><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => setBulkRows(bulkRows.filter((_, i) => i !== idx))}><Trash2 size={14} /></Button></div></div>))}</div></div>)}</div></ScrollArea><DialogFooter className="p-4 md:p-6 border-t bg-muted/20 flex gap-2"><Button variant="ghost" onClick={() => setOpen(false)} className="h-11 px-8">Cancel</Button><Button onClick={handleSaveBulk} disabled={loading || bulkRows.length === 0} className="h-11 px-12 bg-primary">{loading ? <Loader2 className="animate-spin mr-2" /> : <Library className="mr-2" />} Save All</Button></DialogFooter></DialogContent></Dialog>);
 }
 
 interface BulkRow {
