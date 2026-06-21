@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, ExternalLink, AlertTriangle, FileSpreadsheet, Layers, Link, MessageSquare, Video, Clock, CheckCircle2, MonitorPlay, Globe, Sparkles, RefreshCw } from 'lucide-react'
+import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, RefreshCw, Layers, Link, MessageSquare, Video, Clock } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -37,10 +37,7 @@ function getChapterCount(courseId: string, subjectName: string): number {
   const name = subjectName.toLowerCase();
   if (name.includes('maths')) return MATHS_CHAPTER_COUNT[courseId] || 1;
   if (name.includes('hamara adhbhut sansar')) return 10;
-  if (name.includes('jigyasa')) {
-    if (courseId === 'class-8') return 13;
-    return 12; 
-  }
+  if (name.includes('jigyasa')) return courseId === 'class-8' ? 13 : 12;
   if (name.includes('exploration')) return 13;
   if (name.includes('vigyan')) return 13;
   return 1;
@@ -162,20 +159,12 @@ export function StudentManagement() {
   const [materialForm, setMaterialForm] = useState({ title: '', courseId: '', subjectId: '', type: 'video' as 'video' | 'pdf', url: '', chapter: 1 })
 
   const [isUploading, setIsUploading] = useState(false)
-
   const [editingStudent, setEditingStudent] = useState<any>(null)
   const [editingMentor, setEditingMentor] = useState<any>(null)
   const [editingCourse, setEditingCourse] = useState<any>(null)
   const [editingMaterial, setEditingMaterial] = useState<any>(null)
   const [editingSubject, setEditingSubject] = useState<any>(null)
-
-  const [selectedChapterInfo, setSelectedChapterInfo] = useState<{
-    className: string,
-    subjectName: string,
-    chapter: number,
-    materials: any[]
-  } | null>(null);
-
+  const [selectedChapterInfo, setSelectedChapterInfo] = useState<any>(null);
   const [selectedLiveSession, setSelectedLiveSession] = useState<any>(null);
 
   const studentsQuery = useMemo(() => db ? collection(db, 'students') : null, [db])
@@ -221,7 +210,7 @@ export function StudentManagement() {
     if (!db || !studentForm.id || !studentForm.name || !isAdmin) return
     setLoading(true)
     const docRef = doc(db, 'students', studentForm.id);
-    const data = { ...studentForm, createdAt: serverTimestamp() };
+    const data = { ...studentForm, createdAt: serverTimestamp(), role: 'student' };
     setDoc(docRef, data).then(() => {
       toast({ title: "Student Registered" })
       setStudentForm({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
@@ -237,7 +226,7 @@ export function StudentManagement() {
     if (!db || !mentorForm.id || !mentorForm.name || !isAdmin) return
     setLoading(true)
     const docRef = doc(db, 'mentors', mentorForm.id)
-    const data = { ...mentorForm, createdAt: serverTimestamp() };
+    const data = { ...mentorForm, createdAt: serverTimestamp(), role: 'mentor' };
     setDoc(docRef, data).then(() => {
       toast({ title: "Mentor Registered" })
       setMentorForm({ id: '', password: '', name: '', expertise: '', phone: '' })
@@ -360,7 +349,7 @@ export function StudentManagement() {
       if (overviewSubjectSearch) cSubs = cSubs.filter(s => s.name.toLowerCase().includes(overviewSubjectSearch.toLowerCase()));
       cSubs.forEach(sub => {
         const standardTotal = getChapterCount(course.id, sub.name);
-        const dbChapters = (materials || []).filter(m => m.courseId === course.id && m.subjectId === sub.id).map(m => Number(m.chapter));
+        const dbChapters = (materials || []).filter(m => m.courseId === course.id && m.subjectId === sub.id).map(m => Number(m.chapter)).filter(n => !isNaN(n));
         const allChapters = Array.from(new Set([...Array.from({ length: standardTotal }, (_, i) => i + 1), ...dbChapters])).sort((a, b) => a - b);
         allChapters.forEach(ch => {
           const chMat = materials.filter(m => m.courseId === course.id && m.subjectId === sub.id && Number(m.chapter) === ch);
@@ -621,13 +610,17 @@ export function StudentManagement() {
                       if (overviewSubjectSearch) cSubs = cSubs.filter(s => s.name.toLowerCase().includes(overviewSubjectSearch.toLowerCase()));
                       return cSubs.flatMap(sub => {
                         const standardTotal = getChapterCount(course.id, sub.name);
-                        const dbChapters = (materials || []).filter(m => m.courseId === course.id && m.subjectId === sub.id).map(m => Number(m.chapter));
+                        const dbChapters = (materials || [])
+                          .filter(m => m.courseId === course.id && m.subjectId === sub.id)
+                          .map(m => Number(m.chapter))
+                          .filter(n => !isNaN(n));
                         const allChapters = Array.from(new Set([...Array.from({ length: standardTotal }, (_, i) => i + 1), ...dbChapters])).sort((a, b) => a - b);
                         return allChapters.map((ch, i) => {
                           const chMat = materials?.filter(m => m.courseId === course.id && m.subjectId === sub.id && Number(m.chapter) === ch) || [];
                           const v = chMat.filter(m => m.type === 'video'); const p = chMat.filter(m => m.type === 'pdf');
-                          return (<TableRow key={`${sub.id}-${ch}`} className="hover:bg-accent/5">{i === 0 && (<TableCell className="font-bold border-r align-top bg-muted/5 text-[10px] md:text-sm" rowSpan={allChapters.length}><div className="flex flex-col truncate max-w-[100px] md:max-w-none"><span>{sub.name}</span><span className="text-[8px] text-muted-foreground uppercase font-normal">{course.name}</span></div></TableCell>)}
-                          <TableCell className="text-center border-r font-medium cursor-pointer hover:bg-accent hover:text-white transition-all text-[10px] md:text-sm" onClick={() => setSelectedChapterInfo({ className: course.name, subjectName: sub.name, chapter: ch, materials: chMat })}>{ch}</TableCell>
+                          const chValue = isNaN(ch) ? '-' : ch;
+                          return (<TableRow key={`${sub.id}-${chValue}`} className="hover:bg-accent/5">{i === 0 && (<TableCell className="font-bold border-r align-top bg-muted/5 text-[10px] md:text-sm" rowSpan={allChapters.length}><div className="flex flex-col truncate max-w-[100px] md:max-w-none"><span>{sub.name}</span><span className="text-[8px] text-muted-foreground uppercase font-normal">{course.name}</span></div></TableCell>)}
+                          <TableCell className="text-center border-r font-medium cursor-pointer hover:bg-accent hover:text-white transition-all text-[10px] md:text-sm" onClick={() => setSelectedChapterInfo({ className: course.name, subjectName: sub.name, chapter: chValue, materials: chMat })}>{chValue}</TableCell>
                           <TableCell className="p-2"><div className="flex items-center gap-1 md:gap-3"><Badge variant={v.length > 0 ? "default" : "outline"} className={`text-[8px] h-4 min-w-[30px] justify-center ${v.length > 0 ? 'bg-red-500' : 'opacity-40'}`}>V:{v.length}</Badge><Badge variant={p.length > 0 ? "default" : "outline"} className={`text-[8px] h-4 min-w-[30px] justify-center ${p.length > 0 ? 'bg-blue-500' : 'opacity-40'}`}>P:{p.length}</Badge></div></TableCell></TableRow>)}
                         );
                       });
@@ -642,7 +635,7 @@ export function StudentManagement() {
       <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Student</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Input value={editingStudent?.name || ''} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} className="h-12" /></div><DialogFooter><Button onClick={handleUpdateStudent} className="w-full h-12">Save</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={!!editingSubject} onOpenChange={() => setEditingSubject(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Subject</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Label className="text-xs">Subject Name</Label><Input value={editingSubject?.name || ''} onChange={e => setEditingSubject({...editingSubject, name: e.target.value})} className="h-12" /></div><DialogFooter className="flex flex-col gap-2"><Button onClick={handleUpdateSubject} className="w-full h-12">Save</Button><Button variant="outline" onClick={() => setEditingSubject(null)}>Cancel</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Material</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Label className="text-xs">Title</Label><Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} className="h-12" /><Label className="text-xs">URL</Label><Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} className="h-12" /></div><DialogFooter className="flex flex-col gap-2"><Button onClick={handleUpdateMaterial} className="w-full h-12">Save</Button><Button variant="destructive" className="h-12" onClick={() => editingMaterial && handleDeleteMaterial(editingMaterial.id).then(() => setEditingMaterial(null))}><Trash2 size={16} className="mr-2" /> Delete</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog open={!!selectedChapterInfo} onOpenChange={() => setSelectedChapterInfo(null)}><DialogContent className="max-w-md w-[95vw] rounded-xl"><DialogHeader><DialogTitle className="text-base">{selectedChapterInfo?.className} - {selectedChapterInfo?.subjectName}</DialogTitle><DialogDescription className="text-xs">Ch {selectedChapterInfo?.chapter} Resources</DialogDescription></DialogHeader><div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto"><div className="space-y-3">{selectedChapterInfo?.materials.map(m => (<div key={m.id} className="p-3 rounded-xl border bg-muted/20 flex flex-col gap-2"><div className="flex items-center justify-between"><div className="flex items-center gap-2 min-w-0">{m.type === 'video' ? <PlayCircle className="text-red-500 h-4 w-4" /> : <FileText className="text-blue-500 h-4 w-4" />}<span className="font-bold text-xs truncate">{m.title}</span></div><div className="flex items-center gap-1"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Badge variant="outline" className="text-[8px]">{m.type}</Badge></div></div><a href={m.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary truncate hover:underline flex items-center gap-1"><Link size={10} /> {m.url}</a></div>))}</div></div><DialogFooter><Button variant="ghost" onClick={() => setSelectedChapterInfo(null)} className="w-full">Close</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={!!selectedChapterInfo} onOpenChange={() => setSelectedChapterInfo(null)}><DialogContent className="max-w-md w-[95vw] rounded-xl"><DialogHeader><DialogTitle className="text-base">{selectedChapterInfo?.className} - {selectedChapterInfo?.subjectName}</DialogTitle><DialogDescription className="text-xs">Ch {selectedChapterInfo?.chapter} Resources</DialogDescription></DialogHeader><div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto"><div className="space-y-3">{selectedChapterInfo?.materials.map((m: any) => (<div key={m.id} className="p-3 rounded-xl border bg-muted/20 flex flex-col gap-2"><div className="flex items-center justify-between"><div className="flex items-center gap-2 min-w-0">{m.type === 'video' ? <PlayCircle className="text-red-500 h-4 w-4" /> : <FileText className="text-blue-500 h-4 w-4" />}<span className="font-bold text-xs truncate">{m.title}</span></div><div className="flex items-center gap-1"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Badge variant="outline" className="text-[8px]">{m.type}</Badge></div></div><a href={m.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary truncate hover:underline flex items-center gap-1"><Link size={10} /> {m.url}</a></div>))}</div></div><DialogFooter><Button variant="ghost" onClick={() => setSelectedChapterInfo(null)} className="w-full">Close</Button></DialogFooter></DialogContent></Dialog>
       <LiveAttendanceViewer session={selectedLiveSession} onClose={() => setSelectedLiveSession(null)} />
     </div>
   )
@@ -672,7 +665,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   
   const handleFetchPlaylist = async () => { if (!playlistUrl.trim()) return; setIsFetching(true); try { const result = await fetchYoutubePlaylist({ url: playlistUrl.trim() }); if (result?.videos?.length) { const rows = result.videos.map((v, i) => { const extractedCh = extractChapterNumber(v.title); const ch = extractedCh !== null ? extractedCh : (i + 1); return { chapter: ch, title: v.title, videoUrl: v.url, pdfUrl: '' }; }); setBulkRows(rows.sort((a, b) => a.chapter - b.chapter)); toast({ title: "Fetched" }); } } catch (e: any) { toast({ variant: 'destructive', title: "Failed", description: e.message }); } finally { setIsFetching(false); } }
   
-  const handleUpdateRow = async (index: number, field: keyof BulkRow, value: any) => { 
+  const handleUpdateRow = (index: number, field: keyof BulkRow, value: any) => { 
     setBulkRows(prev => { 
       const next = [...prev]; next[index] = { ...next[index], [field]: value };
       return next; 
