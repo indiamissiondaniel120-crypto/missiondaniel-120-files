@@ -53,20 +53,13 @@ function getYouTubeID(url: string) {
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
-/**
- * Robustly extracts a chapter number from a title string.
- */
 function extractChapterNumber(title: string): number | null {
   if (!title) return null;
-  const cleaned = title.replace(/(?:Class|Grade|Std|Grade|Level)\s*\d+/gi, '');
+  const cleaned = title.replace(/(?:Class|Grade|Std|Level)\s*\d+/gi, '');
   const explicitMatch = cleaned.match(/(?:Chapter|Ch|Chap|Unit|Lesson|L)\.?\s*(\d+)/i);
-  if (explicitMatch && explicitMatch[1]) {
-    return parseInt(explicitMatch[1]);
-  }
+  if (explicitMatch && explicitMatch[1]) return parseInt(explicitMatch[1]);
   const loneMatch = cleaned.match(/(?:\b|^)(\d+)(?:\b|$|\.|\s)/);
-  if (loneMatch && loneMatch[1]) {
-    return parseInt(loneMatch[1]);
-  }
+  if (loneMatch && loneMatch[1]) return parseInt(loneMatch[1]);
   return null;
 }
 
@@ -184,12 +177,6 @@ export function StudentManagement() {
   } | null>(null);
 
   const [selectedLiveSession, setSelectedLiveSession] = useState<any>(null);
-
-  useEffect(() => {
-    if (isMentor && activeTab !== 'academic-sheet') {
-      setActiveTab('academic-sheet');
-    }
-  }, [isMentor, activeTab]);
 
   const studentsQuery = useMemo(() => db ? collection(db, 'students') : null, [db])
   const mentorsQuery = useMemo(() => db ? collection(db, 'mentors') : null, [db])
@@ -458,6 +445,58 @@ export function StudentManagement() {
                 </Card>
               </div>
             </TabsContent>
+
+            <TabsContent value="mentors" className="space-y-6 md:space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+                <Card className="lg:col-span-1 border-primary/20">
+                  <CardHeader><CardTitle className="text-primary flex items-center gap-2 text-xl md:text-2xl"><UserPlus size={18} /> Register Mentor</CardTitle></CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleRegisterMentor} className="space-y-4">
+                      <div className="space-y-2"><Label className="text-xs">Mentor ID</Label><Input value={mentorForm.id} onChange={e => setMentorForm({...mentorForm, id: e.target.value})} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Password</Label><Input type="password" value={mentorForm.password} onChange={e => setMentorForm({...mentorForm, password: e.target.value})} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Full Name</Label><Input value={mentorForm.name} onChange={e => setMentorForm({...mentorForm, name: e.target.value})} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Expertise</Label><Input value={mentorForm.expertise} onChange={e => setMentorForm({...mentorForm, expertise: e.target.value})} className="h-10 md:h-12" /></div>
+                      <Button type="submit" className="w-full bg-primary py-5 md:py-6" disabled={loading}>Add Mentor</Button>
+                    </form>
+                  </CardContent>
+                </Card>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle className="text-xl md:text-2xl">Mentor List</CardTitle></CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Mentor</TableHead><TableHead>Expertise</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                      <TableBody>{mentors?.map((m: any) => (
+                        <TableRow key={m.id}><TableCell><div className="font-bold text-xs md:text-sm">{m.name}</div><div className="text-[10px] text-muted-foreground">{m.id}</div></TableCell><TableCell className="text-xs">{m.expertise}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setEditingMentor(m)} className="h-8 w-8 p-0"><Edit2 size={14} /></Button></TableCell></TableRow>))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="courses" className="space-y-6 md:space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+                <Card className="lg:col-span-1 border-accent/20">
+                  <CardHeader><CardTitle className="text-accent flex items-center gap-2 text-xl md:text-2xl"><BookOpen size={18} /> Create Class</CardTitle></CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleRegisterCourse} className="space-y-4">
+                      <div className="space-y-2"><Label className="text-xs">Class ID (e.g. class-10)</Label><Input value={courseForm.id} onChange={e => setCourseForm({...courseForm, id: e.target.value})} className="h-10 md:h-12" /></div>
+                      <div className="space-y-2"><Label className="text-xs">Class Name (e.g. Class 10th)</Label><Input value={courseForm.name} onChange={e => setCourseForm({...courseForm, name: e.target.value})} className="h-10 md:h-12" /></div>
+                      <Button type="submit" className="w-full bg-accent py-5 md:py-6" disabled={loading}>Create Class</Button>
+                    </form>
+                  </CardContent>
+                </Card>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle className="text-xl md:text-2xl">All Classes</CardTitle></CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Class Name</TableHead><TableHead>ID</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                      <TableBody>{courses?.map((c: any) => (
+                        <TableRow key={c.id}><TableCell className="font-bold text-xs md:text-sm">{c.name}</TableCell><TableCell className="text-xs">{c.id}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setEditingCourse(c)} className="h-8 w-8 p-0"><Edit2 size={14} /></Button></TableCell></TableRow>))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
             
             <TabsContent value="materials" className="space-y-6 md:space-y-8">
               <div className="flex justify-end mb-2"><BulkUploadDialog courses={courses || []} subjects={subjects || []} materials={materials || []} /></div>
@@ -517,6 +556,49 @@ export function StudentManagement() {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            <TabsContent value="doubts" className="space-y-6 md:space-y-8">
+              <Card><CardHeader><CardTitle className="text-xl md:text-2xl">Private Academic Queries</CardTitle></CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Question</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                    <TableBody>{allPrivateDoubts?.map((d: any) => (
+                      <TableRow key={d.id}><TableCell className="font-bold text-xs">{d.studentName}</TableCell><TableCell className="text-xs italic">{d.question}</TableCell><TableCell><Badge variant={d.status === 'answered' ? 'default' : 'secondary'} className="text-[10px]">{d.status}</Badge></TableCell></TableRow>))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="public-doubts" className="space-y-6 md:space-y-8">
+              <Card><CardHeader><CardTitle className="text-xl md:text-2xl">Public Corner Doubts</CardTitle></CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Question</TableHead><TableHead>Mentor</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                    <TableBody>{allPublicDoubts?.map((d: any) => (
+                      <TableRow key={d.id}><TableCell className="font-bold text-xs">{d.studentName} ({d.className})</TableCell><TableCell className="text-xs italic">{d.question}</TableCell><TableCell className="text-xs">{d.mentorName || '-'}</TableCell><TableCell><Badge variant={d.status === 'answered' ? 'default' : 'secondary'} className="text-[10px]">{d.status}</Badge></TableCell></TableRow>))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="live-attendance" className="space-y-6 md:space-y-8">
+              <Card><CardHeader><CardTitle className="text-xl md:text-2xl">Live Class History</CardTitle></CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Session</TableHead><TableHead>Details</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                    <TableBody>{liveHistory?.map((h: any) => (
+                      <TableRow key={h.id} className={h.viewedByAdmin ? '' : 'bg-primary/5'}>
+                        <TableCell><div className="font-bold text-xs md:text-sm">{h.title}</div><div className="text-[9px] text-muted-foreground uppercase">{h.createdAt?.toDate()?.toLocaleString()}</div></TableCell>
+                        <TableCell><div className="text-xs">{h.className} • {h.subjectName}</div><div className="text-[10px] text-muted-foreground">Mentor: {h.mentorName}</div></TableCell>
+                        <TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => setSelectedLiveSession(h)} className="h-8 rounded-lg text-xs">Attendance</Button></TableCell>
+                      </TableRow>))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
             </TabsContent>
           </>
         )}
@@ -587,31 +669,12 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   const db = useFirestore(); const { toast } = useToast(); const [open, setOpen] = useState(false); const [selectedClassId, setSelectedClassId] = useState(''); const [selectedSubjectId, setSelectedSubjectId] = useState(''); const [playlistUrl, setPlaylistUrl] = useState(''); const [isFetching, setIsFetching] = useState(false); const [loading, setLoading] = useState(false); const [bulkRows, setBulkRows] = useState<BulkRow[]>([]);
   const selectedCourse = useMemo(() => courses.find(c => c.id === selectedClassId), [courses, selectedClassId]);
   const selectedSubject = useMemo(() => subjects.find(s => s.id === selectedSubjectId), [subjects, selectedSubjectId]);
-  const chapterStatus = useMemo(() => { if (!selectedCourse || !selectedSubject) return []; const standardTotal = getChapterCount(selectedCourse.id, selectedSubject.name); const dbChapters = (materials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id).map(m => Number(m.chapter)); const all = Array.from(new Set([...Array.from({ length: standardTotal }, (_, i) => i + 1), ...dbChapters])).sort((a, b) => a - b); return all.map(i => { const chMat = (materials || []).filter(m => m.courseId === selectedCourse.id && m.subjectId === selectedSubject.id && Number(m.chapter) === i); const v = chMat.find(m => m.type === 'video'); const p = chMat.find(m => m.type === 'pdf'); return { chapter: i, completed: !!v && !!p, title: v?.title || p?.title || '', videoUrl: v?.url || '', videoId: v?.id, pdfUrl: p?.url || '', pdfId: p?.id }; }); }, [selectedCourse, selectedSubject, materials]);
-  useEffect(() => { if (selectedClassId && selectedSubjectId) { const inc = chapterStatus.filter(c => !c.completed); setBulkRows(inc.slice(0, 1).map(c => ({ chapter: c.chapter, title: c.title, videoUrl: c.videoUrl, videoId: c.videoId, pdfUrl: c.pdfUrl, pdfId: c.pdfId }))); } else { setBulkRows([]); } }, [selectedClassId, selectedSubjectId]);
   
   const handleFetchPlaylist = async () => { if (!playlistUrl.trim()) return; setIsFetching(true); try { const result = await fetchYoutubePlaylist({ url: playlistUrl.trim() }); if (result?.videos?.length) { const rows = result.videos.map((v, i) => { const extractedCh = extractChapterNumber(v.title); const ch = extractedCh !== null ? extractedCh : (i + 1); return { chapter: ch, title: v.title, videoUrl: v.url, pdfUrl: '' }; }); setBulkRows(rows.sort((a, b) => a.chapter - b.chapter)); toast({ title: "Fetched" }); } } catch (e: any) { toast({ variant: 'destructive', title: "Failed", description: e.message }); } finally { setIsFetching(false); } }
   
   const handleUpdateRow = async (index: number, field: keyof BulkRow, value: any) => { 
     setBulkRows(prev => { 
       const next = [...prev]; next[index] = { ...next[index], [field]: value };
-      if (field === 'videoUrl' && typeof value === 'string' && value.trim() && getYouTubeID(value)) {
-        next[index].isFetchingTitle = true;
-        fetchSingleVideoInfo({ url: value }).then(res => {
-          setBulkRows(current => {
-            const up = [...current]; 
-            if (up[index]) { 
-              up[index].title = res.title; 
-              up[index].isFetchingTitle = false; 
-              const ch = extractChapterNumber(res.title); 
-              if (ch !== null) up[index].chapter = ch;
-            }
-            return up;
-          });
-        }).catch(() => {
-          setBulkRows(current => { const up = [...current]; if (up[index]) up[index].isFetchingTitle = false; return up; });
-        });
-      }
       return next; 
     }); 
   }
