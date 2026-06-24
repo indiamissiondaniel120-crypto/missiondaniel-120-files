@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useRef } from 'react'
@@ -74,7 +75,7 @@ export function InactivityMonitor() {
   useEffect(() => {
     if (!user || user.role !== 'student') return
 
-    const events = ['mousedown', 'keydown', 'touchstart', 'mousemove']
+    const events = ['mousedown', 'keydown', 'touchstart', 'mousemove', 'scroll']
     const listener = () => resetTimer()
 
     events.forEach(event => window.addEventListener(event, listener))
@@ -83,6 +84,16 @@ export function InactivityMonitor() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         wentHiddenAtRef.current = Date.now()
+        // Log tab away immediately
+        if (db && user) {
+          const activityRef = collection(db, 'students', user.id, 'activity');
+          const data = {
+            type: 'tab_away_started',
+            timestamp: serverTimestamp(),
+            metadata: { timestamp: new Date().toISOString() }
+          };
+          addDoc(activityRef, data).catch(() => {});
+        }
       } else {
         if (wentHiddenAtRef.current) {
           const awayDurationMs = Date.now() - wentHiddenAtRef.current
@@ -94,7 +105,7 @@ export function InactivityMonitor() {
             if (awayDurationSec > 5 && db && user) {
               const activityRef = collection(db, 'students', user.id, 'activity');
               const data = {
-                type: 'tab_away',
+                type: 'tab_away_ended',
                 timestamp: serverTimestamp(),
                 duration: awayDurationSec,
                 metadata: { returnTimestamp: new Date().toISOString() }

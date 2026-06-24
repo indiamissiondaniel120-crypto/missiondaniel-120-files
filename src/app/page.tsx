@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -618,7 +619,7 @@ function Dashboard() {
     return () => {
       if (activeMaterial && materialStartTimeRef.current) {
         const durationSec = Math.floor((Date.now() - materialStartTimeRef.current) / 1000);
-        if (durationSec > 5) {
+        if (durationSec > 2) {
           const activityRef = collection(db, 'students', user.id, 'activity');
           const data = {
             type: activeMaterial.type === 'video' ? 'view_video' : 'view_pdf',
