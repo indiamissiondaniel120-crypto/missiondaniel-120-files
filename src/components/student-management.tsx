@@ -298,7 +298,10 @@ export function StudentManagement() {
   const handleDeleteSubject = (id: string) => {
     if (!db || !isAdmin) return;
     const docRef = doc(db, 'subjects', id);
-    deleteDoc(docRef).then(() => { toast({ title: "Subject removed" }) }).catch(async (serverError) => {
+    deleteDoc(docRef).then(() => { 
+      toast({ title: "Subject removed" });
+      setEditingSubject(null);
+    }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
     });
   }
@@ -306,7 +309,10 @@ export function StudentManagement() {
   const handleDeleteMaterial = (id: string) => {
     if (!db || !isAdmin) return;
     const docRef = doc(db, 'materials', id);
-    deleteDoc(docRef).then(() => { toast({ title: "Deleted successfully" }); }).catch(async (serverError) => {
+    deleteDoc(docRef).then(() => { 
+      toast({ title: "Deleted successfully" }); 
+      setEditingMaterial(null);
+    }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
     });
   }
@@ -486,15 +492,24 @@ export function StudentManagement() {
                             <TableCell>
                               <div className="flex flex-wrap gap-1.5">
                                 {subjects?.filter(s => s.courseId === c.id).map(sub => (
-                                  <Badge key={sub.id} variant="secondary" className="text-[10px] flex items-center gap-1.5 py-1 px-2">
+                                  <Badge key={sub.id} variant="secondary" className="text-[10px] flex items-center gap-1.5 py-1 px-2 group">
                                     {sub.name}
-                                    <button 
-                                      className="hover:text-primary transition-colors focus:outline-none" 
-                                      onClick={() => setEditingSubject(sub)}
-                                      title="Edit Subject"
-                                    >
-                                      <Edit2 className="h-2.5 w-2.5" />
-                                    </button>
+                                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button 
+                                        className="hover:text-primary transition-colors focus:outline-none" 
+                                        onClick={() => setEditingSubject(sub)}
+                                        title="Edit Subject"
+                                      >
+                                        <Edit2 className="h-2.5 w-2.5" />
+                                      </button>
+                                      <button 
+                                        className="hover:text-destructive transition-colors focus:outline-none" 
+                                        onClick={() => handleDeleteSubject(sub.id)}
+                                        title="Delete Subject"
+                                      >
+                                        <Trash2 className="h-2.5 w-2.5" />
+                                      </button>
+                                    </div>
                                   </Badge>
                                 ))}
                                 {subjects?.filter(s => s.courseId === c.id).length === 0 && (
@@ -668,7 +683,7 @@ export function StudentManagement() {
         const docRef = doc(db, 'courses', editingCourse.id);
         updateDoc(docRef, { name: editingCourse.name }).then(() => { setEditingCourse(null); toast({ title: "Class Updated" }); }).catch(console.error);
       }} className="w-full h-12">Save</Button><Button variant="outline" onClick={() => setEditingCourse(null)}>Cancel</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Material</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Label className="text-xs">Title</Label><Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} className="h-12" /><Label className="text-xs">URL</Label><Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} className="h-12" /></div><DialogFooter className="flex flex-col gap-2"><Button onClick={handleUpdateMaterial} className="w-full h-12">Save</Button><Button variant="destructive" className="h-12" onClick={() => editingMaterial && handleDeleteMaterial(editingMaterial.id).then(() => setEditingMaterial(null))}><Trash2 size={16} className="mr-2" /> Delete</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Material</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Label className="text-xs">Title</Label><Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} className="h-12" /><Label className="text-xs">URL</Label><Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} className="h-12" /></div><DialogFooter className="flex flex-col gap-2"><Button onClick={handleUpdateMaterial} className="w-full h-12">Save</Button><Button variant="destructive" className="h-12" onClick={() => editingMaterial && handleDeleteMaterial(editingMaterial.id)}><Trash2 size={16} className="mr-2" /> Delete</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={!!selectedChapterInfo} onOpenChange={() => setSelectedChapterInfo(null)}><DialogContent className="max-w-md w-[95vw] rounded-xl"><DialogHeader><DialogTitle className="text-base">{selectedChapterInfo?.className} - {selectedChapterInfo?.subjectName}</DialogTitle><DialogDescription className="text-xs">Ch {selectedChapterInfo?.chapter} Resources</DialogDescription></DialogHeader><div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto"><div className="space-y-3">{selectedChapterInfo?.materials.map((m: any) => (<div key={m.id} className="p-3 rounded-xl border bg-muted/20 flex flex-col gap-2"><div className="flex items-center justify-between"><div className="flex items-center gap-2 min-w-0">{m.type === 'video' ? <PlayCircle className="text-red-500 h-4 w-4" /> : <FileText className="text-blue-500 h-4 w-4" />}<span className="font-bold text-xs truncate">{m.title}</span></div><div className="flex items-center gap-1"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Badge variant="outline" className="text-[8px]">{m.type}</Badge></div></div><a href={m.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary truncate hover:underline flex items-center gap-1"><Link size={10} /> {m.url}</a></div>))}</div></div><DialogFooter><Button variant="ghost" onClick={() => setSelectedChapterInfo(null)} className="w-full">Close</Button></DialogFooter></DialogContent></Dialog>
       <LiveAttendanceViewer session={selectedLiveSession} onClose={() => setSelectedLiveSession(null)} />
     </div>
