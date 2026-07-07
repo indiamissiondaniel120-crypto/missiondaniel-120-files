@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -25,14 +24,14 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { LiveClassInterface } from '@/components/live-class';
 
-function getYouTubeEmbedUrl(url: string) {
-  if (!url) return undefined;
+function getYouTubeEmbedUrl(url: string | undefined) {
+  if (!url) return null;
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
   if (match && match[2].length === 11) {
     return `https://www.youtube.com/embed/${match[2]}?modestbranding=1&rel=0&color=white`;
   }
-  return undefined;
+  return null;
 }
 
 function sortClasses(classes: any[]) {

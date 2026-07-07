@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -712,9 +711,27 @@ function LiveAttendanceViewer({ session, onClose }: { session: any, onClose: () 
 
 function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], subjects: any[], materials: any[] }) {
   const db = useFirestore(); const { toast } = useToast(); const [open, setOpen] = useState(false); const [selectedClassId, setSelectedClassId] = useState(''); const [selectedSubjectId, setSelectedSubjectId] = useState(''); const [playlistUrl, setPlaylistUrl] = useState(''); const [isFetching, setIsFetching] = useState(false); const [loading, setLoading] = useState(false); const [bulkRows, setBulkRows] = useState<BulkRow[]>([]);
+  
   const selectedCourse = useMemo(() => courses.find(c => c.id === selectedClassId), [courses, selectedClassId]);
   const selectedSubject = useMemo(() => subjects.find(s => s.id === selectedSubjectId), [subjects, selectedSubjectId]);
   
+  // Load existing data when subject changes
+  useEffect(() => {
+    if (selectedClassId && selectedSubjectId && materials) {
+      const filtered = materials.filter(m => m.courseId === selectedClassId && m.subjectId === selectedSubjectId);
+      const chMap: Record<number, BulkRow> = {};
+      filtered.forEach(m => {
+        const ch = Number(m.chapter);
+        if (!chMap[ch]) chMap[ch] = { chapter: ch, title: m.title.replace(' (Notes)', ''), videoUrl: '', pdfUrl: '' };
+        if (m.type === 'video') { chMap[ch].videoUrl = m.url; chMap[ch].videoId = m.id; chMap[ch].title = m.title; }
+        else { chMap[ch].pdfUrl = m.url; chMap[ch].pdfId = m.id; }
+      });
+      setBulkRows(Object.values(chMap).sort((a, b) => a.chapter - b.chapter));
+    } else {
+      setBulkRows([]);
+    }
+  }, [selectedClassId, selectedSubjectId, materials, open]);
+
   const handleFetchPlaylist = async () => { if (!playlistUrl.trim()) return; setIsFetching(true); try { const result = await fetchYoutubePlaylist({ url: playlistUrl.trim() }); if (result?.videos?.length) { const rows = result.videos.map((v, i) => { const extractedCh = extractChapterNumber(v.title); const ch = extractedCh !== null ? extractedCh : (i + 1); return { chapter: ch, title: v.title, videoUrl: v.url, pdfUrl: '' }; }); setBulkRows(rows.sort((a, b) => a.chapter - b.chapter)); toast({ title: "Fetched Successfully" }); } } catch (e: any) { toast({ variant: 'destructive', title: "Failed", description: e.message }); } finally { setIsFetching(false); } }
   
   const handleUpdateRow = (index: number, field: keyof BulkRow, value: any) => { 
@@ -726,13 +743,8 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
 
   const handleRefreshRowTitle = async (index: number) => {
     const row = bulkRows[index];
-    if (!row.videoUrl || !getYouTubeID(row.videoUrl)) {
-      toast({ variant: 'destructive', title: "Invalid URL", description: "Please enter a valid YouTube link first." });
-      return;
-    }
-    
+    if (!row.videoUrl || !getYouTubeID(row.videoUrl)) return;
     handleUpdateRow(index, 'isFetchingTitle', true);
-
     try {
       const res = await fetchSingleVideoInfo({ url: row.videoUrl.trim() });
       setBulkRows(current => {
@@ -745,9 +757,7 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
         }
         return up;
       });
-      toast({ title: "Metadata Refreshed" });
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: "Fetch Failed", description: e.message || "Could not retrieve video information." });
+    } catch (e) {
       handleUpdateRow(index, 'isFetchingTitle', false);
     }
   }
@@ -755,32 +765,10 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   const handleRefreshAllMetadata = async () => {
     if (bulkRows.length === 0) return;
     setLoading(true);
-    const updatedRows = [...bulkRows];
-    
-    const promises = updatedRows.map(async (row, idx) => {
-      if (!row.videoUrl || !getYouTubeID(row.videoUrl)) return;
-      
-      handleUpdateRow(idx, 'isFetchingTitle', true);
-      try {
-        const res = await fetchSingleVideoInfo({ url: row.videoUrl.trim() });
-        setBulkRows(current => {
-          const up = [...current];
-          if (up[idx]) {
-            up[idx].title = res.title;
-            up[idx].isFetchingTitle = false;
-            const ch = extractChapterNumber(res.title);
-            if (ch !== null) up[idx].chapter = ch;
-          }
-          return up;
-        });
-      } catch (e) {
-        handleUpdateRow(idx, 'isFetchingTitle', false);
-      }
-    });
-
+    const promises = bulkRows.map((_, idx) => handleRefreshRowTitle(idx));
     await Promise.all(promises);
     setLoading(false);
-    toast({ title: "Bulk Metadata Refresh Complete" });
+    toast({ title: "Bulk Refresh Complete" });
   };
 
   const handleSaveBulk = () => { if (!db || !selectedCourse || !selectedSubject) return; setLoading(true); const batch = writeBatch(db); bulkRows.forEach(row => { const t = row.title.trim(); if (row.videoUrl.trim()) batch.set(row.videoId ? doc(db, 'materials', row.videoId) : doc(collection(db, 'materials')), { title: t || `Ch ${row.chapter} Video`, courseId: selectedCourse.id, subjectId: selectedSubject.id, type: 'video', url: row.videoUrl.trim(), chapter: Number(row.chapter), createdAt: serverTimestamp() }, { merge: true }); if (row.pdfUrl.trim()) batch.set(row.pdfId ? doc(db, 'materials', row.pdfId) : doc(collection(db, 'materials')), { title: t ? `${t} (Notes)` : `Ch ${row.chapter} Notes`, courseId: selectedCourse.id, subjectId: selectedSubject.id, type: 'pdf', url: row.pdfUrl.trim(), chapter: Number(row.chapter), createdAt: serverTimestamp() }, { merge: true }); }); batch.commit().then(() => { toast({ title: "Curriculum Saved" }); setOpen(false); setLoading(false); }).catch(() => setLoading(false)); }
