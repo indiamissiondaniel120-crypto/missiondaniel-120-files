@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -10,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCollection } from '@/firebase'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, RefreshCw, Layers, Link, MessageSquare, Video, Clock, Globe, FileSpreadsheet, RefreshCcw, Sparkles } from 'lucide-react'
+import { UserPlus, Activity, FileText, PlayCircle, Download, UserRound, GraduationCap, Edit2, BookOpen, Trash2, Plus, Loader2, Library, ListChecks, Search, RefreshCw, Layers, Link, MessageSquare, Video, Clock, Globe, FileSpreadsheet, RefreshCcw, Sparkles, Heart } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -20,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import { useAuth } from '@/components/auth-wrapper'
 import { fetchYoutubePlaylist, fetchSingleVideoInfo } from '@/ai/flows/youtube-playlist-fetcher'
 
@@ -157,7 +159,7 @@ export function StudentManagement() {
 
   const [studentForm, setStudentForm] = useState({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
   const [mentorForm, setMentorForm] = useState({ id: '', password: '', name: '', expertise: '', phone: '' })
-  const [courseForm, setCourseForm] = useState({ id: '', name: '', description: '', image: '' })
+  const [courseForm, setCourseForm] = useState({ id: '', name: '', description: '', image: '', isMuskhan: false })
   const [subjectForm, setSubjectForm] = useState({ name: '', selectedCourseIds: [] as string[] })
   const [materialForm, setMaterialForm] = useState({ title: '', courseId: '', subjectId: '', type: 'video' as 'video' | 'pdf', url: '', chapter: 1 })
 
@@ -248,13 +250,23 @@ export function StudentManagement() {
     const data = { ...courseForm };
     setDoc(docRef, data).then(() => {
       toast({ title: "Class Registered" })
-      setCourseForm({ id: '', name: '', description: '', image: '' })
+      setCourseForm({ id: '', name: '', description: '', image: '', isMuskhan: false })
       setLoading(false)
     }).catch(async (serverError) => {
       setLoading(false)
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'write', requestResourceData: data }));
     });
   }
+
+  const toggleMuskhan = (courseId: string, currentState: boolean) => {
+    if (!db || !isAdmin) return;
+    const docRef = doc(db, 'courses', courseId);
+    updateDoc(docRef, { isMuskhan: !currentState }).then(() => {
+      toast({ title: "Muskhan access updated" });
+    }).catch(async (serverError) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: { isMuskhan: !currentState } }));
+    });
+  };
 
   const handleAddSubject = (e: React.FormEvent) => {
     e.preventDefault()
@@ -479,6 +491,10 @@ export function StudentManagement() {
                     <form onSubmit={handleRegisterCourse} className="space-y-4">
                       <div className="space-y-2"><Label className="text-xs">Class ID (e.g. class-10)</Label><Input value={courseForm.id} onChange={e => setCourseForm({...courseForm, id: e.target.value})} className="h-10 md:h-12" /></div>
                       <div className="space-y-2"><Label className="text-xs">Class Name (e.g. Class 10th)</Label><Input value={courseForm.name} onChange={e => setCourseForm({...courseForm, name: e.target.value})} className="h-10 md:h-12" /></div>
+                      <div className="flex items-center space-x-2 py-2">
+                        <Switch id="muskhan-new" checked={courseForm.isMuskhan} onCheckedChange={(v) => setCourseForm({...courseForm, isMuskhan: v})} />
+                        <Label htmlFor="muskhan-new" className="text-xs font-bold">Available in Muskhan Portal</Label>
+                      </div>
                       <Button type="submit" className="w-full bg-accent py-5 md:py-6" disabled={loading}>Create Class</Button>
                     </form>
                   </CardContent>
@@ -487,10 +503,16 @@ export function StudentManagement() {
                   <CardContent>
                     <div className="rounded-md border">
                       <Table>
-                        <TableHeader><TableRow><TableHead>Class Name</TableHead><TableHead>Associated Subjects</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                        <TableHeader><TableRow><TableHead>Class Name</TableHead><TableHead>Muskhan</TableHead><TableHead>Associated Subjects</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
                         <TableBody>{courses?.map((c: any) => (
                           <TableRow key={c.id}>
                             <TableCell className="font-bold text-xs md:text-sm">{c.name}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col items-center gap-1">
+                                <Switch checked={c.isMuskhan || false} onCheckedChange={() => toggleMuskhan(c.id, c.isMuskhan || false)} />
+                                <span className="text-[8px] font-black uppercase text-indigo-600">{c.isMuskhan ? 'Enabled' : 'Disabled'}</span>
+                              </div>
+                            </TableCell>
                             <TableCell>
                               <div className="flex flex-wrap gap-1.5">
                                 {subjects?.filter(s => s.courseId === c.id).map(sub => (
@@ -544,9 +566,9 @@ export function StudentManagement() {
                       <div className="space-y-2"><Label className="text-xs">Select Classes</Label>
                         <ScrollArea className="h-[120px] md:h-[200px] border rounded-lg p-2">
                           <div className="grid grid-cols-1 gap-2">{courses?.map(course => (
-                            <div key={course.id} className="flex items-center space-x-2"><Checkbox id={course.id} checked={subjectForm.selectedCourseIds.includes(course.id)} onCheckedChange={() => {
+                            <div key={course.id} className="flex items-center space-x-2"><Checkbox id={`sub-course-${course.id}`} checked={subjectForm.selectedCourseIds.includes(course.id)} onCheckedChange={() => {
                               setSubjectForm(p => ({...p, selectedCourseIds: p.selectedCourseIds.includes(course.id) ? p.selectedCourseIds.filter(id => id !== course.id) : [...p.selectedCourseIds, course.id]}))
-                            }} /><label htmlFor={course.id} className="text-xs md:text-sm">{course.name}</label></div>))}
+                            }} /><label htmlFor={`sub-course-${course.id}`} className="text-xs md:text-sm">{course.name}</label></div>))}
                           </div></ScrollArea></div>
                       <Button type="submit" className="w-full bg-accent h-12" disabled={loading}>Create Subject</Button>
                     </form>
@@ -570,8 +592,8 @@ export function StudentManagement() {
                     <form onSubmit={handleUploadMaterial} className="space-y-4">
                       <div className="space-y-2"><Label className="text-xs">Title</Label><Input value={materialForm.title} onChange={e => setMaterialForm({...materialForm, title: e.target.value})} className="h-10 md:h-12" /></div>
                       <div className="space-y-2"><Label className="text-xs">Type</Label><RadioGroup value={materialForm.type} onValueChange={(v: any) => setMaterialForm({...materialForm, type: v})} className="flex gap-4">
-                          <div className="flex items-center space-x-2"><RadioGroupItem value="video" id="v" /><Label htmlFor="v" className="text-xs">Video</Label></div>
-                          <div className="flex items-center space-x-2"><RadioGroupItem value="pdf" id="p" /><Label htmlFor="p" className="text-xs">Note</Label></div>
+                          <div className="flex items-center space-x-2"><RadioGroupItem value="video" id="v-new" /><Label htmlFor="v-new" className="text-xs">Video</Label></div>
+                          <div className="flex items-center space-x-2"><RadioGroupItem value="pdf" id="p-new" /><Label htmlFor="p-new" className="text-xs">Note</Label></div>
                         </RadioGroup></div>
                       <div className="grid grid-cols-2 gap-2 md:gap-4">
                         <Select onValueChange={v => setMaterialForm({...materialForm, courseId: v, subjectId: ''})} value={materialForm.courseId}><SelectTrigger className="h-10 md:h-12 text-xs"><SelectValue placeholder="Class" /></SelectTrigger><SelectContent>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
@@ -680,10 +702,22 @@ export function StudentManagement() {
       </Tabs>
       <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Student</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Input value={editingStudent?.name || ''} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} className="h-12" /></div><DialogFooter><Button onClick={handleUpdateStudent} className="w-full h-12">Save</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={!!editingSubject} onOpenChange={() => setEditingSubject(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Subject</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Label className="text-xs">Subject Name</Label><Input value={editingSubject?.name || ''} onChange={e => setEditingSubject({...editingSubject, name: e.target.value})} className="h-12" /></div><DialogFooter className="flex flex-col gap-2"><Button onClick={handleUpdateSubject} className="w-full h-12">Save</Button><Button variant="outline" onClick={() => setEditingSubject(null)}>Cancel</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog open={!!editingCourse} onOpenChange={() => setEditingCourse(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Class</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Label className="text-xs">Class Name</Label><Input value={editingCourse?.name || ''} onChange={e => setEditingCourse({...editingCourse, name: e.target.value})} className="h-12" /></div><DialogFooter className="flex flex-col gap-2"><Button onClick={() => {
+      <Dialog open={!!editingCourse} onOpenChange={() => setEditingCourse(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Class</DialogTitle></DialogHeader><div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label className="text-xs">Class Name</Label>
+          <Input value={editingCourse?.name || ''} onChange={e => setEditingCourse({...editingCourse, name: e.target.value})} className="h-12" />
+        </div>
+        <div className="flex items-center space-x-2 pt-2">
+          <Switch id="muskhan-edit" checked={editingCourse?.isMuskhan || false} onCheckedChange={(v) => setEditingCourse({...editingCourse, isMuskhan: v})} />
+          <Label htmlFor="muskhan-edit" className="text-xs font-bold">Available in Muskhan Portal</Label>
+        </div>
+      </div><DialogFooter className="flex flex-col gap-2"><Button onClick={() => {
         if (!db || !editingCourse) return;
         const docRef = doc(db, 'courses', editingCourse.id);
-        updateDoc(docRef, { name: editingCourse.name }).then(() => { setEditingCourse(null); toast({ title: "Class Updated" }); }).catch(console.error);
+        const updateData = { name: editingCourse.name, isMuskhan: editingCourse.isMuskhan || false };
+        updateDoc(docRef, updateData).then(() => { setEditingCourse(null); toast({ title: "Class Updated" }); }).catch(async (serverError) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
+        });
       }} className="w-full h-12">Save</Button><Button variant="outline" onClick={() => setEditingCourse(null)}>Cancel</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Material</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Label className="text-xs">Title</Label><Input value={editingMaterial?.title || ''} onChange={e => setEditingMaterial({...editingMaterial, title: e.target.value})} className="h-12" /><Label className="text-xs">URL</Label><Input value={editingMaterial?.url || ''} onChange={e => setEditingMaterial({...editingMaterial, url: e.target.value})} className="h-12" /></div><DialogFooter className="flex flex-col gap-2"><Button onClick={handleUpdateMaterial} className="w-full h-12">Save</Button><Button variant="destructive" className="h-12" onClick={() => editingMaterial && handleDeleteMaterial(editingMaterial.id)}><Trash2 size={16} className="mr-2" /> Delete</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={!!selectedChapterInfo} onOpenChange={() => setSelectedChapterInfo(null)}><DialogContent className="max-w-md w-[95vw] rounded-xl"><DialogHeader><DialogTitle className="text-base font-black">{selectedChapterInfo?.className} - {selectedChapterInfo?.subjectName}</DialogTitle><DialogDescription className="text-xs font-bold">Ch {selectedChapterInfo?.chapter} Resources</DialogDescription></DialogHeader><div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto"><div className="space-y-3">{selectedChapterInfo?.materials.map((m: any) => (<div key={m.id} className="p-3 rounded-xl border bg-muted/20 flex flex-col gap-2"><div className="flex items-center justify-between"><div className="flex items-center gap-2 min-w-0">{m.type === 'video' ? <PlayCircle className="text-red-500 h-4 w-4" /> : <FileText className="text-blue-500 h-4 w-4" />}<span className="font-bold text-xs truncate">{m.title}</span></div><div className="flex items-center gap-1"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingMaterial(m)}><Edit2 size={12} /></Button><Badge variant="outline" className="text-[8px]">{m.type}</Badge></div></div><a href={m.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary truncate hover:underline flex items-center gap-1"><Link size={10} /> {m.url}</a></div>))}</div></div><DialogFooter><Button variant="ghost" onClick={() => setSelectedChapterInfo(null)} className="w-full h-12">Close</Button></DialogFooter></DialogContent></Dialog>

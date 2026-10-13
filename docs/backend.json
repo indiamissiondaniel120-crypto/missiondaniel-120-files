@@ -11,8 +11,29 @@
         "name": { "type": "string" },
         "class": { "type": "string" },
         "mentorId": { "type": "string" },
-        "role": { "type": "string", "enum": ["student", "public_student"] },
+        "role": { "type": "string", "enum": ["student", "public_student", "muskhan_student"] },
         "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Course": {
+      "title": "Course",
+      "description": "An academic class level.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "isMuskhan": { "type": "boolean", "description": "Whether this class is available in the Muskhan portal." }
+      }
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "A subject within a class.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "courseId": { "type": "string" }
       }
     },
     "PublicDoubt": {
@@ -106,6 +127,14 @@
     "/students/{studentId}": {
       "schema": { "$ref": "#/backend/entities/Student" },
       "description": "Registered students."
+    },
+    "/courses/{courseId}": {
+      "schema": { "$ref": "#/backend/entities/Course" },
+      "description": "Class levels."
+    },
+    "/subjects/{subjectId}": {
+      "schema": { "$ref": "#/backend/entities/Subject" },
+      "description": "Subjects mapping."
     },
     "/publicDoubts/{doubtId}": {
       "schema": { "$ref": "#/backend/entities/PublicDoubt" },

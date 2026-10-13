@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -16,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks, MessageSquare, Send, Trash2, Clock, CheckCircle2, Globe, Video, MonitorPlay, Menu } from 'lucide-react';
+import { LogOut, Home, BookOpen, PlayCircle, ChevronRight, GraduationCap, Users, FileText, Sparkles, ShieldCheck, Search, Edit2, Loader2, UserRound, ArrowLeft, Pencil, Lightbulb, ListChecks, MessageSquare, Send, Trash2, Clock, CheckCircle2, Globe, Video, MonitorPlay, Menu, Heart } from 'lucide-react';
 import Image from 'next/image';
 import { FirebaseClientProvider, useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, where, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
@@ -25,13 +26,13 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { LiveClassInterface } from '@/components/live-class';
 
 function getYouTubeEmbedUrl(url: string | undefined) {
-  if (!url) return null;
+  if (!url) return undefined;
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
   if (match && match[2].length === 11) {
     return `https://www.youtube.com/embed/${match[2]}?modestbranding=1&rel=0&color=white`;
   }
-  return null;
+  return undefined;
 }
 
 function sortClasses(classes: any[]) {
@@ -69,7 +70,7 @@ function DecorativeGraphics() {
   );
 }
 
-function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register' | 'admin-login') => void }) {
+function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register' | 'admin-login' | 'muskhan-register') => void }) {
   const allQuotes = [
     "True wisdom is a gift from the Creator, and every word of truth brings deep understanding and insight.",
     "An intelligent heart is always searching for knowledge, and the ears of the wise are constantly listening for truth.",
@@ -122,13 +123,13 @@ function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register
           <CardContent className="p-4 md:p-6 pt-0"><Button className="w-full bg-accent py-4 md:py-7 rounded-xl md:rounded-2xl group-hover:scale-[1.02] transition-transform text-base md:text-lg shadow-lg">Click to Open</Button></CardContent>
         </Card>
 
-        <Card className="group hover:border-indigo-400/50 transition-all cursor-pointer shadow-2xl overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] opacity-80 md:opacity-70 grayscale md:hover:grayscale-0 hover:opacity-100 bg-white/60 backdrop-blur-md">
-          <div className="h-1.5 md:h-2 bg-indigo-400 group-hover:h-3 transition-all" />
+        <Card className="group hover:border-indigo-400/50 transition-all cursor-pointer shadow-2xl overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] bg-white/60 backdrop-blur-md" onClick={() => onSelect('muskhan-register')}>
+          <div className="h-1.5 md:h-2 bg-indigo-500 group-hover:h-3 transition-all" />
           <CardHeader className="p-4 md:p-6">
             <CardTitle className="text-xl md:text-2xl font-bold">Muskhan</CardTitle>
             <CardDescription className="text-xs md:text-sm">Supportive community access.</CardDescription>
           </CardHeader>
-          <CardContent className="p-4 md:p-6 pt-0"><Button variant="outline" className="w-full py-4 md:py-7 rounded-xl md:rounded-2xl text-base md:text-lg">Click to Login</Button></CardContent>
+          <CardContent className="p-4 md:p-6 pt-0"><Button className="w-full bg-indigo-500 py-4 md:py-7 rounded-xl md:rounded-2xl text-white group-hover:scale-[1.02] transition-transform text-base md:text-lg shadow-lg">Click to Login</Button></CardContent>
         </Card>
       </div>
 
@@ -589,12 +590,13 @@ function Dashboard() {
   const { toast } = useToast();
   const db = useFirestore();
   
-  const [view, setView] = useState<'landing' | 'login' | 'admin-login' | 'public-register' | 'dashboard'>(user ? 'dashboard' : 'landing');
+  const [view, setView] = useState<'landing' | 'login' | 'admin-login' | 'public-register' | 'muskhan-register' | 'dashboard'>(user ? 'dashboard' : 'landing');
   const [activeMenu, setActiveMenu] = useState<'home' | 'live' | 'admin'>('home');
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
   const [editingMaterial, setEditingMaterial] = useState<any>(null);
   const [publicReg, setPublicReg] = useState({ name: '', classId: '' });
+  const [muskhanReg, setMuskhanReg] = useState({ name: '', classId: '' });
 
   const [activeMaterial, setActiveMaterial] = useState<any>(null);
   const materialStartTimeRef = useRef<number | null>(null);
@@ -602,6 +604,7 @@ function Dashboard() {
   const isAdmin = user?.role === 'admin';
   const isMentor = user?.role === 'mentor';
   const isPublic = user?.role === 'public_student';
+  const isMuskhan = user?.role === 'muskhan_student';
   const isStandardStudent = user?.role === 'student';
 
   useEffect(() => {
@@ -609,7 +612,7 @@ function Dashboard() {
   }, [user]);
 
   useEffect(() => {
-    if (!user || user.role !== 'student' || !db) return;
+    if (!user || (user.role !== 'student' && user.role !== 'muskhan_student') || !db) return;
 
     if (activeMaterial) {
       materialStartTimeRef.current = Date.now();
@@ -669,9 +672,15 @@ function Dashboard() {
   const visibleCourses = useMemo(() => {
     if (!sortedCourses) return [];
     if (isAdmin || isMentor) return sortedCourses;
+    
+    // Muskhan students only see courses where isMuskhan is true
+    if (isMuskhan) {
+      return sortedCourses.filter((c: any) => c.isMuskhan);
+    }
+    
     if (!user?.class) return [];
     return sortedCourses.filter((c: any) => c.id === user.class);
-  }, [isAdmin, isMentor, user?.class, sortedCourses]);
+  }, [isAdmin, isMentor, isMuskhan, user?.class, sortedCourses]);
 
   const currentMaterials = useMemo(() => {
     if (!selectedSubject || !selectedCourse) return [];
@@ -698,6 +707,33 @@ function Dashboard() {
     setDoc(docRef, data, { merge: true }).then(() => {
       login(publicId, '', 'student');
       toast({ title: "Welcome back!", description: `Logged in as ${publicReg.name}` });
+    }).catch(async (serverError) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'write',
+        requestResourceData: data
+      }));
+    });
+  };
+
+  const handleMuskhanRegister = async () => {
+    if (!db || !muskhanReg.name || !muskhanReg.classId) return;
+    
+    const normalizedName = muskhanReg.name.trim().toLowerCase().replace(/\s+/g, '-');
+    const muskhanId = `MUSKHAN-${normalizedName}`;
+    const docRef = doc(db, 'students', muskhanId);
+    
+    const data = {
+      id: muskhanId,
+      name: muskhanReg.name.trim(),
+      class: muskhanReg.classId,
+      role: 'muskhan_student',
+      updatedAt: serverTimestamp() 
+    };
+
+    setDoc(docRef, data, { merge: true }).then(() => {
+      login(muskhanId, '', 'student');
+      toast({ title: "Welcome to Muskhan", description: `Logged in as ${muskhanReg.name}` });
     }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
@@ -784,6 +820,38 @@ function Dashboard() {
     );
   }
 
+  if (view === 'muskhan-register' && !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 md:p-6 relative overflow-hidden">
+        <DecorativeGraphics />
+        <Card className="w-full max-w-md shadow-2xl z-10 rounded-[1.5rem] md:rounded-[2.5rem] border-none bg-white/80 backdrop-blur-lg">
+          <CardHeader className="text-center space-y-4 p-6 md:p-8 pb-0">
+            <div className="mx-auto w-12 h-12 md:w-16 md:h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center shadow-inner">
+              <Heart size={28} />
+            </div>
+            <CardTitle className="text-xl md:text-2xl font-bold">Muskhan Access</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Welcome back to the Muskhan community portal.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 md:p-8 space-y-6">
+            <div className="space-y-2">
+              <Label className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Your Name</Label>
+              <Input placeholder="Enter your full name" className="rounded-xl md:rounded-2xl h-12 md:h-14 bg-white/50" value={muskhanReg.name} onChange={e => setMuskhanReg({...muskhanReg, name: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Select Class</Label>
+              <Select onValueChange={v => setMuskhanReg({...muskhanReg, classId: v})} value={muskhanReg.classId}>
+                <SelectTrigger className="rounded-xl md:rounded-2xl h-12 md:h-14 bg-white/50 text-xs md:text-sm"><SelectValue placeholder="Select Class" /></SelectTrigger>
+                <SelectContent>{sortedCourses.filter(c => c.isMuskhan).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full bg-indigo-600 hover:bg-indigo-700 py-6 md:py-8 rounded-xl md:rounded-[1.5rem] text-white text-base md:text-lg font-bold shadow-xl shadow-indigo-200" onClick={handleMuskhanRegister} disabled={!muskhanReg.name || !muskhanReg.classId}>Login to Muskhan</Button>
+            <Button variant="ghost" className="w-full rounded-xl text-sm" onClick={() => setView('landing')}>Back to Home</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!user) return <div />;
 
   return (
@@ -804,18 +872,20 @@ function Dashboard() {
                   <Home className="mr-2" /> Dashboard
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeMenu === 'live'} onClick={() => setActiveMenu('live')} className="py-8 rounded-2xl hover:bg-white/10 text-white font-bold mb-2 bg-accent/20 border border-accent/30 relative">
-                  <Video className="mr-2 text-accent" /> 
-                  <span>Live Classes</span>
-                  {hasLiveSession && (
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                    </span>
-                  )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {!isMuskhan && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton isActive={activeMenu === 'live'} onClick={() => setActiveMenu('live')} className="py-8 rounded-2xl hover:bg-white/10 text-white font-bold mb-2 bg-accent/20 border border-accent/30 relative">
+                    <Video className="mr-2 text-accent" /> 
+                    <span>Live Classes</span>
+                    {hasLiveSession && (
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                      </span>
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               {(isAdmin || isMentor) && (
                 <SidebarMenuItem>
                   <SidebarMenuButton isActive={activeMenu === 'admin'} onClick={() => setActiveMenu('admin')} className="py-8 rounded-2xl bg-white/20 text-white font-black hover:bg-white/30 border border-white/20 mb-4">
@@ -824,7 +894,7 @@ function Dashboard() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              <div className="my-6 px-4 text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">Curriculum Classes</div>
+              <div className="my-6 px-4 text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">{isMuskhan ? 'Muskhan Classes' : 'Curriculum Classes'}</div>
               {visibleCourses.map((course: any) => (
                 <SidebarMenuItem key={course.id}>
                   <SidebarMenuButton isActive={selectedCourse?.id === course.id} onClick={() => { setSelectedCourse(course); setActiveMenu('home'); }} className="py-7 rounded-2xl hover:bg-white/10 text-white font-medium mb-1">
@@ -859,10 +929,10 @@ function Dashboard() {
                 <StudentManagement />
               ) : !selectedCourse ? (
                 <section className="space-y-8 md:space-y-12">
-                  <div className={`rounded-[2rem] md:rounded-[3rem] p-8 md:p-16 text-white shadow-2xl relative overflow-hidden transition-all duration-700 ${isPublic ? 'bg-accent' : 'bg-primary'}`}>
+                  <div className={`rounded-[2rem] md:rounded-[3rem] p-8 md:p-16 text-white shadow-2xl relative overflow-hidden transition-all duration-700 ${isPublic ? 'bg-accent' : isMuskhan ? 'bg-indigo-600' : 'bg-primary'}`}>
                     <div className="relative z-10">
                       <h2 className="text-3xl md:text-7xl font-black mb-4 md:mb-6 leading-[1.1] tracking-tight">Uplifting Education,<br/>Shaping Futures</h2>
-                      <p className="text-white/90 text-sm md:text-2xl font-medium max-w-2xl">Welcome, {user?.name}. {isPublic ? 'A special space for your learning journey.' : 'Your dedicated study command center.'}</p>
+                      <p className="text-white/90 text-sm md:text-2xl font-medium max-w-2xl">Welcome, {user?.name}. {isMuskhan ? 'Your special community portal for learning.' : isPublic ? 'A special space for your learning journey.' : 'Your dedicated study command center.'}</p>
                     </div>
                     <div className="absolute top-0 right-0 w-40 md:w-80 h-40 md:h-80 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
                     <Sparkles className="absolute top-4 right-4 md:top-10 md:right-20 text-white/20 animate-pulse w-16 h-16 md:w-[120px] md:h-[120px]" />
@@ -878,12 +948,12 @@ function Dashboard() {
                     </div>
                   )}
 
-                  {(isStandardStudent || isPublic) && (
+                  {(isStandardStudent || isPublic || isMuskhan) && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10">
                       <div className="lg:col-span-2 space-y-6 md:space-y-8">
                          <section className="space-y-6 md:space-y-8">
                           <div className="flex items-center justify-between px-2">
-                            <h3 className="text-2xl md:text-3xl font-black tracking-tight text-primary">Academic Core</h3>
+                            <h3 className={`text-2xl md:text-3xl font-black tracking-tight ${isMuskhan ? 'text-indigo-600' : 'text-primary'}`}>{isMuskhan ? 'Muskhan Curriculum' : 'Academic Core'}</h3>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                             {visibleCourses.map((course: any) => (
@@ -894,7 +964,7 @@ function Dashboard() {
                                   <div className="absolute bottom-4 left-6 text-white font-black text-2xl md:text-3xl tracking-tighter">{course.name}</div>
                                 </div>
                                 <CardHeader className="p-6 md:p-8">
-                                  <Button className={`w-full rounded-xl md:rounded-2xl py-6 md:py-8 font-black text-base md:text-lg transition-all shadow-lg ${isPublic ? 'bg-accent shadow-accent/20' : 'bg-primary shadow-primary/20'} group-hover:scale-[1.03]`}>Access Materials</Button>
+                                  <Button className={`w-full rounded-xl md:rounded-2xl py-6 md:py-8 font-black text-base md:text-lg transition-all shadow-lg ${isPublic ? 'bg-accent shadow-accent/20' : isMuskhan ? 'bg-indigo-600 shadow-indigo-200' : 'bg-primary shadow-primary/20'} group-hover:scale-[1.03]`}>Access Materials</Button>
                                 </CardHeader>
                               </Card>
                             ))}
@@ -904,13 +974,13 @@ function Dashboard() {
                       <div className="lg:col-span-1">
                         {isStandardStudent ? <PrivateDoubtClearing user={user} /> : (
                           <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden">
-                            <div className="h-2 md:h-3 bg-accent" />
+                            <div className={`h-2 md:h-3 ${isMuskhan ? 'bg-indigo-600' : 'bg-accent'}`} />
                             <CardHeader className="p-6 md:p-10">
-                              <CardTitle className="text-accent flex items-center gap-3 md:gap-4 text-xl md:text-3xl font-black tracking-tighter"><Sparkles size={24} /> Students Corner</CardTitle>
+                              <CardTitle className={`${isMuskhan ? 'text-indigo-600' : 'text-accent'} flex items-center gap-3 md:gap-4 text-xl md:text-3xl font-black tracking-tighter`}><Sparkles size={24} /> {isMuskhan ? 'Muskhan Corner' : 'Students Corner'}</CardTitle>
                               <CardDescription className="text-foreground/70 font-bold text-xs md:text-base mt-1 md:mt-2">Post your doubt for our mentors to review.</CardDescription>
                             </CardHeader>
                             <CardContent className="p-6 md:p-10 pt-0">
-                              <PublicDoubtFlowSimple selectedClassName={user?.class || ''} />
+                              <PublicDoubtFlowSimple selectedClassName={user?.class || ''} isMuskhan={isMuskhan} />
                             </CardContent>
                           </Card>
                         )}
@@ -921,9 +991,9 @@ function Dashboard() {
               ) : (
                 <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                   <div className="flex items-center gap-4 md:gap-6">
-                    <Button variant="outline" size="icon" onClick={() => setSelectedCourse(null)} className="rounded-full h-10 w-10 md:h-14 md:w-14 border-primary/20 hover:bg-primary/10 shadow-lg shrink-0"><ChevronRight className="rotate-180" size={18} /></Button>
+                    <Button variant="outline" size="icon" onClick={() => setSelectedCourse(null)} className={`rounded-full h-10 w-10 md:h-14 md:w-14 border-primary/20 hover:bg-primary/10 shadow-lg shrink-0`}><ChevronRight className="rotate-180" size={18} /></Button>
                     <div>
-                      <h2 className={`text-2xl md:text-5xl font-black tracking-tighter ${isPublic ? 'text-accent' : 'text-primary'}`}>{selectedCourse.name}</h2>
+                      <h2 className={`text-2xl md:text-5xl font-black tracking-tighter ${isPublic ? 'text-accent' : isMuskhan ? 'text-indigo-600' : 'text-primary'}`}>{selectedCourse.name}</h2>
                       <p className="text-[10px] md:text-base text-muted-foreground font-bold uppercase tracking-widest opacity-60">Select a subject for your session</p>
                     </div>
                   </div>
@@ -936,7 +1006,7 @@ function Dashboard() {
                           <Button 
                             key={subject.id} 
                             variant={selectedSubject?.id === subject.id ? 'default' : 'ghost'} 
-                            className={`flex-shrink-0 md:flex-shrink-1 w-auto md:w-full justify-start rounded-xl md:rounded-[2rem] px-4 md:px-8 py-6 md:py-10 text-sm md:text-xl font-black transition-all duration-300 ${selectedSubject?.id === subject.id ? (isPublic ? 'bg-accent text-white shadow-xl' : 'bg-primary text-white shadow-xl') : 'hover:bg-white bg-white/40 border border-transparent hover:border-primary/20'}`}
+                            className={`flex-shrink-0 md:flex-shrink-1 w-auto md:w-full justify-start rounded-xl md:rounded-[2rem] px-4 md:px-8 py-6 md:py-10 text-sm md:text-xl font-black transition-all duration-300 ${selectedSubject?.id === subject.id ? (isPublic ? 'bg-accent text-white shadow-xl' : isMuskhan ? 'bg-indigo-600 text-white shadow-xl' : 'bg-primary text-white shadow-xl') : 'hover:bg-white bg-white/40 border border-transparent hover:border-primary/20'}`}
                             onClick={() => setSelectedSubject(subject)}
                           >
                             <div className={`mr-3 md:mr-6 p-2 md:p-3 rounded-xl md:rounded-2xl shadow-sm ${selectedSubject?.id === subject.id ? 'bg-white/20' : 'bg-muted'}`}>
@@ -973,7 +1043,7 @@ function Dashboard() {
                                   <CardHeader className="p-4 md:p-8 bg-white/80">
                                     <div className="flex items-center justify-between gap-4">
                                       <div className="min-w-0">
-                                        <Badge variant="outline" className="mb-2 rounded-lg px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-black tracking-widest uppercase text-[8px] md:text-[10px]">Ch {v.chapter}</Badge>
+                                        <Badge variant="outline" className={`mb-2 rounded-lg px-2 py-0.5 border-primary/20 font-black tracking-widest uppercase text-[8px] md:text-[10px] ${isMuskhan ? 'bg-indigo-100 text-indigo-600' : 'bg-primary/10 text-primary'}`}>Ch {v.chapter}</Badge>
                                         <CardTitle className="text-base md:text-2xl font-black tracking-tight truncate">{v.title}</CardTitle>
                                       </div>
                                       {isAdmin && (
@@ -995,9 +1065,9 @@ function Dashboard() {
                               <Card key={n.id} className="hover:bg-white/80 transition-all rounded-xl md:rounded-[2.5rem] border-muted/40 border-2 bg-muted/10 group" onMouseEnter={() => setActiveMaterial(n)} onMouseLeave={() => setActiveMaterial(null)}>
                                 <CardContent className="p-4 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                   <div className="flex items-center gap-4 md:gap-6">
-                                    <div className="p-3 bg-primary/10 text-primary rounded-xl md:rounded-3xl shadow-sm group-hover:scale-110 transition-transform"><FileText className="h-6 w-6 md:h-8 md:w-8" /></div>
+                                    <div className={`p-3 rounded-xl md:rounded-3xl shadow-sm group-hover:scale-110 transition-transform ${isMuskhan ? 'bg-indigo-100 text-indigo-600' : 'bg-primary/10 text-primary'}`}><FileText className="h-6 w-6 md:h-8 md:w-8" /></div>
                                     <div className="min-w-0">
-                                      <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] text-primary/60 mb-0.5 md:mb-1 block">Chapter {n.chapter}</span>
+                                      <span className={`text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] mb-0.5 md:mb-1 block ${isMuskhan ? 'text-indigo-600/60' : 'text-primary/60'}`}>Chapter {n.chapter}</span>
                                       <div className="font-black text-base md:text-2xl tracking-tight truncate">{n.title}</div>
                                     </div>
                                   </div>
@@ -1007,7 +1077,7 @@ function Dashboard() {
                                         <Edit2 size={16} />
                                       </Button>
                                     )}
-                                    <Button size="lg" onClick={() => window.open(n.url, '_blank')} className="flex-1 md:flex-none rounded-xl h-12 md:h-14 md:px-10 font-black text-sm md:text-lg bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 transition-all">Open Notes</Button>
+                                    <Button size="lg" onClick={() => window.open(n.url, '_blank')} className={`flex-1 md:flex-none rounded-xl h-12 md:h-14 md:px-10 font-black text-sm md:text-lg shadow-xl transition-all ${isMuskhan ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100' : 'bg-primary hover:bg-primary/90 shadow-primary/20'}`}>Open Notes</Button>
                                   </div>
                                 </CardContent>
                               </Card>
@@ -1015,25 +1085,25 @@ function Dashboard() {
                           </TabsContent>
                         </Tabs>
                       ) : <div className="text-center py-20 md:py-40 border-4 md:border-8 border-dashed rounded-[2rem] md:rounded-[4rem] bg-white/20 border-primary/10 flex flex-col items-center justify-center space-y-4 md:space-y-6">
-                          <div className="p-6 md:p-8 bg-primary/10 text-primary rounded-full shadow-inner animate-bounce"><BookOpen size={48} className="md:w-16 md:h-16" /></div>
-                          <p className="text-lg md:text-2xl font-black text-primary/40 tracking-tight px-4">Select a subject to open the curriculum.</p>
+                          <div className={`p-6 md:p-8 rounded-full shadow-inner animate-bounce ${isMuskhan ? 'bg-indigo-100 text-indigo-600' : 'bg-primary/10 text-primary'}`}><BookOpen size={48} className="md:w-16 md:h-16" /></div>
+                          <p className={`text-lg md:text-2xl font-black tracking-tight px-4 ${isMuskhan ? 'text-indigo-600/40' : 'text-primary/40'}`}>Select a subject to open the curriculum.</p>
                         </div>}
                     </div>
 
                     <div className="lg:col-span-1">
-                      {!isPublic ? (
+                      {!isPublic && !isMuskhan ? (
                         <Card className="bg-white/60 backdrop-blur-md border-primary/20 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden p-2">
                           <AICompanion />
                         </Card>
                       ) : (
                         <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden">
-                          <div className="h-2 md:h-3 bg-accent" />
+                          <div className={`h-2 md:h-3 ${isMuskhan ? 'bg-indigo-600' : 'bg-accent'}`} />
                           <CardHeader className="p-6 md:p-10">
-                            <CardTitle className="text-accent flex items-center gap-3 md:gap-4 text-xl md:text-3xl font-black tracking-tighter"><Sparkles size={24} /> Students Corner</CardTitle>
+                            <CardTitle className={`${isMuskhan ? 'text-indigo-600' : 'text-accent'} flex items-center gap-3 md:gap-4 text-xl md:text-3xl font-black tracking-tighter`}><Sparkles size={24} /> {isMuskhan ? 'Muskhan Corner' : 'Students Corner'}</CardTitle>
                             <CardDescription className="text-foreground/70 font-bold text-xs md:text-base mt-1 md:mt-2">Post your doubt for our mentors to review.</CardDescription>
                           </CardHeader>
                           <CardContent className="p-6 md:p-10 pt-0">
-                            <PublicDoubtFlowSimple selectedClassName={selectedCourse?.name || ''} />
+                            <PublicDoubtFlowSimple selectedClassName={selectedCourse?.name || ''} isMuskhan={isMuskhan} />
                           </CardContent>
                         </Card>
                       )}
@@ -1089,7 +1159,7 @@ function Dashboard() {
   );
 }
 
-function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: string }) {
+function PublicDoubtFlowSimple({ selectedClassName, isMuskhan }: { selectedClassName: string, isMuskhan?: boolean }) {
   const { user } = useAuth();
   const db = useFirestore();
   const { toast } = useToast();
@@ -1186,12 +1256,12 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
         <Label className="font-black text-[10px] md:text-[11px] uppercase tracking-[0.2em] text-muted-foreground ml-1">Academic Question</Label>
         <Input placeholder="E.g. Help me understand gravity?" className="rounded-xl md:rounded-2xl h-14 md:h-16 bg-white border-muted font-medium text-base md:text-lg px-4 md:px-6" value={question} onChange={e => setQuestion(e.target.value)} />
       </div>
-      <Button className="w-full bg-accent h-14 md:h-16 rounded-xl md:rounded-[1.5rem] text-lg md:text-xl font-black shadow-xl shadow-accent/20 hover:scale-[1.02] transition-transform" onClick={handleSubmit} disabled={loading || !question.trim()}>
+      <Button className={`w-full h-14 md:h-16 rounded-xl md:rounded-[1.5rem] text-lg md:text-xl font-black shadow-xl hover:scale-[1.02] transition-transform ${isMuskhan ? 'bg-indigo-600 shadow-indigo-200' : 'bg-accent shadow-accent/20'}`} onClick={handleSubmit} disabled={loading || !question.trim()}>
         {loading ? <Loader2 className="animate-spin" /> : "Submit Doubt"}
       </Button>
 
       <div className="space-y-4 md:pt-4">
-        <h4 className="font-black text-accent uppercase text-[10px] md:text-xs tracking-[0.2em]">My Corner Doubts</h4>
+        <h4 className={`font-black uppercase text-[10px] md:text-xs tracking-[0.2em] ${isMuskhan ? 'text-indigo-600' : 'text-accent'}`}>{isMuskhan ? 'My Muskhan Doubts' : 'My Corner Doubts'}</h4>
         <div className="grid gap-3">
           {myPublicDoubts?.map(doubt => (
             <Dialog key={doubt.id} onOpenChange={(open) => open && markAsOpened(doubt)}>
@@ -1210,7 +1280,7 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
               </DialogTrigger>
               <DialogContent className="rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-10 max-w-xl w-[95vw]">
                 <DialogHeader>
-                  <DialogTitle className="text-xl md:text-2xl font-black text-accent">Public Corner Detail</DialogTitle>
+                  <DialogTitle className={`text-xl md:text-2xl font-black ${isMuskhan ? 'text-indigo-600' : 'text-accent'}`}>{isMuskhan ? 'Muskhan Corner Detail' : 'Public Corner Detail'}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 md:space-y-6 py-4 md:py-6">
                   <div className="space-y-2">
@@ -1232,7 +1302,7 @@ function PublicDoubtFlowSimple({ selectedClassName }: { selectedClassName: strin
             </Dialog>
           ))}
           {myPublicDoubts?.length === 0 && (
-            <div className="text-center py-6 text-muted-foreground italic font-medium">No public doubts posted.</div>
+            <div className="text-center py-6 text-muted-foreground italic font-medium">No doubts posted.</div>
           )}
         </div>
       </div>
