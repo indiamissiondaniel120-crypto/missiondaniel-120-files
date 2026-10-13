@@ -70,7 +70,7 @@ function DecorativeGraphics() {
   );
 }
 
-function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register' | 'admin-login' | 'muskhan-register') => void }) {
+function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register' | 'admin-login' | 'muskhan-login') => void }) {
   const allQuotes = [
     "True wisdom is a gift from the Creator, and every word of truth brings deep understanding and insight.",
     "An intelligent heart is always searching for knowledge, and the ears of the wise are constantly listening for truth.",
@@ -123,7 +123,7 @@ function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register
           <CardContent className="p-4 md:p-6 pt-0"><Button className="w-full bg-accent py-4 md:py-7 rounded-xl md:rounded-2xl group-hover:scale-[1.02] transition-transform text-base md:text-lg shadow-lg">Click to Open</Button></CardContent>
         </Card>
 
-        <Card className="group hover:border-indigo-400/50 transition-all cursor-pointer shadow-2xl overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] bg-white/60 backdrop-blur-md" onClick={() => onSelect('muskhan-register')}>
+        <Card className="group hover:border-indigo-400/50 transition-all cursor-pointer shadow-2xl overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] bg-white/60 backdrop-blur-md" onClick={() => onSelect('muskhan-login')}>
           <div className="h-1.5 md:h-2 bg-indigo-500 group-hover:h-3 transition-all" />
           <CardHeader className="p-4 md:p-6">
             <CardTitle className="text-xl md:text-2xl font-bold">Muskhan</CardTitle>
@@ -140,7 +140,7 @@ function LandingPage({ onSelect }: { onSelect: (view: 'login' | 'public-register
   );
 }
 
-function LoginScreen({ mode, onBack }: { mode: 'standard' | 'admin', onBack: () => void }) {
+function LoginScreen({ mode, portal = 'standard', onBack }: { mode: 'standard' | 'admin' | 'muskhan', portal?: 'standard' | 'muskhan', onBack: () => void }) {
   const { login } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -150,22 +150,27 @@ function LoginScreen({ mode, onBack }: { mode: 'standard' | 'admin', onBack: () 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const success = await login(form.id, form.password, mode === 'admin' ? 'admin' : loginType);
-    if (!success) {
-      toast({ variant: 'destructive', title: 'Login Failed', description: 'Invalid ID or password.' });
+    const result = await login(form.id, form.password, mode === 'admin' ? 'admin' : loginType, portal);
+    if (!result.success) {
+      toast({ variant: 'destructive', title: 'Login Failed', description: result.error || 'Invalid ID or password.' });
     }
     setLoading(false);
   };
+
+  const isMuskhan = mode === 'muskhan';
+  const isAdmin = mode === 'admin';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 md:p-6 relative overflow-hidden">
       <DecorativeGraphics />
       <Card className="w-full max-w-md shadow-2xl z-10 rounded-[1.5rem] md:rounded-[2.5rem] border-none bg-white/80 backdrop-blur-lg">
         <CardHeader className="text-center space-y-4 p-6 md:p-8">
-          <div className={`mx-auto w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center text-white shadow-lg ${mode === 'admin' ? 'bg-accent' : 'bg-primary'}`}>
-            {mode === 'admin' ? <ShieldCheck size={28} /> : <UserRound size={28} />}
+          <div className={`mx-auto w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center text-white shadow-lg ${isAdmin ? 'bg-accent' : isMuskhan ? 'bg-indigo-500' : 'bg-primary'}`}>
+            {isAdmin ? <ShieldCheck size={28} /> : isMuskhan ? <Heart size={28} /> : <UserRound size={28} />}
           </div>
-          <CardTitle className="text-xl md:text-2xl font-bold">{mode === 'admin' ? 'Management Login' : 'Daniel 120 Login'}</CardTitle>
+          <CardTitle className="text-xl md:text-2xl font-bold">
+            {isAdmin ? 'Management Login' : isMuskhan ? 'Muskhan Login' : 'Daniel 120 Login'}
+          </CardTitle>
           <CardDescription className="text-xs md:text-sm">Please enter your credentials to continue.</CardDescription>
         </CardHeader>
         <CardContent className="p-6 md:p-8 pt-0">
@@ -188,7 +193,7 @@ function LoginScreen({ mode, onBack }: { mode: 'standard' | 'admin', onBack: () 
                 <Input type="password" value={form.password} className="rounded-xl md:rounded-2xl h-12 md:h-14 bg-white/50 border-muted" onChange={e => setForm({...form, password: e.target.value})} placeholder="••••••••" />
               </div>
             </div>
-            <Button type="submit" className={`w-full py-6 md:py-8 rounded-xl md:rounded-[1.5rem] text-base md:text-lg font-bold shadow-xl ${mode === 'admin' ? 'bg-accent' : 'bg-primary'}`} disabled={loading}>
+            <Button type="submit" className={`w-full py-6 md:py-8 rounded-xl md:rounded-[1.5rem] text-base md:text-lg font-bold shadow-xl ${isAdmin ? 'bg-accent' : isMuskhan ? 'bg-indigo-500' : 'bg-primary'}`} disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
             </Button>
             <Button variant="ghost" className="w-full rounded-xl text-sm" onClick={onBack} type="button">
@@ -590,13 +595,12 @@ function Dashboard() {
   const { toast } = useToast();
   const db = useFirestore();
   
-  const [view, setView] = useState<'landing' | 'login' | 'admin-login' | 'public-register' | 'muskhan-register' | 'dashboard'>(user ? 'dashboard' : 'landing');
+  const [view, setView] = useState<'landing' | 'login' | 'admin-login' | 'public-register' | 'muskhan-login' | 'dashboard'>(user ? 'dashboard' : 'landing');
   const [activeMenu, setActiveMenu] = useState<'home' | 'live' | 'admin'>('home');
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
   const [editingMaterial, setEditingMaterial] = useState<any>(null);
   const [publicReg, setPublicReg] = useState({ name: '', classId: '' });
-  const [muskhanReg, setMuskhanReg] = useState({ name: '', classId: '' });
 
   const [activeMaterial, setActiveMaterial] = useState<any>(null);
   const materialStartTimeRef = useRef<number | null>(null);
@@ -705,35 +709,8 @@ function Dashboard() {
     };
 
     setDoc(docRef, data, { merge: true }).then(() => {
-      login(publicId, '', 'student');
+      login(publicId, '', 'student', 'standard');
       toast({ title: "Welcome back!", description: `Logged in as ${publicReg.name}` });
-    }).catch(async (serverError) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'write',
-        requestResourceData: data
-      }));
-    });
-  };
-
-  const handleMuskhanRegister = async () => {
-    if (!db || !muskhanReg.name || !muskhanReg.classId) return;
-    
-    const normalizedName = muskhanReg.name.trim().toLowerCase().replace(/\s+/g, '-');
-    const muskhanId = `MUSKHAN-${normalizedName}`;
-    const docRef = doc(db, 'students', muskhanId);
-    
-    const data = {
-      id: muskhanId,
-      name: muskhanReg.name.trim(),
-      class: muskhanReg.classId,
-      role: 'muskhan_student',
-      updatedAt: serverTimestamp() 
-    };
-
-    setDoc(docRef, data, { merge: true }).then(() => {
-      login(muskhanId, '', 'student');
-      toast({ title: "Welcome to Muskhan", description: `Logged in as ${muskhanReg.name}` });
     }).catch(async (serverError) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
@@ -751,7 +728,7 @@ function Dashboard() {
 
   const handleLogout = async () => {
     if (user && db && user.role !== 'admin') {
-      const collName = user.role.includes('student') ? 'students' : 'mentors';
+      const collName = (user.role === 'student' || user.role === 'muskhan_student' || user.role === 'public_student') ? 'students' : 'mentors';
       const activityRef = collection(db, collName, user.id, 'activity');
       const data = {
         type: 'logout',
@@ -785,8 +762,9 @@ function Dashboard() {
   };
 
   if (view === 'landing' && !user) return <LandingPage onSelect={(v) => setView(v)} />;
-  if (view === 'login' && !user) return <LoginScreen mode="standard" onBack={() => setView('landing')} />;
-  if (view === 'admin-login' && !user) return <LoginScreen mode="admin" onBack={() => setView('landing')} />;
+  if (view === 'login' && !user) return <LoginScreen mode="standard" portal="standard" onBack={() => setView('landing')} />;
+  if (view === 'admin-login' && !user) return <LoginScreen mode="admin" portal="standard" onBack={() => setView('landing')} />;
+  if (view === 'muskhan-login' && !user) return <LoginScreen mode="muskhan" portal="muskhan" onBack={() => setView('landing')} />;
   
   if (view === 'public-register' && !user) {
     return (
@@ -813,38 +791,6 @@ function Dashboard() {
               </Select>
             </div>
             <Button className="w-full bg-accent py-6 md:py-8 rounded-xl md:rounded-[1.5rem] text-base md:text-lg font-bold shadow-xl shadow-accent/20" onClick={handlePublicRegister} disabled={!publicReg.name || !publicReg.classId}>Open Learning Portal</Button>
-            <Button variant="ghost" className="w-full rounded-xl text-sm" onClick={() => setView('landing')}>Back to Home</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (view === 'muskhan-register' && !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4 md:p-6 relative overflow-hidden">
-        <DecorativeGraphics />
-        <Card className="w-full max-w-md shadow-2xl z-10 rounded-[1.5rem] md:rounded-[2.5rem] border-none bg-white/80 backdrop-blur-lg">
-          <CardHeader className="text-center space-y-4 p-6 md:p-8 pb-0">
-            <div className="mx-auto w-12 h-12 md:w-16 md:h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center shadow-inner">
-              <Heart size={28} />
-            </div>
-            <CardTitle className="text-xl md:text-2xl font-bold">Muskhan Access</CardTitle>
-            <CardDescription className="text-xs md:text-sm">Welcome back to the Muskhan community portal.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 md:p-8 space-y-6">
-            <div className="space-y-2">
-              <Label className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Your Name</Label>
-              <Input placeholder="Enter your full name" className="rounded-xl md:rounded-2xl h-12 md:h-14 bg-white/50" value={muskhanReg.name} onChange={e => setMuskhanReg({...muskhanReg, name: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Select Class</Label>
-              <Select onValueChange={v => setMuskhanReg({...muskhanReg, classId: v})} value={muskhanReg.classId}>
-                <SelectTrigger className="rounded-xl md:rounded-2xl h-12 md:h-14 bg-white/50 text-xs md:text-sm"><SelectValue placeholder="Select Class" /></SelectTrigger>
-                <SelectContent>{sortedCourses.filter(c => c.isMuskhan).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <Button className="w-full bg-indigo-600 hover:bg-indigo-700 py-6 md:py-8 rounded-xl md:rounded-[1.5rem] text-white text-base md:text-lg font-bold shadow-xl shadow-indigo-200" onClick={handleMuskhanRegister} disabled={!muskhanReg.name || !muskhanReg.classId}>Login to Muskhan</Button>
             <Button variant="ghost" className="w-full rounded-xl text-sm" onClick={() => setView('landing')}>Back to Home</Button>
           </CardContent>
         </Card>
@@ -972,7 +918,7 @@ function Dashboard() {
                         </section>
                       </div>
                       <div className="lg:col-span-1">
-                        {isStandardStudent ? <PrivateDoubtClearing user={user} /> : (
+                        {isStandardStudent || isMuskhan ? <PrivateDoubtClearing user={user} /> : (
                           <Card className="bg-white/60 backdrop-blur-md border-accent/20 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden">
                             <div className={`h-2 md:h-3 ${isMuskhan ? 'bg-indigo-600' : 'bg-accent'}`} />
                             <CardHeader className="p-6 md:p-10">

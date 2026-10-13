@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, createContext, useContext, useMemo, useEffect } from 'react';
@@ -12,14 +13,14 @@ import { FirestorePermissionError } from '@/firebase/errors';
 interface User {
   name: string;
   id: string;
-  role: 'student' | 'admin' | 'mentor' | 'public_student';
+  role: 'student' | 'admin' | 'mentor' | 'public_student' | 'muskhan_student';
   class?: string;
   mentorId?: string;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (id: string, password: string, loginType: 'student' | 'admin' | 'mentor') => Promise<boolean>;
+  login: (id: string, password: string, loginType: 'student' | 'admin' | 'mentor', portal?: 'standard' | 'muskhan') => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user || !db || user.role === 'admin') return;
 
-    const collectionName = user.role.includes('student') ? 'students' : 'mentors';
+    const collectionName = (user.role === 'student' || user.role === 'muskhan_student' || user.role === 'public_student') ? 'students' : 'mentors';
     const docRef = doc(db, collectionName, user.id);
 
     const unsubscribe = onSnapshot(
@@ -67,21 +68,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       },
       async (serverError) => {
-        // Handled centrally if necessary, or silent fail for specific background syncs
+        // Handled centrally
       }
     );
 
     return () => unsubscribe();
   }, [user?.id, db]);
 
-  const login = async (id: string, password: string, loginType: 'student' | 'admin' | 'mentor') => {
-    if (!db || !auth) return false;
+  const login = async (id: string, password: string, loginType: 'student' | 'admin' | 'mentor', portal: 'standard' | 'muskhan' = 'standard') => {
+    if (!db || !auth) return { success: false, error: 'Initialization error' };
 
     if (loginType === 'admin') {
       const found = ADMINS.find((u) => u.id === id && u.password === password);
       if (found) {
         setUser({ name: found.name, id: found.id, role: 'admin' });
-        return true;
+        return { success: true };
       }
     } else {
       const coll = loginType === 'student' ? 'students' : 'mentors';
@@ -90,6 +91,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           const data = snap.data();
+          
+          // Role Verification for Portals
+          if (loginType === 'student') {
+            if (portal === 'standard' && data.role === 'muskhan_student') {
+              return { success: false, error: 'Please use the Muskhan portal to login.' };
+            }
+            if (portal === 'muskhan' && data.role === 'student') {
+              return { success: false, error: 'Please use the standard portal to login.' };
+            }
+          }
+
           if (data.password === password || (loginType === 'student' && data.role === 'public_student')) {
             const userData: User = { 
               name: data.name, 
@@ -105,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const activityData = {
               type: 'login',
               timestamp: serverTimestamp(),
-              metadata: { role: data.role || loginType }
+              metadata: { role: data.role || loginType, portal }
             };
             
             addDoc(activityRef, activityData).catch(async (serverError) => {
@@ -116,14 +128,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }));
             });
 
-            return true;
+            return { success: true };
           }
         }
       } catch (e) {
-        return false;
+        return { success: false, error: 'Connection error' };
       }
     }
-    return false;
+    return { success: false, error: 'Invalid ID or password' };
   };
 
   const logout = () => setUser(null);

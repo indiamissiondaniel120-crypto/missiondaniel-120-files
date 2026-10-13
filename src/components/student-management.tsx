@@ -81,16 +81,17 @@ export function ActivityViewer({ student, mentors }: { student: any, mentors: an
 
   const downloadAttendanceCSV = () => {
     if (!activities) return
-    const headers = ["Date", "Time", "Event Type", "Item/Title", "Chapter", "Duration (Seconds)"]
+    const headers = ["Date", "Time", "Event Type", "Portal", "Item/Title", "Chapter", "Duration (Seconds)"]
     const rows = activities.map((log: any) => {
       const dateObj = log.timestamp?.toDate() || new Date();
       const date = dateObj.toLocaleDateString();
       const time = dateObj.toLocaleTimeString();
       const type = log.type || '';
+      const portal = log.metadata?.portal || '-';
       const item = log.metadata?.title || (log.type === 'login' || log.type === 'logout' ? '' : '-');
       const chapter = log.metadata?.chapter || '-';
       const duration = log.duration || 0;
-      return [date, time, type, item, chapter, duration]
+      return [date, time, type, portal, item, chapter, duration]
     })
     
     const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -124,6 +125,7 @@ export function ActivityViewer({ student, mentors }: { student: any, mentors: an
                     <span className="font-black text-[10px] md:text-sm uppercase text-primary truncate max-w-[150px] md:max-w-none tracking-tight">{log.type?.replace(/_/g, ' ')}</span>
                     <span className="text-[9px] md:text-xs text-muted-foreground truncate font-bold">
                       {log.metadata?.title ? `${log.metadata.title} (Ch ${log.metadata.chapter})` : ''}
+                      {log.metadata?.portal && ` [${log.metadata.portal.toUpperCase()}]`}
                     </span>
                   </div>
                   <div className="text-right shrink-0">
@@ -157,7 +159,7 @@ export function StudentManagement() {
   const [overviewClassFilter, setOverviewClassFilter] = useState<string>('all')
   const [overviewSubjectSearch, setOverviewSubjectSearch] = useState<string>('')
 
-  const [studentForm, setStudentForm] = useState({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
+  const [studentForm, setStudentForm] = useState({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '', isMuskhan: false })
   const [mentorForm, setMentorForm] = useState({ id: '', password: '', name: '', expertise: '', phone: '' })
   const [courseForm, setCourseForm] = useState({ id: '', name: '', description: '', image: '', isMuskhan: false })
   const [subjectForm, setSubjectForm] = useState({ name: '', selectedCourseIds: [] as string[] })
@@ -215,10 +217,14 @@ export function StudentManagement() {
     if (!db || !studentForm.id || !studentForm.name || !isAdmin) return
     setLoading(true)
     const docRef = doc(db, 'students', studentForm.id);
-    const data = { ...studentForm, createdAt: serverTimestamp(), role: 'student' };
+    const data = { 
+      ...studentForm, 
+      createdAt: serverTimestamp(), 
+      role: studentForm.isMuskhan ? 'muskhan_student' : 'student' 
+    };
     setDoc(docRef, data).then(() => {
       toast({ title: "Student Registered" })
-      setStudentForm({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '' })
+      setStudentForm({ id: '', password: '', name: '', schoolName: '', location: '', class: '', mentorId: '', isMuskhan: false })
       setLoading(false)
     }).catch(async (serverError) => {
       setLoading(false)
@@ -335,11 +341,15 @@ export function StudentManagement() {
     if (!db || !editingStudent || !isAdmin) return
     setLoading(true)
     const studentRef = doc(db, 'students', editingStudent.id);
-    updateDoc(studentRef, { ...editingStudent }).then(() => {
+    const updateData = { 
+      ...editingStudent,
+      role: editingStudent.isMuskhan ? 'muskhan_student' : 'student'
+    };
+    updateDoc(studentRef, updateData).then(() => {
       setEditingStudent(null); toast({ title: "Updated" }); setLoading(false)
     }).catch(async (serverError) => {
       setLoading(false)
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: studentRef.path, operation: 'update', requestResourceData: editingStudent }));
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: studentRef.path, operation: 'update', requestResourceData: updateData }));
     });
   }
 
@@ -373,6 +383,7 @@ export function StudentManagement() {
         const dbChapters = (materials || []).filter(m => m.courseId === course.id && m.subjectId === sub.id).map(m => Number(m.chapter)).filter(n => !isNaN(n));
         const allChapters = Array.from(new Set([...Array.from({ length: standardTotal }, (_, i) => i + 1), ...dbChapters])).sort((a, b) => a - b);
         allChapters.forEach(ch => {
+          if (isNaN(ch)) return;
           const chMat = materials.filter(m => m.courseId === course.id && m.subjectId === sub.id && Number(m.chapter) === ch);
           const videos = chMat.filter(m => m.type === 'video');
           const pdfs = chMat.filter(m => m.type === 'pdf');
@@ -431,6 +442,10 @@ export function StudentManagement() {
                           <SelectContent><SelectItem value="none">No Mentor</SelectItem>{mentors?.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
+                      <div className="flex items-center space-x-2 py-2">
+                        <Switch id="muskhan-access" checked={studentForm.isMuskhan} onCheckedChange={(v) => setStudentForm({...studentForm, isMuskhan: v})} />
+                        <Label htmlFor="muskhan-access" className="text-xs font-bold text-indigo-600">Register as Muskhan Student</Label>
+                      </div>
                       <Button type="submit" className="w-full bg-accent py-5 md:py-6" disabled={loading}>Add Student</Button>
                     </form>
                   </CardContent>
@@ -440,12 +455,25 @@ export function StudentManagement() {
                     <div className="rounded-md border overflow-hidden">
                       <ScrollArea className="h-[400px]">
                         <Table>
-                          <TableHeader><TableRow><TableHead>Student</TableHead><TableHead className="hidden md:table-cell">Class</TableHead><TableHead className="hidden md:table-cell">Mentor</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                          <TableHeader><TableRow><TableHead>Student</TableHead><TableHead className="hidden md:table-cell">Portal</TableHead><TableHead className="hidden md:table-cell">Mentor</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
                           <TableBody>{students?.map((s: any) => (
-                            <TableRow key={s.id}><TableCell><div className="font-bold text-xs md:text-sm">{s.name}</div><div className="text-[10px] text-muted-foreground">{s.id} • {courses?.find(c => c.id === s.class)?.name}</div></TableCell>
-                              <TableCell className="capitalize hidden md:table-cell">{courses?.find(c => c.id === s.class)?.name || s.class}</TableCell>
+                            <TableRow key={s.id}>
+                              <TableCell>
+                                <div className="font-bold text-xs md:text-sm">{s.name}</div>
+                                <div className="text-[10px] text-muted-foreground">{s.id} • {courses?.find(c => c.id === s.class)?.name}</div>
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell">
+                                <Badge variant={s.role === 'muskhan_student' ? 'secondary' : 'outline'} className={s.role === 'muskhan_student' ? 'bg-indigo-100 text-indigo-700' : ''}>
+                                  {s.role === 'muskhan_student' ? 'Muskhan' : 'Standard'}
+                                </Badge>
+                              </TableCell>
                               <TableCell className="hidden md:table-cell">{s.mentorId && s.mentorId !== 'none' ? mentors?.find(m => m.id === s.mentorId)?.name : 'None'}</TableCell>
-                              <TableCell className="text-right flex justify-end gap-1 md:gap-2"><Button variant="ghost" size="sm" onClick={() => setEditingStudent(s)} className="h-8 w-8 p-0"><Edit2 size={14} /></Button><ActivityViewer student={s} mentors={mentors || []} /></TableCell>
+                              <TableCell className="text-right flex justify-end gap-1 md:gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => setEditingStudent({ ...s, isMuskhan: s.role === 'muskhan_student' })} className="h-8 w-8 p-0">
+                                  <Edit2 size={14} />
+                                </Button>
+                                <ActivityViewer student={s} mentors={mentors || []} />
+                              </TableCell>
                             </TableRow>))}
                           </TableBody>
                         </Table>
@@ -605,11 +633,32 @@ export function StudentManagement() {
                       </div>
                       <Button className="w-full bg-primary h-12" disabled={isUploading}>Save Material</Button>
                     </form>
-                    <ScrollArea className="h-[200px] md:h-[250px]"><Table><TableHeader><TableRow><TableHead>Material</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                      <TableBody>{sortedMaterials?.map((m: any) => (
-                        <TableRow key={m.id}><TableCell><div className="flex flex-col gap-0.5 min-w-0"><span className="text-xs font-bold truncate">{m.title}</span><span className="text-[9px] uppercase text-primary/60">{courses?.find(c => c.id === m.courseId)?.name} • Ch {m.chapter}</span></div></TableCell>
-                        <TableCell className="text-right flex justify-end gap-1"><Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)} className="h-7 w-7 p-0"><Edit2 size={12} /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)} className="h-7 w-7 p-0"><Trash2 size={12} /></Button></TableCell></TableRow>))}</TableBody>
-                    </Table></ScrollArea>
+                    <ScrollArea className="h-[200px] md:h-[250px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Material</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sortedMaterials?.map((m: any) => (
+                            <TableRow key={m.id}>
+                              <TableCell>
+                                <div className="flex flex-col gap-0.5 min-w-0">
+                                  <span className="text-xs font-bold truncate">{m.title}</span>
+                                  <span className="text-[9px] uppercase text-primary/60">{courses?.find(c => c.id === m.courseId)?.name} • Ch {m.chapter}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right flex justify-end gap-1">
+                                <Button variant="ghost" size="sm" onClick={() => setEditingMaterial(m)} className="h-7 w-7 p-0"><Edit2 size={12} /></Button>
+                                <Button variant="ghost" size="sm" onClick={() => handleDeleteMaterial(m.id)} className="h-7 w-7 p-0"><Trash2 size={12} /></Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   </CardContent>
                 </Card>
               </div>
@@ -682,7 +731,9 @@ export function StudentManagement() {
                           .filter(m => m.courseId === course.id && m.subjectId === sub.id)
                           .map(m => Number(m.chapter))
                           .filter(n => !isNaN(n));
-                        const allChapters = Array.from(new Set([...Array.from({ length: standardTotal }, (_, i) => i + 1), ...dbChapters])).sort((a, b) => a - b);
+                        const allChapters = Array.from(new Set([...Array.from({ length: standardTotal }, (_, i) => i + 1), ...dbChapters]))
+                          .filter(ch => !isNaN(ch))
+                          .sort((a, b) => a - b);
                         return allChapters.map((ch, i) => {
                           const chMat = materials?.filter(m => m.courseId === course.id && m.subjectId === sub.id && Number(m.chapter) === ch) || [];
                           const v = chMat.filter(m => m.type === 'video'); const p = chMat.filter(m => m.type === 'pdf');
@@ -700,7 +751,36 @@ export function StudentManagement() {
           </Card>
         </TabsContent>
       </Tabs>
-      <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Student</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Input value={editingStudent?.name || ''} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} className="h-12" /></div><DialogFooter><Button onClick={handleUpdateStudent} className="w-full h-12">Save</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}>
+        <DialogContent className="w-[95vw] rounded-xl">
+          <DialogHeader><DialogTitle>Edit Student</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Full Name</Label>
+              <Input value={editingStudent?.name || ''} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} className="h-12" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Class</Label>
+              <Select onValueChange={v => setEditingStudent({...editingStudent, class: v})} value={editingStudent?.class}>
+                <SelectTrigger className="h-12"><SelectValue placeholder="Select Class" /></SelectTrigger>
+                <SelectContent>{courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Mentor</Label>
+              <Select onValueChange={v => setEditingStudent({...editingStudent, mentorId: v})} value={editingStudent?.mentorId}>
+                <SelectTrigger className="h-12"><SelectValue placeholder="Select Mentor" /></SelectTrigger>
+                <SelectContent><SelectItem value="none">No Mentor</SelectItem>{mentors?.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2 pt-2">
+              <Switch id="muskhan-edit-access" checked={editingStudent?.isMuskhan || false} onCheckedChange={(v) => setEditingStudent({...editingStudent, isMuskhan: v})} />
+              <Label htmlFor="muskhan-edit-access" className="text-xs font-bold text-indigo-600">Restricted to Muskhan Login</Label>
+            </div>
+          </div>
+          <DialogFooter><Button onClick={handleUpdateStudent} className="w-full h-12">Save Changes</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!editingSubject} onOpenChange={() => setEditingSubject(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Subject</DialogTitle></DialogHeader><div className="space-y-4 py-4"><Label className="text-xs">Subject Name</Label><Input value={editingSubject?.name || ''} onChange={e => setEditingSubject({...editingSubject, name: e.target.value})} className="h-12" /></div><DialogFooter className="flex flex-col gap-2"><Button onClick={handleUpdateSubject} className="w-full h-12">Save</Button><Button variant="outline" onClick={() => setEditingSubject(null)}>Cancel</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={!!editingCourse} onOpenChange={() => setEditingCourse(null)}><DialogContent className="w-[95vw] rounded-xl"><DialogHeader><DialogTitle>Edit Class</DialogTitle></DialogHeader><div className="space-y-4 py-4">
         <div className="space-y-2">
@@ -749,19 +829,19 @@ function BulkUploadDialog({ courses, subjects, materials }: { courses: any[], su
   const selectedCourse = useMemo(() => courses.find(c => c.id === selectedClassId), [courses, selectedClassId]);
   const selectedSubject = useMemo(() => subjects.find(s => s.id === selectedSubjectId), [subjects, selectedSubjectId]);
   
-  // Load existing data when subject changes
   useEffect(() => {
-    if (selectedClassId && selectedSubjectId && materials) {
+    if (selectedClassId && selectedSubjectId && materials && open) {
       const filtered = materials.filter(m => m.courseId === selectedClassId && m.subjectId === selectedSubjectId);
       const chMap: Record<number, BulkRow> = {};
       filtered.forEach(m => {
         const ch = Number(m.chapter);
+        if (isNaN(ch)) return;
         if (!chMap[ch]) chMap[ch] = { chapter: ch, title: m.title.replace(' (Notes)', ''), videoUrl: '', pdfUrl: '' };
         if (m.type === 'video') { chMap[ch].videoUrl = m.url; chMap[ch].videoId = m.id; chMap[ch].title = m.title; }
         else { chMap[ch].pdfUrl = m.url; chMap[ch].pdfId = m.id; }
       });
       setBulkRows(Object.values(chMap).sort((a, b) => a.chapter - b.chapter));
-    } else {
+    } else if (!open) {
       setBulkRows([]);
     }
   }, [selectedClassId, selectedSubjectId, materials, open]);
